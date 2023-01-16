@@ -1,0 +1,69 @@
+# This file exists so you can easily regenerate your project.
+#
+# `cookiepatcher` is a convenient shim around `cookiecutter`
+# for regenerating projects (it will generate a .cookiecutterrc
+# automatically for any template). To use it:
+#
+#    pip install cookiepatcher
+#    cookiepatcher gh:ionelmc/cookiecutter-pylibrary irregular-object-packing
+#
+# See:
+#    https://pypi.org/project/cookiepatcher
+#
+# Alternatively, you can run:
+#
+#    cookiecutter --overwrite-if-exists --config-file=irregular-object-packing/.cookiecutterrc gh:ionelmc/cookiecutter-pylibrary
+
+default_context:
+    allow_tests_inside_package: 'yes'
+    appveyor:                  'yes'
+    c_extension_function:      'longest'
+    c_extension_module:        '_irregular_object_packing'
+    c_extension_optional:      'no'
+    c_extension_support:       'no'
+    c_extension_test_pypi:     'no'
+    c_extension_test_pypi_username: 'MbBrainz'
+    codacy:                    'yes'
+    codacy_projectid:          'MbBrainz/irregular-object-packing'
+    codeclimate:               'yes'
+    codecov:                   'yes'
+    command_line_interface:    'click'
+    command_line_interface_bin_name: 'irop'
+    coveralls:                 'yes'
+    distribution_name:         'irregular-object-packing'
+    email:                     'maurits.bos@gmail.com'
+    full_name:                 'Maurits Bos'
+    github_actions:            'yes'
+    github_actions_osx:        'yes'
+    github_actions_windows:    'yes'
+    license:                   'MIT license'
+    linter:                    'flake8'
+    package_name:              'irregular_object_packing'
+    pre_commit:                'yes'
+    pre_commit_formatter:      'black'
+    project_name:              'Irregular Object Packing'
+    project_short_description: 'A high performance 3D oject packing library for irregularly shaped objects.'
+    pypi_badge:                'yes'
+    pypi_disable_upload:       'no'
+    release_date:              'today'
+    repo_hosting:              'github.com'
+    repo_hosting_domain:       'github.com'
+    repo_main_branch:          'main'
+    repo_name:                 'irregular-object-packing'
+    repo_username:             'MbBrainz'
+    scrutinizer:               'no'
+    setup_py_uses_pytest_runner: 'yes'
+    setup_py_uses_setuptools_scm: 'no'
+    sphinx_docs:               'yes'
+    sphinx_docs_hosting:       'https://irregular-object-packing.readthedocs.io/'
+    sphinx_doctest:            'no'
+    sphinx_theme:              'sphinx-book-theme'
+    test_matrix_configurator:  'no'
+    test_matrix_separate_coverage: 'no'
+    travis:                    'no'
+    travis_osx:                'no'
+    version:                   '0.0.0'
+    version_manager:           'bump2version'
+    website:                   'https://maurits-bos.me'
+    year_from:                 '2023'
+    year_to:                   '2023'
