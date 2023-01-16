@@ -1,10 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=30.3.0",
+    "setuptools>=60",
     "wheel",
+    "taichi",
+
 ]
 
 [tool.black]
 line-length = 140
-target-version = ['py37']
+target-version = ['py39']
 skip-string-normalization = true

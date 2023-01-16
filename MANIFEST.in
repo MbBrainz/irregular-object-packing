@@ -1,23 +1,15 @@
-graft docs
-graft src
-graft ci
-graft tests
-
-include .appveyor.yml
+include *.in
+include *.rst
+include *.yaml
+include *.yml
 include .bumpversion.cfg
-include .cookiecutterrc
 include .coveragerc
-include .editorconfig
-include .github/workflows/github-actions.yml
-include .pre-commit-config.yaml
-include .readthedocs.yml
 include pytest.ini
 include tox.ini
-
-include AUTHORS.rst
-include CHANGELOG.rst
-include CONTRIBUTING.rst
-include LICENSE
-include README.rst
-
-global-exclude *.py[cod] __pycache__/* *.so *.dylib
+recursive-include ci *.py
+recursive-include ci *.txt
+recursive-include ci *.yml
+recursive-include docs *.py
+recursive-include docs *.rst
+recursive-include docs *.txt
+recursive-include tests *.py

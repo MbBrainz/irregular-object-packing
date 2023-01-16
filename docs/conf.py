@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import sphinx_book_theme
+# import sphinx_book_theme
 
 extensions = [
     'sphinx.ext.autodoc',
@@ -27,7 +27,7 @@ extlinks = {
     'pr': ('https://github.com/MbBrainz/irregular-object-packing/pull/%s', 'PR #'),
 }
 html_theme = 'sphinx_book_theme'
-html_theme_path = [sphinx_book_theme.get_html_theme_path()]
+# html_theme_path = [sphinx_book_theme.get_html_theme_path()]
 html_theme_options = {
     'githuburl': 'https://github.com/MbBrainz/irregular-object-packing/',
 }

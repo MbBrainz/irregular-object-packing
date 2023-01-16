@@ -1,4 +1,3 @@
-
 from click.testing import CliRunner
 
 from irregular_object_packing.cli import main

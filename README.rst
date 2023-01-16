@@ -37,12 +37,12 @@ Overview
     :target: https://codecov.io/github/MbBrainz/irregular-object-packing
 
 .. |codacy| image:: https://img.shields.io/codacy/grade/MbBrainz/irregular-object-packing.svg
-    :target: https://www.codacy.com/app/MbBrainz/irregular-object-packing
+    :target: https://www.codacy.com/gh/MbBrainz/irregular-object-packing
     :alt: Codacy Code Quality Status
 
-.. |codeclimate| image:: https://codeclimate.com/github/MbBrainz/irregular-object-packing/badges/gpa.svg
-   :target: https://codeclimate.com/github/MbBrainz/irregular-object-packing
-   :alt: CodeClimate Quality Status
+.. .. |codeclimate| image:: https://codeclimate.com/github/MbBrainz/irregular-object-packing/badges/gpa.svg
+..    :target: https://codeclimate.com/github/MbBrainz/irregular-object-packing
+..    :alt: CodeClimate Quality Status
 
 .. |version| image:: https://img.shields.io/pypi/v/irregular-object-packing.svg
     :alt: PyPI Package latest release
