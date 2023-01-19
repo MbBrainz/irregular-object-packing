@@ -42,7 +42,7 @@ def init_scene():
 #%% Computation of the simulation
 
 @ti.kernel
-def step():
+def step_no_slide():
     """This is the main iteration of the simulation. It is basically a verlet integration, 
     where the position of the particles is updated based on the velocity and the acceleration. 
     The acceleration is calculated based on the forces that are applied to the particles."""
@@ -71,6 +71,53 @@ def step():
         # set speed to zero if the particle is at the surface of the ball
         if (x[i]-ball_center[0]).norm() <= ball_radius:
             v[i] = ti.Vector([0.0, 0.0, 0.0])
+        
+    # update the position of the particles based on the final speed for this iteration
+        x[i] += dt * v[i]
+
+@ti.kernel
+def step_slide():
+    """This is the main iteration of the simulation. It is basically a verlet integration, 
+    where the position of the particles is updated based on the velocity and the acceleration. 
+    The acceleration is calculated based on the forces that are applied to the particles."""
+    # first, update the vertical velocity based on the gravity constant
+    for i in ti.grouped(x):
+        v[i].y -= gravity * dt
+        
+    # then, we add the velocity due to the force of the springs defined between the particles 
+    for i in ti.grouped(x):
+        force = ti.Vector([0.0, 0.0, 0.0])
+        # loop over all the neighbours of the particle i
+        for d in ti.static(links):
+            j = ti.min(ti.max(i + d, 0), [N-1, N-1])
+            relative_pos = x[j] - x[i]
+            current_length = relative_pos.norm()
+            original_length = cell_size * float(i-j).norm()
+            if original_length != 0:
+                force += stiffness * relative_pos.normalized() * \
+                    (current_length - original_length) / original_length
+        v[i] += force * dt
+
+    # update the speed of the particles based on the damping constant
+    for i in ti.grouped(x): 
+        v[i] *= ti.exp(-damping * dt)
+
+        # set speed to zero if the particle is at the surface of the ball
+        if (x[i]-ball_center[0]).norm() <= ball_radius:
+            # v[i] = ti.Vector([0.0, 0.0, 0.0])
+            # # for sliding, we want the velocity in de direction of the ball radius to be zero, so we project the velocity on the ball radius
+            # project velocity vector on the normal vector of the ball surface, this is the velocity in the direction of the ball radius. that we need to substract
+            n_c = (x[i] - ball_center[0])  # normal vector on ball surface
+            proj_n_v = v[i].dot(n_c) * n_c / ball_radius
+            v[i] = v[i] - proj_n_v 
+            
+            x[i] = x[i] + (x[i] - ball_center[0])
+            
+            # v[i] = v[i] - (v[i].dot(x[i] - ball_center[0])) * (x[i] - ball_center[0]) / ball_radius**2
+
+        
+            
+            
         
     # update the position of the particles based on the final speed for this iteration
         x[i] += dt * v[i]
@@ -105,13 +152,13 @@ def set_indices():
 init_scene()
 set_indices()
 
-window = ti.ui.Window('Cloth Simulation', (800, 800), vsync=True)
+window = ti.ui.Window('Cloth Simulation', (800, 800), vsync=False)
 canvas = window.get_canvas()
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 while window.running:
     for i in range(30):
-        step()
+        step_slide()
     set_vertices()
     camera.position(0.5, -0.5, 2)
     camera.lookat(0.5, -0.5, 0)
