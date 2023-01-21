@@ -2,21 +2,11 @@
 Initialization phase of the packing algorithm.
 
 """
+#%%
 import random
+from typing import List
 import numpy as np
 import trimesh
-
-# %%
-DATA_FOLDER = './../../../data/mesh/'
-mesh = trimesh.load_mesh(DATA_FOLDER + 'yog.obj')
-mesh.show()
-
-
-# %%
-# print(f"\t We are looking for the smallest bounding box volume:\
-# mesh.bounding_box_oriented.volume: {mesh.bounding_box_oriented.volume} \n\
-# mesh.bounding_cylinder.volume: {mesh.bounding_cylinder.volume} \n\
-# mesh.bounding_sphere.volume: {mesh.bounding_sphere.volume}")
 
 def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
     """generates a random coordinate within the bounds of the bounding box
@@ -28,7 +18,6 @@ def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
     random_position = np.array((x, y, z))
     return random_position
 
-# get the bounding mesh of mesh that has the smallest volunme
 def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     """gets the bounding mesh of mesh that has the smallest volume
 
@@ -45,43 +34,64 @@ def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     bounding_mesh = options[volume_min]
     return bounding_mesh
 
-#%%
-
-container = trimesh.primitives.Sphere().apply_scale(50)
-container_bound = get_min_bounding_mesh(container)
-cov_rate = 0.3
-max_volume = container_bound.volume * cov_rate
-acc_vol = 0 
-objects_coords = []
-# fill in the container with the objects until the coverage rate is reached
-while acc_vol < max_volume:
-      coord = random_coordinate_within_bounds(container_bound.bounds)
-      
-      if container.contains([coord]):
+def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rate: float) -> np.ndarray:
+    """packs the objects inside the container
+    
+    Args:
+        container (trimesh.Trimesh): container mesh
+        mesh (trimesh.Trimesh): mesh of the objects
+        coverage_rate (float): percentage of the container volume that should be filled
+    """
+    container_bound = get_min_bounding_mesh(container)
+    max_volume = container_bound.volume * coverage_rate
+    acc_vol = 0 
+    objects_coords = []
+    while acc_vol < max_volume:
+        coord = random_coordinate_within_bounds(container_bound.bounds)
+        if container.contains([coord]):
             objects_coords.append(coord)
             acc_vol += mesh.volume
+    return objects_coords
 
+def create_packed_scene(container: trimesh.Trimesh, objects_coords: List[np.ndarray], mesh: trimesh.Trimesh, mesh_scale: float = 1):
+    """make a trimesh scene with the container and the objects inside. 
+    
+    Args:
+        container (trimesh.Trimesh): container mesh
+        objects_coords (List[np.ndarray]): list of coordinates of the objects
+        mesh (trimesh.Trimesh): mesh of the objects
+        mesh_scale (float, optional): scale of the objects. Defaults to 1.
+    """
+    nodes = []
+    for coord in objects_coords:
+        new_mesh = mesh.copy().apply_scale(mesh_scale).apply_translation(coord).apply_transform(trimesh.transformations.random_rotation_matrix())
+        new_mesh.visual.vertex_colors = trimesh.visual.random_color()
+        nodes.append(new_mesh)
 
+    container.visual.vertex_colors = [250, 255, 255, 100]
+    nodes.append(container) 
+    scene = trimesh.Scene(nodes)
+    return scene
 
-# %%
-# make a scene with the meshes and the bounding box
-nodes = []
-for coord in objects_coords:
-      new_mesh = mesh.copy().apply_scale(0.5).apply_translation(coord).apply_transform(trimesh.transformations.random_rotation_matrix())
-      new_mesh.visual.vertex_colors = trimesh.visual.random_color()
-      nodes.append(new_mesh)
-
-# set transparant color
-container.visual.vertex_colors = [250, 255, 255, 100]
-nodes.append(container) 
-scene = trimesh.Scene(nodes)
-scene.show()
+def save_image(scene: trimesh.Scene, path: str):
+    png = scene.save_image()
+    # Write the bytes to file
+    with open(path, "wb") as f:
+        f.write(png)
 
 #%%
-png = scene.save_image()
-# Write the bytes to file
-with open('./test_small.png', "wb") as f:
-    f.write(png)
-    f.close()
-# %%
+if __name__ == '__main__':
 
+    DATA_FOLDER = './../../../data/mesh/'
+    mesh = trimesh.load_mesh(DATA_FOLDER + 'yog.obj')
+    container = trimesh.primitives.Cylinder(radius=1, height=1)
+    # print the volume of the mesh and of the container
+
+    container = container.apply_scale(40)
+
+    objects_coords = pack_objects(container, mesh, 0.5)
+    scene = create_packed_scene(container, objects_coords, mesh)
+    scene.show()
+    save_image(scene, 'packing.png')
+
+# %%
