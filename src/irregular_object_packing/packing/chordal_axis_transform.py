@@ -157,8 +157,17 @@ def face_coord_to_points_and_faces(cat_faces0):
     
     Note: Currently this function assumes that the indices of the points are not global with respect to other meshes.
     
-    >>> cat_faces0 = [[[1, -1, 1], [1, 1, 1], [-1, 1, 1], [0,0,2]], [[1, -1, 1], [1, 1, 1], [-1, 1, 1], [0,0,2]]]
-    
+    Face with 3 points:
+    >>> face_coord_to_points_and_faces([[[0,0,0], [1,0,0], [1,1,0]]])
+    ([Vertex(x=0, y=0, z=0), Vertex(x=1, y=0, z=0), Vertex(x=1, y=1, z=0)], [[3, 0, 1, 2]])
+
+    face with 4 points:
+    >>> face_coord_to_points_and_faces([[[0,0,0], [1,0,0], [1,1,0], [0,1,0]]])
+    ([Vertex(x=0, y=0, z=0), Vertex(x=1, y=0, z=0), Vertex(x=1, y=1, z=0), Vertex(x=0, y=1, z=0)], [[4, 0, 1, 2, 3]])
+        
+    faces with 3 and 4 points including overlapping points:
+    >>> face_coord_to_points_and_faces([[[1, -1, 1], [1, 1, 1], [-1, 1, 1], [0,0,2]], [[1, -1, 1], [1, 1, 1], [-1, -1, 1]]])
+    ([Vertex(x=1, y=-1, z=1), Vertex(x=1, y=1, z=1), Vertex(x=-1, y=1, z=1), Vertex(x=0, y=0, z=2), Vertex(x=-1, y=-1, z=1)], [[4, 0, 1, 2, 3], [3, 0, 1, 4]])
     """
     cat_points = []
     poly_faces = []
@@ -172,7 +181,7 @@ def face_coord_to_points_and_faces(cat_faces0):
     
         for point in face:
             point = Vertex(*point)
-            if point not in points.values():
+            if point not in points:
             
             # if any(old_point.all()point for old_point in points.values()):
                 points[point] = counter
@@ -185,7 +194,8 @@ def face_coord_to_points_and_faces(cat_faces0):
 
 cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces0)
     
-print(f"cat faces: {cat_faces0}")
+# print(f"cat faces: \n{[f'{str(face)} \n' for face in cat_faces0]}")
+for face in cat_faces0: print(f"face: {face} \n")
 print(f"all_points: {[a for a in enumerate(cat_points)]}")
 print(f"poly_faces: {poly_faces}")
 
