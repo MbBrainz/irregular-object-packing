@@ -60,6 +60,9 @@ class Vertex():
     
     def __div__(self, __o: object) -> 'Vertex':
         return Vertex(self.x / __o, self.y / __o, self.z / __o)
+
+    def to_numpy(self):
+        return np.array([self.x, self.y, self.z])
     
 # Vertex: TypeAlias = tuple[float, float, float]
 class TetPoint():
@@ -185,11 +188,11 @@ def face_coord_to_points_and_faces(cat_faces0):
             
             # if any(old_point.all()point for old_point in points.values()):
                 points[point] = counter
-                cat_points.append(point)
+                cat_points.append(point.to_numpy())
                 counter += 1
                 
             poly_face.append(points[point])
-        poly_faces.append(poly_face)
+        poly_faces += poly_face
     return cat_points, poly_faces
 
 cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces0)
@@ -200,8 +203,9 @@ print(f"all_points: {[a for a in enumerate(cat_points)]}")
 print(f"poly_faces: {poly_faces}")
 
 # for one list of faces make a polydata object
+polydata = pv.PolyData(cat_points, poly_faces)
 
- 
+
 
 
     
