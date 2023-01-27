@@ -7,7 +7,7 @@ medium article: https://medium.com/parallel-programming-in-python/head-first-tai
 """
 #%%
 import taichi as ti
-ti.init(arch=ti.cpu)
+ti.init(arch=ti.gpu)
 #%%
 N = 128
 x = ti.Vector.field(3, float, (N,N))
@@ -42,7 +42,7 @@ def init_scene():
 #%% Computation of the simulation
 
 @ti.kernel
-def step_no_slide():
+def j():
     """This is the main iteration of the simulation. It is basically a verlet integration, 
     where the position of the particles is updated based on the velocity and the acceleration. 
     The acceleration is calculated based on the forces that are applied to the particles."""
@@ -158,7 +158,7 @@ scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 while window.running:
     for i in range(30):
-        step_slide()
+        step_no_slide()
     set_vertices()
     camera.position(0.5, -0.5, 2)
     camera.lookat(0.5, -0.5, 0)
