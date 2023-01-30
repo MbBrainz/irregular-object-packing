@@ -22,16 +22,18 @@ def sort_points_clockwise(points, start, end):
     norm = np.linalg.norm(vector)
     n = vector / norm
     
-    p = points[0] - points[0].dot(n) * n # take the first point to compute the first orthogonal vector
+    print(points)
+    
+    p = points[0].to_numpy() - points[0].to_numpy().dot(n) * n # take the first point to compute the first orthogonal vector
     q = np.cross(n, p)
     
     angles = []
     for point in points:
-        t = np.dot(n, np.cross((point - start), p))
-        u = np.dot(n, np.cross((point - start), q))
+        t = np.dot(n, np.cross((point.to_numpy() - start), p))
+        u = np.dot(n, np.cross((point.to_numpy() - start), q))
         angles.append(math.atan2(u, t))
         
-    sorted_points = [x for _, x in sorted(zip(angles, points))]
+    sorted_points = [x for _, x in sorted(zip(angles, points), key=lambda pair: pair[0])]
     return sorted_points
 
 def test_sort_points_clockwise():
@@ -57,7 +59,25 @@ def test_sort_points_clockwise():
     print('-------')
     print(expected_points)
 
-test_sort_points_clockwise()
+# test_sort_points_clockwise()
 
+def sort_face_points_by_length(expected_faces):
+    sorted_faces = []
+    for face in expected_faces:
+        sorted_faces.append(
+            sorted(face, key=lambda point: point.x**2 + point.y**2 + point.z**2))
+    sorted_faces_by_hash = {}
+    
+            
+    
+        
+    return sorted_faces
 
+    return sorted_faces
+def sort_faces_dict(faces):
+    for k, v in faces.items():
+        faces[k] = sort_face_points_by_length(faces[k])
+        
+    return faces
 # %%
+

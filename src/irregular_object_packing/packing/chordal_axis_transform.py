@@ -16,8 +16,8 @@ from typing import TypeAlias
 import pyvista as pv
 import numpy as np
 
-# from packing.utils import angle_between
-from utils import angle_between, sort_points_clockwise
+# from utils import angle_between, sort_points_clockwise
+from packing.utils import angle_between, sort_points_clockwise, sort_faces_dict
 
 cat_points = np.array([[1, -1, 1], [1, 1, 1], [-1, 1, 1], [0,0,2]])
 # %% Check how the points are connected
@@ -67,10 +67,15 @@ class Vertex():
 
     def to_numpy(self):
         return np.array([self.x, self.y, self.z])
+    
+    def __hash__(self) -> int:
+        self.to_numpy().__hash__()
 
     @property
     def tuple(self):
         return (self.x, self.y, self.z)
+    
+    
     
     
     
@@ -96,7 +101,7 @@ class Triangle(CatFace):
         return 0.5 * np.linalg.norm(np.cross(b-a, c-a))
     
     def midpoints(self) -> list[Vertex]:
-        a, b, c = self.face
+        (a, b, c) = self.face
         return [(a+b)/2, (b+c)/2, (c+a)/2]
     
 # Vertex: TypeAlias = tuple[float, float, float]
@@ -141,7 +146,40 @@ TetPoints: TypeAlias = list[TetPoint]
 class Tetrahedron():
     points: list[Vertex]
     
+#%%
     
+def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
+    most = [p for p in tet_points if p.point.obj_id == occ[0][0]]
+    least = [p for p in tet_points if (p.point.obj_id == occ[1][0] or p.point.obj_id == occ[2][0])]
+    
+    assert len(most) == 2
+    assert len(least) == 2
+    
+    face: list[Vertex] = []
+    
+    # find center point of 2 triangles
+    triangles: list[Triangle] = []
+    for pa in most:
+        triangles.append(Triangle([pa.point, least[0].point, least[1].point], [pa.point.obj_id, least[0].point.obj_id]))
+    
+    bc_face = [least[0].center(least[1]), triangles[0].center(), triangles[1].center()]
+    aab_face = [least[0].center(most[1]), least[0].center(most[0]), triangles[0].center(), triangles[1].center()]
+    aac_face = [least[1].center(most[0]), least[1].center(most[1]), triangles[0].center(), triangles[1].center()]
+    
+    # Add face to each object cat cell
+    cat_faces[most[0].point.obj_id].append(aab_face)
+    cat_faces[most[0].point.obj_id].append(aac_face)
+    
+    cat_faces[least[0].point.obj_id].append(bc_face)
+    cat_faces[least[0].point.obj_id].append(aab_face)
+    
+    cat_faces[least[1].point.obj_id].append(bc_face)
+    cat_faces[least[1].point.obj_id].append(aac_face)
+
+    return cat_faces
+
+
+
 #%% go over each cell in the tethraheron mesh and check if it has points from more than one object, if so, comput the CAT facet
 def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
     most = [p for p in tet_points if p.point.obj_id == occ[0][0]]
@@ -154,7 +192,6 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
         for (k, f) in occ:
             cat_faces[k].append(face)
     return face
-
     
 def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center: Vertex):
     # this should result in 6 faces
@@ -165,16 +202,17 @@ def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center:
         raise ValueError(f"others {others} should have len 3")
     
     v0 = tet_point.point
-    points: list[TetPoint] = []
+    points: list[Vertex] = []
+    
     for triangle in tet_point.triangles:
-        points.append(triangle.center().to_numpy())
+        points.append(triangle.center())
     
     for other in others:
         midpoint = (v0 + other.point) / 2
-        points.append(midpoint.to_numpy())
+        points.append(midpoint)
         
-    sorted_points = sort_points_clockwise(points, v0.to_numpy(), tet_center.to_numpy())
     # sorted_points = sorted(points, key=lambda point: angle_between(point.tuple, v0.tuple, tet_center.tuple))
+    sorted_points = sort_points_clockwise(points, v0.to_numpy(), tet_center.to_numpy())
     cat_faces = []
     for i in range(len(sorted_points)):
         cat_faces.append([tet_center, sorted_points[i], sorted_points[(i+1)%len(sorted_points)]])
@@ -206,61 +244,51 @@ def create_faces_4(tet_points: list[TetPoint], cat_faces):
         cat_faces[point.obj_id].append(cat)
     
 
-test_points = [
-    TetPoint(Vertex(0.0, 0.0, 0.0, 0), 0),
-    TetPoint(Vertex(8.0, 0.0, 0.0, 1), 0), 
-    TetPoint(Vertex(0.0, 8.0, 0.0, 2), 0), 
-    TetPoint(Vertex(0.0, 0.0 ,8.0, 3), 0)] # initialize other TetPoints
-center = Vertex(4.0, 4.0, 4.0, 0)
-# print(angle_between(test_points[0].point.tuple, test_points[1].point.tuple, center.tuple))
-for other in test_points:
-    center  += other.point
+# test_points = [
+#     TetPoint(Vertex(0.0, 0.0, 0.0, 0), 0),
+#     TetPoint(Vertex(8.0, 0.0, 0.0, 1), 0), 
+#     TetPoint(Vertex(0.0, 8.0, 0.0, 2), 0), 
+#     TetPoint(Vertex(0.0, 0.0 ,8.0, 3), 0)] # initialize other TetPoints
+# center = Vertex(4.0, 4.0, 4.0, 0)
+# # print(angle_between(test_points[0].point.tuple, test_points[1].point.tuple, center.tuple))
+# for other in test_points:
+#     center  += other.point
     
-center = center / 4
- # initialize tet_center
-# expected output
+# center = center / 4
+#  # initialize tet_center
+# # expected output
 
-middle_ab = (test_points[0] + test_points[1]) /2
-middle_ac = (test_points[0] + test_points[2]) /2
-middle_ad = (test_points[0] + test_points[3]) /2
-middle_abc = (test_points[1] + test_points[2]) /3
-middle_acd = (test_points[2] + test_points[3]) /3
-middle_abd = (test_points[1] + test_points[3]) /3
-test_points[0].add_triangle(Triangle([test_points[0].point, test_points[1].point, test_points[2].point], [0,1,2]))
-test_points[0].add_triangle(Triangle([test_points[0].point, test_points[2].point, test_points[3].point], [0,2,3]))
-test_points[0].add_triangle(Triangle([test_points[0].point, test_points[1].point, test_points[3].point], [0,1,3]))
+# middle_ab = (test_points[0] + test_points[1]) /2
+# middle_ac = (test_points[0] + test_points[2]) /2
+# middle_ad = (test_points[0] + test_points[3]) /2
+# middle_abc = (test_points[1] + test_points[2]) /3
+# middle_acd = (test_points[2] + test_points[3]) /3
+# middle_abd = (test_points[1] + test_points[3]) /3
+# test_points[0].add_triangle(Triangle([test_points[0].point, test_points[1].point, test_points[2].point], [0,1,2]))
+# test_points[0].add_triangle(Triangle([test_points[0].point, test_points[2].point, test_points[3].point], [0,2,3]))
+# test_points[0].add_triangle(Triangle([test_points[0].point, test_points[1].point, test_points[3].point], [0,1,3]))
 
-expected_faces = [
-    [center, middle_ab, middle_abc],
-    [center, middle_ab, middle_abd],
-    [center, middle_ac, middle_abc],
-    [center, middle_ac, middle_acd],
-    [center, middle_ad, middle_abd],
-    [center, middle_ad, middle_acd]
-]
+# expected_faces = [
+#     [center, middle_ab, middle_abc],
+#     [center, middle_ab, middle_abd],
+#     [center, middle_ac, middle_abc],
+#     [center, middle_ac, middle_acd],
+#     [center, middle_ad, middle_abd],
+#     [center, middle_ad, middle_acd]
+# ]
 
-def sort_faces(start_line, end_line, expected_faces):
-    sorted_faces = []
-    for face in expected_faces:
-        sorted_faces.append(
-        sorted(face, key=lambda point: angle_between(point.tuple, start_line[0].point.tuple, end_line.tuple))
-    )
-    expected_faces = sorted_faces
-    return expected_faces
+# expected_faces = sort_faces_dict(expected_faces)
 
-expected_faces = sort_faces(test_points, center, expected_faces)
+# computed_faces = single_point_4faces(test_points[0], test_points[1:], center)
 
-computed_faces = single_point_4faces(test_points[0], test_points[1:], center)
-# computed_faces = sort_faces(test_points, center, computed_faces)
-assert len (computed_faces) == len(expected_faces)
-# assert all([face in computed_faces for face in expected_faces])
+# # assert all([face in computed_faces for face in expected_faces])
 
-for face in expected_faces:
-    print(face)
+# for face in expected_faces:
+#     print(face)
     
-print('\n')
-for face in computed_faces:
-    print(face)
+# print('\n')
+# for face in computed_faces:
+#     print(face)
     
 
 # print (expected_faces)
@@ -268,14 +296,14 @@ for face in computed_faces:
 # see angle_between function.
 
 #%% 
-# ## Extract facets of the tetrahedrons that have points from more than one object
-point_sets = [set(map(tuple,cat_points)), set(map(tuple,container.points))]
-cat_faces = {}
-for obj_id in range(len(point_sets)):
-    cat_faces[obj_id] = []
+# # ## Extract facets of the tetrahedrons that have points from more than one object
+# point_sets = [set(map(tuple,cat_points)), set(map(tuple,container.points))]
+# cat_faces = {}
+# for obj_id in range(len(point_sets)):
+#     cat_faces[obj_id] = []
 
-selected_cells = []
-# types = []
+# selected_cells = []
+# # types = []
 
 
 # for cell in range(tetmesh.n_cells):
