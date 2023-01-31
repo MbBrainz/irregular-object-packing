@@ -45,6 +45,7 @@ container = pv.Pyramid(
 
 pc = pv.PolyData(np.concatenate([cat_points, container.points]))
 tetmesh = pc.delaunay_3d()
+
 # tetmesh.explode().plot()
 
 # %%    
@@ -222,54 +223,74 @@ def create_faces_4(tet_points: list[TetPoint], cat_faces):
 
 #%% 
 # ## Extract facets of the tetrahedrons that have points from more than one object
-point_sets = [set(map(tuple,cat_points)), set(map(tuple,container.points))]
-cat_faces = {}
-for obj_id in range(len(point_sets)):
-    cat_faces[obj_id] = []
 
-selected_cells = []
-# types = []
-
-
-for cell in range(tetmesh.n_cells):
-    occ = {}
-    tet_points: list[TetPoint] = []
-
-    for i, obj in enumerate(point_sets):  
-        
-        for cell_point in tetmesh.cell_points(cell):
-        # check if the cell has points from more than one point set
-            if tuple(cell_point) in obj:
-                occ[i] = occ.get(i, 0) + 1
-                tet_points.append(TetPoint(cell_point, i, tet_id=cell))
+def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np.ndarray):
+    pc = pv.PolyData(np.concatenate((object_points_list + [container_points])))
+    tetmesh = pc.delaunay_3d()
     
+    # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
+    # NOTE: Each set in the list might contain points from different objects.
+    obj_point_sets = [
+        set(map(tuple, obj)) for obj in object_points_list] + [
+        set(map(tuple, container_points))
+    ]
+    
+    # Each cat cell is a list of faces, each face is a list of points
+    cat_cells = compute_cat_faces(tetmesh, obj_point_sets)
+    
+    return cat_cells
+    
+    
+    
+    
+    
+    
+    
+    
+def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
+    cat_faces = {}
+    for obj_id in range(len(point_sets)):
+        cat_faces[obj_id] = []
+
+
+
+
+    for cell in range(tetmesh.n_cells):
+        occ = {}
+        tet_points: list[TetPoint] = []
+
+        for i, obj in enumerate(point_sets):  
+            for cell_point in tetmesh.cell_points(cell):
+        # check if the cell has points from more than one point set
+                if tuple(cell_point) in obj:
+                    occ[i] = occ.get(i, 0) + 1
+                    tet_points.append(TetPoint(cell_point, i, tet_id=cell))
                 
     # cell_data = tetmesh.cell_data(cell) 
     #sort occ on value
-    assert len(tet_points) == 4, f'tet_points: {tet_points}' # lil check
-    occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
-    n_objs = len(occ)
+        assert len(tet_points) == 4, f'tet_points: {tet_points}' # lil check
+        occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
+        n_objs = len(occ)
     
+        if n_objs == 1:
+            continue # skip cells that have points from only one object
     
-    if n_objs == 1:
-        continue # skip cells that have points from only one object
+        if n_objs == 4: # [1,1,1,1]
+            create_faces_4(cat_faces, tet_points)
     
-    if n_objs == 4: # [1,1,1,1]
-        create_faces_4(cat_faces, tet_points)
+        if n_objs == 3: # [2,1,1,0], [1,2,1,0], [1,1,2,0]: 
+            create_faces_3(cat_faces, occ, tet_points)
     
-    if n_objs == 3: # [2,1,1,0], [1,2,1,0], [1,1,2,0]: 
-        create_faces_3(cat_faces, occ, tet_points)
-    
-    if n_objs == 2: # [2,2,0,0], [1,3,0,0], [3,1,0,0]
-    
-        face = create_faces_2(cat_faces, occ, tet_points)
+        if n_objs == 2: # [2,2,0,0], [1,3,0,0], [3,1,0,0]
+            _ = create_faces_2(cat_faces, occ, tet_points)
+    return cat_faces
+
 
 # for faces in cat_faces[0]:
 #     assert len(faces) >= 3, f"Not enough faces for a triangle: {faces}"
 
 # %%
 
-cat_faces0 = cat_faces[0]
 def face_coord_to_points_and_faces(cat_faces0):
     """Convert a list of faces represented by points with coordinates 
     to a list of points and a list of faces represented by the number of points and point ids.
@@ -314,23 +335,27 @@ def face_coord_to_points_and_faces(cat_faces0):
         assert len(poly_face) >= 3, f"Not enough points for a triangle: {poly_face}"
         poly_faces += poly_face
     return cat_points, poly_faces
+#%%
+cat_faces = compute_cat_cells([cat_points], container.points)
 
-cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces0)
+cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
     
 # print(f"cat faces: \n{[f'{str(face)} \n' for face in cat_faces0]}")
-for face in cat_faces0: print(f"face: {face} \n")
-print(f"all_points: {[a for a in enumerate(cat_points)]}")
-print(f"poly_faces: {poly_faces}")
+# for face in cat_faces0: print(f"face: {face} \n")
+# print(f"all_points: {[a for a in enumerate(cat_points)]}")
+# print(f"poly_faces: {poly_faces}")
 
 # for one list of faces make a polydata object
 polydata = pv.PolyData(cat_points, poly_faces)
 
 # %%
 
+
+
 pl = pv.Plotter()
 pl.add_mesh(polydata.explode(), color="red")
-# pl.add_mesh(tetmesh.explode(), color="blue", opacity=0.5)
-# pl.show()
+pl.add_mesh(tetmesh.explode(), color="blue", opacity=0.5)
+pl.show()
 # %%
 
 occ = [(0, 1), (1, 1), (2, 1), (3, 1)]
