@@ -65,9 +65,26 @@ def sort_face_points_by_length(expected_faces):
     sorted_faces = []
     for face in expected_faces:
         sorted_faces.append(
-            sorted(face, key=lambda point: point[0]**2 + point[1]**2 + point[2]**2))
-    sorted_faces_by_hash = {}
+            sort_points_by_polar_angles(face))
+            # sort_face_points_by_length(face))
+    
     return sorted_faces
+
+def sort_facepoints_by_length(face):
+    return sorted(face, key=lambda point: point[0]**2 + point[1]**2 + point[2]**2)
+
+def sort_points_by_polar_angles(points):
+    points = np.array(points)
+    # Calculate theta and phi angles for each point
+    theta = np.arctan2(points[:,1], points[:,0])
+    phi = np.arccos(points[:,2] / np.linalg.norm(points, axis=1))
+    
+    # Combine theta and phi into a single array
+    polar_angles = np.column_stack((theta, phi))
+    
+    # Sort the points based on the polar angles
+    sorted_indices = np.lexsort(np.transpose(polar_angles))
+    return points[sorted_indices]
 
 def sort_faces_dict(faces):
     for k, v in faces.items():

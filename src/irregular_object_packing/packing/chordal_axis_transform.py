@@ -151,16 +151,20 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
 
 #%% go over each cell in the tethraheron mesh and check if it has points from more than one object, if so, comput the CAT facet
 def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
+    assert len(occ) == 2
+    
     most = [p for p in tet_points if p.vertex_id == occ[0][0]]
     least = [p for p in tet_points if p.vertex_id == occ[1][0]]
         
     face: list[np.ndarray] = []
     for pa in least:
         face += [pa.center(pb) for pb in most]
-            # Add face to each object cat cell
-        for (k, f) in occ:
-            cat_faces[k].append(face)
-    return face
+        
+        # Add face to each object cat cell
+    for (k, f) in occ:
+        cat_faces[k].append(face)
+
+    return cat_faces
     
 def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center: np.ndarray):
     # this should result in 6 faces
@@ -211,6 +215,8 @@ def create_faces_4(tet_points: list[TetPoint], cat_faces):
         others = [other for other in tet_points if other != point]
         cat = single_point_4faces(point, others, tet_center)
         cat_faces[point.obj_id].append(cat)
+        
+    return cat_faces
     
 
 
