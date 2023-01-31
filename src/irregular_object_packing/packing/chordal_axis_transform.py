@@ -2,53 +2,15 @@
 1. Create a Tetrahedron Mesh from all the points on the surface mesh of both the objects and the container as the input points.
 2. Use onlty those tetrahedrons that constructed of points from multiple objects.
 3. Compute the chordal axis of each tetrahedron. 
-4. Compute the chordal axis of the whole object by taking the union of all the chordal axis of the tetrahedrons.(SORT OF)
-
+4. Compute the chordal axis of the whole object by taking the union of all the chordal axis of the tetrahedrons.
 """
 #%%
-# 1. create a tetrahedron mesh from the points set
-# 2. go over each tetrahedron and see if it has points from multiple objects
-# 3. compute the chordal axis of each tetrahedron in that case
-# %%
-
 from dataclasses import dataclass
 import pyvista as pv
 import numpy as np
 
 # from utils import angle_between, sort_points_clockwise
 from packing.utils import angle_between, sort_points_clockwise, sort_faces_dict
-
-cat_points = np.array([[1, -1, 1], [1, 1, 1], [-1, 1, 1], [0,0,2]])
-# %% Check how the points are connected
-pc = pv.PolyData(cat_points)
-tetmesh = pc.delaunay_3d()
-edges = tetmesh.extract_all_edges()
-# edges.plot()
-# tetmesh.explode().plot()
-
-
-# %%
-for i in range(tetmesh.n_cells):
-    print('---')
-    for cell_points in tetmesh.cell_points(i):
-        print(cell_points)
-# %%
-cat_points = np.array([[1, -1, 1], [1, 1, 1], [-1, 1, 1], [0,0,2]], dtype=float)#, [1, 1, 3]])#, [2, 3, 1], [3, 1, 2], [3, 2, 1] , [2, 1, 3], [4,1,2]], dtype=float)
-container = pv.Pyramid(
-    np.array([
-    [4, -4, 0],
-    [-4, -4, 0],
-    [-4, 4, 0],
-    [4, 4, 0],
-    [0, 0, 4],
-], dtype=float))
-
-pc = pv.PolyData(np.concatenate([cat_points, container.points]))
-tetmesh = pc.delaunay_3d()
-
-# tetmesh.explode().plot()
-
-# %%    
     
 @dataclass
 class CatFace():
@@ -58,6 +20,7 @@ class CatFace():
     
 @dataclass
 class Triangle(CatFace):
+    """A triangle face in the CAT. Used to keep track of objects of vertices"""
     def __init__(self, face, v_ids, related_objects):
         if len(face) != 3:
             raise ValueError(f"Triangle must have 3 points, got {len(face)}")
@@ -76,7 +39,6 @@ class Triangle(CatFace):
         (a, b, c) = self.vertices
         return [(a+b)/2, (b+c)/2, (c+a)/2]
     
-# Vertex: TypeAlias = tuple[float, float, float]
 class TetPoint():
     vertex: np.ndarray
     obj_id: int
@@ -114,11 +76,17 @@ class TetPoint():
         if len(self.triangles) >= 3:
             raise ValueError(f"TetPoint {self} already has 3 triangles")
         self.triangles.append(triangle)
-
-    
-#%%
+        
     
 def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
+    """Create the faces of a tetrahedron with 3 different objects.
+    
+    Args:
+        - cat_faces: dict of faces for each object
+        - occ: list of tuples of the object ids and the number of times they appear in the tetrahedron
+        - tet_points: list of points in the tetrahedron
+    
+    """
     most = [p for p in tet_points if p.obj_id == occ[0][0]]
     least = [p for p in tet_points if (p.obj_id == occ[1][0] or p.obj_id == occ[2][0])]
     
@@ -148,10 +116,15 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
 
     return cat_faces
 
-
-
-#%% go over each cell in the tethraheron mesh and check if it has points from more than one object, if so, comput the CAT facet
 def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
+    """Create the faces of a tetrahedron with 2 different objects. 
+    This function serves both for the case of 2 and 2 points for object a and b resp., as for 3 and 1 points for object a and b resp.
+    
+    Args:
+        - cat_faces: the dictionary of faces for each object
+        - occ: the occurences of each object in the tetrahedron
+        - tet_points: the points in the tetrahedron
+    """
     assert len(occ) == 2
     
     most = [p for p in tet_points if p.obj_id == occ[0][0]]
@@ -168,6 +141,16 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
     return cat_faces
     
 def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center: np.ndarray):
+    """Create the faces of one of the points for a tetrahedron with 4 different objects
+    
+    Args:
+        - tet_point: the point to compute the faces for
+        - others: the other 3 points in the tetrahedron
+        - tet_center: the center of the tetrahedron
+        
+    Returns:
+        - list of faces, each face is a list of points
+    """
     # this should result in 6 faces
     # first 6 points: center bc, center bca, center ba, center bca, center bd, center bcd
     if len(tet_point.triangles) != 3:
@@ -185,7 +168,6 @@ def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center:
         midpoint = (v0 + other.vertex) / 2
         points.append(midpoint)
         
-    # sorted_points = sorted(points, key=lambda point: angle_between(point.tuple, v0.tuple, tet_center.tuple))
     sorted_points = sort_points_clockwise(points, v0, tet_center)
     cat_faces = []
     for i in range(len(sorted_points)):
@@ -195,9 +177,15 @@ def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center:
     
      
 def create_faces_4(tet_points: list[TetPoint], cat_faces):
+    """Create the faces of the CAT mesh for the case of 4 objects in the tetrahedron.
+    adds to the cat_faces dictionary the faces of the CAT mesh for each object.
+    
+    Args:
+        - tet_points (list[TetPoint]): list of the 4 points of the tetrahedron
+        - cat_faces (dict): dictionary of the faces of the CAT mesh for each object
+    """
     # tet points are the 4 points of the tetrahedron
     # for each comination of 3 points create a triangle
-    # a triangle is Triangle([point1, point2, point3], [])
     # and add it to the list of faces of each object
     triangles = []
     i = 0
@@ -210,7 +198,6 @@ def create_faces_4(tet_points: list[TetPoint], cat_faces):
         tet_points[j].add_triangle(triangle)
         tet_points[k].add_triangle(triangle)
         
-    # for each point
     tet_center = sum([point.vertex for point in tet_points]) / 4
     for point in tet_points:
         others = [other for other in tet_points if other != point]
@@ -219,12 +206,14 @@ def create_faces_4(tet_points: list[TetPoint], cat_faces):
         
     return cat_faces
     
-
-
-#%% 
-# ## Extract facets of the tetrahedrons that have points from more than one object
-
 def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np.ndarray):
+    """Compute the CAT cells of the objects in the list and the container.
+    First a Tetrahedral mesh is create from the pointcloud of all the objects points and the container poins.
+    
+    Args:
+        - object_points_list: a list of point clouds which define the surface meshes of the objects
+        - container_points: a point cloud of surface mesh of the container
+    """
     pc = pv.PolyData(np.concatenate((object_points_list + [container_points])))
     tetmesh = pc.delaunay_3d()
     
@@ -240,20 +229,16 @@ def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np
     
     return cat_cells
     
-    
-    
-    
-    
-    
-    
-    
 def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
+    """Compute the CAT faces of the tetrahedron mesh. 
+    
+    args:
+        - tetmesh: a tetrahedron mesh of the container and objects
+        - point_sets: a list of sets of points, each set contains points from a single object
+    """
     cat_faces = {}
     for obj_id in range(len(point_sets)):
         cat_faces[obj_id] = []
-
-
-
 
     for cell in range(tetmesh.n_cells):
         occ = {}
@@ -266,8 +251,8 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
                     occ[i] = occ.get(i, 0) + 1
                     tet_points.append(TetPoint(cell_point, i, tet_id=cell))
                 
-    # cell_data = tetmesh.cell_data(cell) 
-    #sort occ on value
+
+        # sort occ on value
         assert len(tet_points) == 4, f'tet_points: {tet_points}' # lil check
         occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
         n_objs = len(occ)
@@ -282,14 +267,8 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
             create_faces_3(cat_faces, occ, tet_points)
     
         if n_objs == 2: # [2,2,0,0], [1,3,0,0], [3,1,0,0]
-            _ = create_faces_2(cat_faces, occ, tet_points)
+            create_faces_2(cat_faces, occ, tet_points)
     return cat_faces
-
-
-# for faces in cat_faces[0]:
-#     assert len(faces) >= 3, f"Not enough faces for a triangle: {faces}"
-
-# %%
 
 def face_coord_to_points_and_faces(cat_faces0):
     """Convert a list of faces represented by points with coordinates 
@@ -335,85 +314,58 @@ def face_coord_to_points_and_faces(cat_faces0):
         assert len(poly_face) >= 3, f"Not enough points for a triangle: {poly_face}"
         poly_faces += poly_face
     return cat_points, poly_faces
-#%%
-cat_faces = compute_cat_cells([cat_points], container.points)
 
-cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
+# ------------------ #
+# Showcase functions
+# ------------------ #
+def plot_shapes(shape1, shape2, shape3, shape4, rotate, filename=None):
+    # Create a plotter object
+    plotter = pv.Plotter(shape='2|2')
+
+    # Add the shapes to the plotter
+    plotter.subplot(0)
+    plotter.add_text("object")
+    shape1_r = shape1.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
+    plotter.add_mesh(shape1_r, show_edges=True, color='r',)
+
+    plotter.subplot(1)
+    plotter.add_text("delaunay tetrahedra")
+    shape2_r = shape2.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
+    plotter.add_mesh(shape2_r, show_edges=True, opacity=0.7)
+
+    plotter.subplot(2)
+    plotter.add_text("container")
+    shape3_r = shape3.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
+    plotter.add_mesh(shape3_r, show_edges=True, )
+
+    plotter.subplot(3)
+    plotter.add_text("CAT faces")
+    shape4_r = shape4.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
+    plotter.add_mesh(shape4_r, color='r',)
+    plotter.add_mesh(shape2_r, opacity=0.3, show_edges=True, edge_color='b')
+
+    plotter.show()
+    if filename:
+        plotter.save_graphic(filename)
+
+def main():
+    cat_points = np.array([[-1, 0, 0], [0, -1, 0], [0, 0, -1], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float) # . rotates_cube_points
+    obj_shape = pv.PolyData(cat_points).delaunay_3d()
+    container = pv.Cube(center=(0,0,0), x_length=4, y_length=4, z_length=4)
+
+    pc = pv.PolyData(np.concatenate([cat_points, container.points]))
+    tetmesh = pc.delaunay_3d()
+    cat_faces = compute_cat_cells([cat_points], container.points)
+
+    cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
+    polydata = pv.PolyData(cat_points, poly_faces)
+
+    plot_shapes(obj_shape, tetmesh.explode(), container, polydata.explode(), (0,0,10))
     
-# print(f"cat faces: \n{[f'{str(face)} \n' for face in cat_faces0]}")
-# for face in cat_faces0: print(f"face: {face} \n")
-# print(f"all_points: {[a for a in enumerate(cat_points)]}")
-# print(f"poly_faces: {poly_faces}")
+if __name__ == "__main__":
+    print("This is an example of the CAT algorithm.")
+    main()
 
-# for one list of faces make a polydata object
-polydata = pv.PolyData(cat_points, poly_faces)
+
 
 # %%
-
-
-
-pl = pv.Plotter()
-pl.add_mesh(polydata.explode(), color="red")
-pl.add_mesh(tetmesh.explode(), color="blue", opacity=0.5)
-pl.show()
-# %%
-
-occ = [(0, 1), (1, 1), (2, 1), (3, 1)]
-
-
-    
-
-
-
-
-    
-    
-
-    
-
-# def create_faces_3(tet_points, cat_faces):
-#     for i in range(3):
-#         for j in range(i+1,3):
-#             face = [tet_points[i].center, tet_points[j].center]
-#             # Add face to each object cat cell
-#             for (k, f) in occ:
-#                 cat_faces[k].append(face)
-
-# import pyvista as pv
-
-# # # create a tetrahedron
-# # tet = pv.Tetrahedron()
-
-# # # create a list of TetPoint objects
-# # tet_points = [TetPoint(p, 0) for p in tet.points]
-# # last = tet_points.pop()
-# # last.obj_id = 1
-# # tet_points.append(last)
-
-# # # create a dictionary of cat_faces
-# # cat_faces = {0:[], 1:[], 2:[], 3:[]}
-# # occ = [(0, 1), (1, 1), (2, 1), (3, 1)]
-
-# # # create faces for n_objs == 4
-# # create_faces_4(tet_points, cat_faces, occ)
-
-# # # create faces for n_objs == 3
-# # # create_faces_3(tet_points, cat_faces)
-
-# # # create a polydata object to visualize the tetrahedron
-
-
-# # # create a polydata object to visualize the faces
-# # cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
-
-# # face_pd = pv.PolyData(cat_points, poly_faces)
-
-# # # visualize the tetrahedron and the faces
-# # p = pv.Plotter()
-# # p.add_mesh(tet, color='blue')
-# # p.add_mesh(face_pd, color='red')
-# # p.show()
-
-# # # %%
-# # # TODO: from 4 points you can construct each triangle and then perform the clapboards. You dont need triangle data beforehand
-# # %%
