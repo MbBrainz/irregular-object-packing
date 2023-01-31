@@ -1,6 +1,7 @@
 #%%
 import math
 import numpy as np
+import pyvista as pv
 
 def angle_between(point, line_start, line_end):
     """DEPRECATED"""
@@ -91,5 +92,40 @@ def sort_faces_dict(faces):
         faces[k] = sort_face_points_by_length(faces[k])
         
     return faces
-# %%
 
+def plot_shapes(shape1, shape2, shape3, shape4):
+    # Create a plotter object
+    plotter = pv.Plotter()
+
+    # Define the camera position and view angle for each shape
+    camera_pos1 = [0, 0, -1]
+    view_up1 = [0, 1, 0]
+    camera_pos2 = [1, 0, 0]
+    view_up2 = [0, 1, 0]
+    camera_pos3 = [0, -1, 0]
+    view_up3 = [0, 0, 1]
+    camera_pos4 = [-1, 0, 0]
+    view_up4 = [0, 1, 0]
+
+    # Add the shapes to the plotter
+    plotter.add_mesh(shape1, show_edges=True, cmap='cool',
+                     camera_position=camera_pos1, view_up=view_up1)
+    plotter.add_mesh(shape2, show_edges=True, cmap='hot',
+                     camera_position=camera_pos2, view_up=view_up2)
+    plotter.add_mesh(shape3, show_edges=True, cmap='inferno',
+                     camera_position=camera_pos3, view_up=view_up3)
+    plotter.add_mesh(shape4, show_edges=True, cmap='viridis',
+                     camera_position=camera_pos4, view_up=view_up4)
+
+    # Divide the plot into 4 subplots and display each shape in its own subplot
+    plotter.subplot(2, 2, 0)
+    plotter.display_mesh(shape1)
+    plotter.subplot(2, 2, 1)
+    plotter.display_mesh(shape2)
+    plotter.subplot(2, 2, 2)
+    plotter.display_mesh(shape3)
+    plotter.subplot(2, 2, 3)
+    plotter.display_mesh(shape4)
+
+    # Show the plot
+    plotter.show()

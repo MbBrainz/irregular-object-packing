@@ -292,26 +292,43 @@ def face_coord_to_points_and_faces(cat_faces0):
     """
     cat_points = []
     poly_faces = []
+    n_entries = 0
+    for face in cat_faces0:
+        n_entries += len(face) + 1
+    
+    poly_faces = np.empty(n_entries, dtype=np.int32)
 
     points = {}
     # points: list[Vertex] = []
     # point_ids: list[int] = []
     counter = 0
+    face_len = 0
+    idx = 0
     for i, face in tqdm(enumerate(cat_faces0)):
-        poly_face = [len(face)]
-    
+        # poly_face = [len(face)]]
+        face_len = len(face)
+        poly_faces[idx] = face_len
+        # poly_face = np.empty(face_len + 1, dtype=np.float32)
+        # poly_face[0] = face_len
+        # face_point = 0
+        
+        idx += 1
         for point in face:
             # if point not in points:
-            true_array = [(old_point == point).all() for old_point in points.keys()]
+            # true_array = [(old_point == point).all() for old_point in points.keys()]
+            if tuple(point) not in points.keys():
             
-            if not np.any(true_array):
+            # if not np.any(true_array):
                 points[tuple(point)] = counter
                 cat_points.append(point)
                 counter += 1
                 
-            poly_face.append(points[tuple(point)])
-        assert len(poly_face) >= 3, f"Not enough points for a triangle: {poly_face}"
-        poly_faces += poly_face
+            poly_faces[idx] = points[tuple(point)]
+            idx += 1
+            
+        
+        # assert len(poly_face) >= 3, f"Not enough points for a triangle: {poly_face}"
+        # poly_faces += poly_face
     return cat_points, poly_faces
 
 # ------------------ #

@@ -238,6 +238,50 @@ class TestCreateCatFaces(unittest.TestCase):
         assert_faces_equal(self, computed_faces, expected_faces)
         
 
+    def test_face_coord_to_points_and_faces_3_points(self):
+        face_coords = [[np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0])]]
+        expected_points = [np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([1, 1, 0])]
+        expected_faces = [3, 0, 1, 2]
+        points, faces = face_coord_to_points_and_faces(face_coords)
+
+        for i in range(len(points)):
+            self.assertTrue(np.array_equal(points[i], expected_points[i]))
+        self.assertTrue(np.array_equal(faces, expected_faces)) 
+        
+    def test_face_coord_to_points_and_faces_4_points(self):
+        face_coords = [[np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0]), np.array([0,1,0])]]
+        expected_points = [np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([1, 1, 0]), np.array([0, 1, 0])]
+        expected_faces = [4, 0, 1, 2, 3]
+        points, faces = face_coord_to_points_and_faces(face_coords)
+
+        for i in range(len(points)):
+            self.assertTrue(np.array_equal(points[i], expected_points[i]))
+        self.assertTrue(np.array_equal(faces, expected_faces)) 
+        
+    def test_face_coord_to_points_and_faces_3_points_2_faces(self):
+        face_coords = [
+            [np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0])],
+            [np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0])]
+        ]
+        expected_points = [np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([1, 1, 0])]
+        expected_faces = [3, 0, 1, 2, 3, 0, 1, 2]
+        points, faces = face_coord_to_points_and_faces(face_coords)
+        
+        
+        for i in range(len(points)):
+            self.assertTrue(np.array_equal(points[i], expected_points[i]))
+        self.assertTrue(np.array_equal(faces, expected_faces)) 
+
+    def test_faces_with_3_and_4_points(self):
+        face_coords = [[np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, 1, 1]), np.array([0,0,2])], [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, -1, 1])]]
+        expected_points = [np.array([ 1, -1,  1]), np.array([1, 1, 1]), np.array([-1,  1,  1]), np.array([0, 0, 2]), np.array([-1, -1,  1])]
+        expected_faces = [4, 0, 1, 2, 3, 3, 0, 1, 4]
+        points, faces = face_coord_to_points_and_faces(face_coords)
+        
+        for i in range(len(points)):
+            self.assertTrue(np.array_equal(points[i], expected_points[i]))
+        self.assertTrue(np.array_equal(faces, expected_faces)) 
+
     
 def mismaching_faces_error(computed_faces, expected_faces):
     error_message = "computed faces are not equal to expected faces;\n"
