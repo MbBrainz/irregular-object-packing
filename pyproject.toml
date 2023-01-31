@@ -4,6 +4,12 @@ requires = [
     "wheel",
     "taichi",
     "meshtaichi_patcher",
+    "pyvista",
+    "tqdm",
+    "line_profiler",
+    "matplotlib",
+    "plotly",
+    "trimesh",
 ]
 
 [tool.black]

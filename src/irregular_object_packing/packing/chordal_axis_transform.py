@@ -8,6 +8,7 @@
 from dataclasses import dataclass
 import pyvista as pv
 import numpy as np
+from tqdm import tqdm
 
 # from utils import angle_between, sort_points_clockwise
 from packing.utils import angle_between, sort_points_clockwise, sort_faces_dict
@@ -135,6 +136,8 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
         face += [pa.center(pb) for pb in most]
         
         # Add face to each object cat cell
+    if len(np.shape(face)) > 2:
+        raise ValueError(f"face {face} has more than 2 dimensions")
     for (k, f) in occ:
         cat_faces[k].append(face)
 
@@ -176,7 +179,7 @@ def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center:
     return cat_faces
     
      
-def create_faces_4(tet_points: list[TetPoint], cat_faces):
+def create_faces_4(cat_faces,tet_points: list[TetPoint]):
     """Create the faces of the CAT mesh for the case of 4 objects in the tetrahedron.
     adds to the cat_faces dictionary the faces of the CAT mesh for each object.
     
@@ -188,21 +191,23 @@ def create_faces_4(tet_points: list[TetPoint], cat_faces):
     # for each comination of 3 points create a triangle
     # and add it to the list of faces of each object
     triangles = []
+    for point in tet_points: point.triangles = []
     i = 0
     combinations = [(0,1,2), (0,1,3), (0,2,3), (1,2,3)]
     for (i, j, k) in combinations:
-        triangle = Triangle([tet_points[i].point, tet_points[j].point, tet_points[k].point], 
+        triangle = Triangle([tet_points[i].vertex, tet_points[j].vertex, tet_points[k].vertex], [],
                                   [tet_points[i].obj_id, tet_points[j].obj_id, tet_points[k].obj_id])
         triangles.append(triangle)
+        # might come from another place where this triangle var is not cleared.
         tet_points[i].add_triangle(triangle)
         tet_points[j].add_triangle(triangle)
         tet_points[k].add_triangle(triangle)
         
     tet_center = sum([point.vertex for point in tet_points]) / 4
     for point in tet_points:
-        others = [other for other in tet_points if other != point]
+        others = [other for other in tet_points if not (other == point).all()]
         cat = single_point_4faces(point, others, tet_center)
-        cat_faces[point.obj_id].append(cat)
+        cat_faces[point.obj_id] += cat
         
     return cat_faces
     
@@ -298,7 +303,7 @@ def face_coord_to_points_and_faces(cat_faces0):
     # points: list[Vertex] = []
     # point_ids: list[int] = []
     counter = 0
-    for i, face in enumerate(cat_faces0):
+    for i, face in tqdm(enumerate(cat_faces0)):
         poly_face = [len(face)]
     
         for point in face:
