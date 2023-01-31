@@ -149,7 +149,7 @@ class TestCreateCatFaces(unittest.TestCase):
                     self.assertEqual(len(point), 3)
         
         for k in cat_faces.keys():
-            self.assertEqual(np.shape(cat_faces[k]), (1,6,3,3))
+            self.assertEqual(np.shape(cat_faces[k]), (6,3,3))
             
         # # This assertion fails but its to much work to debug. 
         # # The single4 works, so Its probably my test expected result that is wrongly ordered.
@@ -184,7 +184,9 @@ class TestCreateCatFaces(unittest.TestCase):
             ]
         }
 
-        computed_faces = create_faces_3({0:[], 1:[], 2:[]}, occ, self.points)
+        computed_faces = {0:[], 1:[], 2:[]}
+        create_faces_3(computed_faces, occ, self.points)
+        
         expected_faces = sort_faces_dict(expected_faces)
         computed_faces = sort_faces_dict(computed_faces)
 
@@ -205,7 +207,8 @@ class TestCreateCatFaces(unittest.TestCase):
             ]
         }
 
-        computed_faces = create_faces_2({0:[], 1:[], 2:[]}, occ, points)
+        computed_faces = {0:[], 1:[], 2:[]}
+        create_faces_2(computed_faces, occ, points)
         expected_faces = sort_faces_dict(expected_faces)
         computed_faces = sort_faces_dict(computed_faces)
 
@@ -227,8 +230,8 @@ class TestCreateCatFaces(unittest.TestCase):
                 [self.middle_ab,  self.middle_ac, self.middle_ad],
             ]
         }
-
-        computed_faces = create_faces_2({0:[], 1:[], 2:[]}, occ, test_points)
+        computed_faces = {0:[], 1:[], 2:[]}
+        create_faces_2(computed_faces, occ, test_points)
         expected_faces = sort_faces_dict(expected_faces)
         computed_faces = sort_faces_dict(computed_faces)
 

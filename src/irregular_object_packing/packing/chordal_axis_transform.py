@@ -115,8 +115,6 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
     cat_faces[least[1].obj_id].append(bc_face)
     cat_faces[least[1].obj_id].append(aac_face)
 
-    return cat_faces
-
 def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
     """Create the faces of a tetrahedron with 2 different objects. 
     This function serves both for the case of 2 and 2 points for object a and b resp., as for 3 and 1 points for object a and b resp.
@@ -140,8 +138,6 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
         raise ValueError(f"face {face} has more than 2 dimensions")
     for (k, f) in occ:
         cat_faces[k].append(face)
-
-    return cat_faces
     
 def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center: np.ndarray):
     """Create the faces of one of the points for a tetrahedron with 4 different objects
@@ -177,7 +173,6 @@ def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center:
         cat_faces.append([tet_center, sorted_points[i], sorted_points[(i+1)%len(sorted_points)]])
     
     return cat_faces
-    
      
 def create_faces_4(cat_faces,tet_points: list[TetPoint]):
     """Create the faces of the CAT mesh for the case of 4 objects in the tetrahedron.
@@ -209,7 +204,6 @@ def create_faces_4(cat_faces,tet_points: list[TetPoint]):
         cat = single_point_4faces(point, others, tet_center)
         cat_faces[point.obj_id] += cat
         
-    return cat_faces
     
 def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np.ndarray):
     """Compute the CAT cells of the objects in the list and the container.
