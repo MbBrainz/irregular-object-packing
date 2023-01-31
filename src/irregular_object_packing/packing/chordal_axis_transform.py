@@ -78,13 +78,13 @@ class Triangle(CatFace):
 # Vertex: TypeAlias = tuple[float, float, float]
 class TetPoint():
     vertex: np.ndarray
-    vertex_id: int
+    obj_id: int
     tet_id: int
     triangles: list[Triangle]
     
-    def __init__(self, point: np.ndarray, point_id=-1, tet_id=-1):
+    def __init__(self, point: np.ndarray, obj_id=-1, tet_id=-1):
         self.vertex = point
-        self.vertex_id = point_id
+        self.obj_id = obj_id
         self.tet_id = tet_id
         self.triangles = []
         
@@ -101,7 +101,7 @@ class TetPoint():
         return self.__div__(other)
     
     def same_obj(self, other: 'TetPoint'):
-        return self.vertex_id == other.vertex_id
+        return self.obj_id == other.obj_id
 
     def distance(self, other: 'TetPoint'):
         return np.linalg.norm(self.vertex - other.vertex) 
@@ -118,8 +118,8 @@ class TetPoint():
 #%%
     
 def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
-    most = [p for p in tet_points if p.vertex_id == occ[0][0]]
-    least = [p for p in tet_points if (p.vertex_id == occ[1][0] or p.vertex_id == occ[2][0])]
+    most = [p for p in tet_points if p.obj_id == occ[0][0]]
+    least = [p for p in tet_points if (p.obj_id == occ[1][0] or p.obj_id == occ[2][0])]
     
     assert len(most) == 2
     assert len(least) == 2
@@ -129,21 +129,21 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
     # find center point of 2 triangles
     triangles: list[Triangle] = []
     for pa in most:
-        triangles.append(Triangle([pa.vertex, least[0].vertex, least[1].vertex], [], [pa.vertex_id, least[0].vertex_id]))
+        triangles.append(Triangle([pa.vertex, least[0].vertex, least[1].vertex], [], [pa.obj_id, least[0].obj_id]))
     
     bc_face = [least[0].center(least[1]), triangles[0].center(), triangles[1].center()]
     aab_face = [least[0].center(most[1]), least[0].center(most[0]), triangles[0].center(), triangles[1].center()]
     aac_face = [least[1].center(most[0]), least[1].center(most[1]), triangles[0].center(), triangles[1].center()]
     
     # Add face to each object cat cell
-    cat_faces[most[0].vertex_id].append(aab_face)
-    cat_faces[most[0].vertex_id].append(aac_face)
+    cat_faces[most[0].obj_id].append(aab_face)
+    cat_faces[most[0].obj_id].append(aac_face)
     
-    cat_faces[least[0].vertex_id].append(bc_face)
-    cat_faces[least[0].vertex_id].append(aab_face)
+    cat_faces[least[0].obj_id].append(bc_face)
+    cat_faces[least[0].obj_id].append(aab_face)
     
-    cat_faces[least[1].vertex_id].append(bc_face)
-    cat_faces[least[1].vertex_id].append(aac_face)
+    cat_faces[least[1].obj_id].append(bc_face)
+    cat_faces[least[1].obj_id].append(aac_face)
 
     return cat_faces
 
@@ -153,8 +153,8 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
 def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
     assert len(occ) == 2
     
-    most = [p for p in tet_points if p.vertex_id == occ[0][0]]
-    least = [p for p in tet_points if p.vertex_id == occ[1][0]]
+    most = [p for p in tet_points if p.obj_id == occ[0][0]]
+    least = [p for p in tet_points if p.obj_id == occ[1][0]]
         
     face: list[np.ndarray] = []
     for pa in least:
@@ -221,117 +221,119 @@ def create_faces_4(tet_points: list[TetPoint], cat_faces):
 
 
 #%% 
-# # ## Extract facets of the tetrahedrons that have points from more than one object
-# point_sets = [set(map(tuple,cat_points)), set(map(tuple,container.points))]
-# cat_faces = {}
-# for obj_id in range(len(point_sets)):
-#     cat_faces[obj_id] = []
+# ## Extract facets of the tetrahedrons that have points from more than one object
+point_sets = [set(map(tuple,cat_points)), set(map(tuple,container.points))]
+cat_faces = {}
+for obj_id in range(len(point_sets)):
+    cat_faces[obj_id] = []
 
-# selected_cells = []
-# # types = []
+selected_cells = []
+# types = []
 
 
-# for cell in range(tetmesh.n_cells):
-#     occ = {}
-#     tet_points: TetPoints = []
+for cell in range(tetmesh.n_cells):
+    occ = {}
+    tet_points: list[TetPoint] = []
 
-#     for i, obj in enumerate(point_sets):  
+    for i, obj in enumerate(point_sets):  
         
-#         for cell_point in tetmesh.cell_points(cell):
-#         # check if the cell has points from more than one point set
-#             if tuple(cell_point) in obj:
-#                 occ[i] = occ.get(i, 0) + 1
-#                 tet_points.append(TetPoint(Vertex(*cell_point, i), tet_id=cell))
+        for cell_point in tetmesh.cell_points(cell):
+        # check if the cell has points from more than one point set
+            if tuple(cell_point) in obj:
+                occ[i] = occ.get(i, 0) + 1
+                tet_points.append(TetPoint(cell_point, i, tet_id=cell))
     
                 
-#     # cell_data = tetmesh.cell_data(cell) 
-#     #sort occ on value
-#     assert len(tet_points) == 4, f'tet_points: {tet_points}' # lil check
-#     occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
-#     n_objs = len(occ)
+    # cell_data = tetmesh.cell_data(cell) 
+    #sort occ on value
+    assert len(tet_points) == 4, f'tet_points: {tet_points}' # lil check
+    occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
+    n_objs = len(occ)
     
     
-#     if n_objs == 1:
-#         continue # skip cells that have points from only one object
+    if n_objs == 1:
+        continue # skip cells that have points from only one object
     
-#     if n_objs == 4: # [1,1,1,1]
-#         create_faces_4(cat_faces, tet_points)
+    if n_objs == 4: # [1,1,1,1]
+        create_faces_4(cat_faces, tet_points)
     
-#     if n_objs == 3: # [2,1,1,0], [1,2,1,0], [1,1,2,0]: 
-#         pass
+    if n_objs == 3: # [2,1,1,0], [1,2,1,0], [1,1,2,0]: 
+        create_faces_3(cat_faces, occ, tet_points)
     
-#     if n_objs == 2: # [2,2,0,0], [1,3,0,0], [3,1,0,0]
+    if n_objs == 2: # [2,2,0,0], [1,3,0,0], [3,1,0,0]
     
-#         face = create_faces_2(cat_faces, occ, tet_points)
+        face = create_faces_2(cat_faces, occ, tet_points)
 
-# # for faces in cat_faces[0]:
-# #     assert len(faces) >= 3, f"Not enough faces for a triangle: {faces}"
+# for faces in cat_faces[0]:
+#     assert len(faces) >= 3, f"Not enough faces for a triangle: {faces}"
 
-# # %%
+# %%
 
-# cat_faces0 = cat_faces[0]
-# def face_coord_to_points_and_faces(cat_faces0):
-#     """Convert a list of faces represented by points with coordinates 
-#     to a list of points and a list of faces represented by the number of points and point ids.
+cat_faces0 = cat_faces[0]
+def face_coord_to_points_and_faces(cat_faces0):
+    """Convert a list of faces represented by points with coordinates 
+    to a list of points and a list of faces represented by the number of points and point ids.
     
-#     This function is used to convert the data so that it can be used by the pyvista.PolyData class.
+    This function is used to convert the data so that it can be used by the pyvista.PolyData class.
     
-#     Note: Currently this function assumes that the indices of the points are not global with respect to other meshes.
+    Note: Currently this function assumes that the indices of the points are not global with respect to other meshes.
     
-#     Face with 3 points:
-#     >>> face_coord_to_points_and_faces([[[0,0,0], [1,0,0], [1,1,0]]])
-#     ([Vertex(x=0, y=0, z=0), Vertex(x=1, y=0, z=0), Vertex(x=1, y=1, z=0)], [[3, 0, 1, 2]])
+    Face with 3 points:
+    >>> face_coord_to_points_and_faces([[np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0])]])
+    ([array([0, 0, 0]), array([1, 0, 0]), array([1, 1, 0])], [3, 0, 1, 2])
 
-#     face with 4 points:
-#     >>> face_coord_to_points_and_faces([[[0,0,0], [1,0,0], [1,1,0], [0,1,0]]])
-#     ([Vertex(x=0, y=0, z=0), Vertex(x=1, y=0, z=0), Vertex(x=1, y=1, z=0), Vertex(x=0, y=1, z=0)], [[4, 0, 1, 2, 3]])
+    face with 4 points:
+    >>> face_coord_to_points_and_faces([[np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0]), np.array([0,1,0])]])
+    ([array([0, 0, 0]), array([1, 0, 0]), array([1, 1, 0]), array([0, 1, 0])], [4, 0, 1, 2, 3])
         
-#     faces with 3 and 4 points including overlapping points:
-#     >>> face_coord_to_points_and_faces([[[1, -1, 1], [1, 1, 1], [-1, 1, 1], [0,0,2]], [[1, -1, 1], [1, 1, 1], [-1, -1, 1]]])
-#     ([Vertex(x=1, y=-1, z=1), Vertex(x=1, y=1, z=1), Vertex(x=-1, y=1, z=1), Vertex(x=0, y=0, z=2), Vertex(x=-1, y=-1, z=1)], [[4, 0, 1, 2, 3], [3, 0, 1, 4]])
-#     """
-#     cat_points = []
-#     poly_faces = []
+    faces with 3 and 4 points including overlapping points:
+    >>> face_coord_to_points_and_faces([[np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, 1, 1]), np.array([0,0,2])], [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, -1, 1])]])
+    ([array([ 1, -1,  1]), array([1, 1, 1]), array([-1,  1,  1]), array([0, 0, 2]), array([-1, -1,  1])], [4, 0, 1, 2, 3, 3, 0, 1, 4])
 
-#     points = {}
-#     # points: list[Vertex] = []
-#     # point_ids: list[int] = []
-#     counter = 0
-#     for i, face in enumerate(cat_faces0):
-#         poly_face = [len(face)]
+    """
+    cat_points = []
+    poly_faces = []
+
+    points = {}
+    # points: list[Vertex] = []
+    # point_ids: list[int] = []
+    counter = 0
+    for i, face in enumerate(cat_faces0):
+        poly_face = [len(face)]
     
-#         for point in face:
-#             point = Vertex(*point)
-#             if point not in points:
+        for point in face:
+            # if point not in points:
+            true_array = [(old_point == point).all() for old_point in points.keys()]
             
-#             # if any(old_point.all()point for old_point in points.values()):
-#                 points[point] = counter
-#                 cat_points.append(point.to_numpy())
-#                 counter += 1
+            if not np.any(true_array):
+                points[tuple(point)] = counter
+                cat_points.append(point)
+                counter += 1
                 
-#             poly_face.append(points[point])
-#         poly_faces += poly_face
-#     return cat_points, poly_faces
+            poly_face.append(points[tuple(point)])
+        assert len(poly_face) >= 3, f"Not enough points for a triangle: {poly_face}"
+        poly_faces += poly_face
+    return cat_points, poly_faces
 
-# cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces0)
+cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces0)
     
-# # print(f"cat faces: \n{[f'{str(face)} \n' for face in cat_faces0]}")
-# for face in cat_faces0: print(f"face: {face} \n")
-# print(f"all_points: {[a for a in enumerate(cat_points)]}")
-# print(f"poly_faces: {poly_faces}")
+# print(f"cat faces: \n{[f'{str(face)} \n' for face in cat_faces0]}")
+for face in cat_faces0: print(f"face: {face} \n")
+print(f"all_points: {[a for a in enumerate(cat_points)]}")
+print(f"poly_faces: {poly_faces}")
 
-# # for one list of faces make a polydata object
-# polydata = pv.PolyData(cat_points, poly_faces)
+# for one list of faces make a polydata object
+polydata = pv.PolyData(cat_points, poly_faces)
 
-# # %%
+# %%
 
-# pl = pv.Plotter()
-# pl.add_mesh(polydata.explode(), color="red")
-# # pl.add_mesh(tetmesh.explode(), color="blue", opacity=0.5)
-# # pl.show()
-# # %%
+pl = pv.Plotter()
+pl.add_mesh(polydata.explode(), color="red")
+# pl.add_mesh(tetmesh.explode(), color="blue", opacity=0.5)
+# pl.show()
+# %%
 
-# occ = [(0, 1), (1, 1), (2, 1), (3, 1)]
+occ = [(0, 1), (1, 1), (2, 1), (3, 1)]
 
 
     

@@ -18,10 +18,10 @@ class TestCreateCatFaces(unittest.TestCase):
         return super().setUp()
 
     def set_object_ids(self, object_ids: list[int]):
-        self.a.vertex_id = object_ids[0]
-        self.b.vertex_id = object_ids[1]
-        self.c.vertex_id = object_ids[2]
-        self.d.vertex_id = object_ids[3]
+        self.a.obj_id = object_ids[0]
+        self.b.obj_id = object_ids[1]
+        self.c.obj_id = object_ids[2]
+        self.d.obj_id = object_ids[3]
         
     @property
     def points(self):
