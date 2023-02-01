@@ -1,85 +1,68 @@
-#!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-import io
-import re
-from glob import glob
-from os.path import basename
-from os.path import dirname
-from os.path import join
-from os.path import splitext
-
-from setuptools import find_packages
-from setuptools import setup
+from os import path
+from setuptools import setup, find_packages
+import sys
+import versioneer
 
 
-def read(*names, **kwargs):
-    with io.open(join(dirname(__file__), *names), encoding=kwargs.get('encoding', 'utf8')) as fh:
-        return fh.read()
+# NOTE: This file must remain Python 2 compatible for the foreseeable future,
+# to ensure that we error out properly for people with outdated setuptools
+# and/or pip.
+min_version = (3, 9)
+if sys.version_info < min_version:
+    error = """
+irregular-object-packing does not support Python {0}.{1}.
+Python {2}.{3} and above is required. Check your Python version like so:
+
+python3 --version
+
+This may be due to an out-of-date pip. Make sure you have pip >= 9.0.1.
+Upgrade pip like so:
+
+pip install --upgrade pip
+""".format(
+        *(sys.version_info[:2] + min_version)
+    )
+    sys.exit(error)
+
+here = path.abspath(path.dirname(__file__))
+
+with open(path.join(here, "README.rst"), encoding="utf-8") as readme_file:
+    readme = readme_file.read()
+
+with open(path.join(here, "requirements.txt")) as requirements_file:
+    # Parse requirements.txt, ignoring any commented-out lines.
+    requirements = [line for line in requirements_file.read().splitlines() if not line.startswith("#")]
 
 
 setup(
-    name='irregular-object-packing',
-    version='0.0.0',
-    license='MIT',
-    description='A high performance 3D oject packing library for irregularly shaped objects.',
-    long_description='{}\n{}'.format(
-        re.compile('^.. start-badges.*^.. end-badges', re.M | re.S).sub('', read('README.rst')),
-        re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst')),
-    ),
-    author='Maurits Bos',
-    author_email='maurits.bos@gmail.com',
-    url='https://github.com/MbBrainz/irregular-object-packing',
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
-    py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
-    include_package_data=True,
-    zip_safe=False,
-    classifiers=[
-        # complete classifier list: http://pypi.python.org/pypi?%3Aaction=list_classifiers
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: Unix',
-        'Operating System :: POSIX',
-        'Operating System :: Microsoft :: Windows',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy',
-        # uncomment if you test on these interpreters:
-        # 'Programming Language :: Python :: Implementation :: IronPython',
-        # 'Programming Language :: Python :: Implementation :: Jython',
-        # 'Programming Language :: Python :: Implementation :: Stackless',
-        'Topic :: Utilities',
-    ],
-    project_urls={
-        'Documentation': 'https://irregular-object-packing.readthedocs.io/',
-        'Changelog': 'https://irregular-object-packing.readthedocs.io/en/latest/changelog.html',
-        'Issue Tracker': 'https://github.com/MbBrainz/irregular-object-packing/issues',
-    },
-    keywords=[
-        # eg: 'keyword1', 'keyword2', 'keyword3',
-    ],
-    python_requires='>=3.7',
-    install_requires=[
-        'click',
-        'numpy',
-        'taichi'
-        # eg: 'aspectlib==1.1.1', 'six>=1.7',
-    ],
-    extras_require={
-        # eg:
-        #   'rst': ['docutils>=0.11'],
-        #   ':python_version=="2.6"': ['argparse'],
-    },
-    setup_requires=[
-        'pytest-runner',
-    ],
+    name="irregular-object-packing",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
+    description="Python package for packing irregularly shaped objects in an arbitrary 3D container",
+    long_description=readme,
+    author="Maurits Bos",
+    author_email="maurits.bos@gmail.com",
+    url="https://github.com/MbBrainz/irregular-object-packing",
+    python_requires=">={}".format(".".join(str(n) for n in min_version)),
+    packages=find_packages(exclude=["docs", "tests"]),
     entry_points={
-        'console_scripts': [
-            'irop = irregular_object_packing.cli:main',
+        "console_scripts": [
+            # 'command = some.module:some_function',
+        ],
+    },
+    include_package_data=True,
+    package_data={
+        "irregular_object_packing": [
+            # When adding files here, remember to update MANIFEST.in as well,
+            # or else they will not be included in the distribution on PyPI!
+            # 'path/to/data_file',
         ]
     },
+    install_requires=requirements,
+    license="BSD (3-clause)",
+    classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3",
+    ],
 )

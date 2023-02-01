@@ -1,0 +1,12 @@
+# List required packages in this file, one per line.
+click
+taichi
+meshtaichi_patcher
+pyvista
+numpy
+scipy
+matplotlib
+trimesh
+tqdm
+plotly
+rtree
