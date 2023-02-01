@@ -1,5 +1,13 @@
-
-Authors
+=======
+Credits
 =======
 
-* Maurits Bos - https://maurits-bos.me
+Maintainer
+----------
+
+* Maurits Bos <maurits.bos@gmail.com>
+
+Contributors
+------------
+
+None yet. Why not be the first? See: CONTRIBUTING.rst

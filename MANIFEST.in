@@ -1,15 +1,16 @@
-include *.in
-include *.rst
-include *.yaml
-include *.yml
-include .bumpversion.cfg
-include .coveragerc
-include pytest.ini
-include tox.ini
-recursive-include ci *.py
-recursive-include ci *.txt
-recursive-include ci *.yml
-recursive-include docs *.py
-recursive-include docs *.rst
-recursive-include docs *.txt
-recursive-include tests *.py
+include AUTHORS.rst
+include CONTRIBUTING.rst
+include LICENSE
+include README.rst
+include requirements.txt
+
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+
+recursive-include docs *.rst conf.py Makefile make.bat
+
+include versioneer.py
+include irregular_object_packing/_version.py
+
+# If including data files in the package, add them like:
+# include path/to/data_file

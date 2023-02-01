@@ -5,24 +5,42 @@ Contributing
 Contributions are welcome, and they are greatly appreciated! Every
 little bit helps, and credit will always be given.
 
-Bug reports
-===========
+You can contribute in many ways:
 
-When `reporting a bug <https://github.com/MbBrainz/irregular-object-packing/issues>`_ please include:
+Types of Contributions
+----------------------
 
-    * Your operating system name and version.
-    * Any details about your local setup that might be helpful in troubleshooting.
-    * Detailed steps to reproduce the bug.
+Report Bugs
+~~~~~~~~~~~
 
-Documentation improvements
-==========================
+Report bugs at https://github.com/MbBrainz/irregular-object-packing/issues.
 
-Irregular Object Packing could always use more documentation, whether as part of the
-official Irregular Object Packing docs, in docstrings, or even on the web in blog posts,
-articles, and such.
+If you are reporting a bug, please include:
 
-Feature requests and feedback
-=============================
+* Any details about your local setup that might be helpful in troubleshooting.
+* Detailed steps to reproduce the bug.
+
+Fix Bugs
+~~~~~~~~
+
+Look through the GitHub issues for bugs. Anything tagged with "bug"
+is open to whoever wants to implement it.
+
+Implement Features
+~~~~~~~~~~~~~~~~~~
+
+Look through the GitHub issues for features. Anything tagged with "feature"
+is open to whoever wants to implement it.
+
+Write Documentation
+~~~~~~~~~~~~~~~~~~~
+
+irregular-object-packing could always use more documentation, whether
+as part of the official irregular-object-packing docs, in docstrings,
+or even on the web in blog posts, articles, and such.
+
+Submit Feedback
+~~~~~~~~~~~~~~~
 
 The best way to send feedback is to file an issue at https://github.com/MbBrainz/irregular-object-packing/issues.
 
@@ -30,58 +48,57 @@ If you are proposing a feature:
 
 * Explain in detail how it would work.
 * Keep the scope as narrow as possible, to make it easier to implement.
-* Remember that this is a volunteer-driven project, and that code contributions are welcome :)
+* Remember that this is a volunteer-driven project, and that contributions
+  are welcome :)
 
-Development
-===========
+Get Started!
+------------
 
-To set up `irregular-object-packing` for local development:
+Ready to contribute? Here's how to set up `irregular-object-packing` for local development.
 
-1. Fork `irregular-object-packing <https://github.com/MbBrainz/irregular-object-packing>`_
-   (look for the "Fork" button).
+1. Fork the `irregular-object-packing` repo on GitHub.
 2. Clone your fork locally::
 
-    git clone git@github.com:YOURGITHUBNAME/irregular-object-packing.git
+    $ git clone git@github.com:your_name_here/irregular-object-packing.git
 
-3. Create a branch for local development::
+3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
 
-    git checkout -b name-of-your-bugfix-or-feature
+    $ mkvirtualenv irregular-object-packing
+    $ cd irregular-object-packing/
+    $ python setup.py develop
+
+4. Create a branch for local development::
+
+    $ git checkout -b name-of-your-bugfix-or-feature
 
    Now you can make your changes locally.
 
-4. When you're done making changes run all the checks and docs builder with `tox <https://tox.wiki/en/latest/install.html>`_ one command::
+5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox::
 
-    tox
+    $ flake8 irregular_object_packing tests
+    $ python setup.py test
+    $ tox
 
-5. Commit your changes and push your branch to GitHub::
+   To get flake8 and tox, just pip install them into your virtualenv.
 
-    git add .
-    git commit -m "Your detailed description of your changes."
-    git push origin name-of-your-bugfix-or-feature
+6. Commit your changes and push your branch to GitHub::
 
-6. Submit a pull request through the GitHub website.
+    $ git add .
+    $ git commit -m "Your detailed description of your changes."
+    $ git push origin name-of-your-bugfix-or-feature
+
+7. Submit a pull request through the GitHub website.
 
 Pull Request Guidelines
 -----------------------
 
-If you need some code review or feedback while you're developing the code just make the pull request.
+Before you submit a pull request, check that it meets these guidelines:
 
-For merging, you should:
+1. The pull request should include tests.
+2. If the pull request adds functionality, the docs should be updated. Put
+   your new functionality into a function with a docstring, and add the
+   feature to the list in README.rst.
+3. The pull request should work for Python 2.7, 3.3, 3.4, 3.5 and for PyPy. Check
+   https://travis-ci.org/MbBrainz/irregular-object-packing/pull_requests
+   and make sure that the tests pass for all supported Python versions.
 
-1. Include passing tests (run ``tox``).
-2. Update documentation when there's new API, functionality etc.
-3. Add a note to ``CHANGELOG.rst`` about the changes.
-4. Add yourself to ``AUTHORS.rst``.
-
-
-
-Tips
-----
-
-To run a subset of tests::
-
-    tox -e envname -- pytest -k test_myfeature
-
-To run all the test environments in *parallel*::
-
-    tox -p auto
