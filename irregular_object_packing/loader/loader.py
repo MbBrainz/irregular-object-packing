@@ -1,16 +1,17 @@
-#%%
-import taichi as ti 
-from taichi import MeshInstance, Mesh
+# %%
 import meshtaichi_patcher as Patcher
-# import meshio 
+import taichi as ti
+from taichi import Mesh, MeshInstance
+
+# import meshio
 # import pygmsh as pg
-# import pymesh 
+# import pymesh
 # DATA_FOLDER = './../../../data/mesh/'
 
 # #%%
 # ti.init(arch=ti.gpu)
 # mesh = Patcher.load_mesh(DATA_FOLDER + 'yog.obj', relations=['FV'])
-# mesh.verts.place({'x' : ti.math.vec3, 
+# mesh.verts.place({'x' : ti.math.vec3,
 #                   'c' : ti.f32, #center
 #                   'scale' : ti.f16})
 
@@ -20,5 +21,4 @@ import meshtaichi_patcher as Patcher
 # #%%
 # for f in mesh.faces:
 #     print(f)
-# %% Import container 
-
+# %% Import container

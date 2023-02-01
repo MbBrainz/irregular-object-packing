@@ -2,73 +2,73 @@
 Initialization phase of the packing algorithm.
 
 """
-#%%
+# %%
 import random
 from typing import List
+
 import numpy as np
+import plotly.graph_objs as go
 import trimesh
 
 
-import plotly.graph_objs as go
 # TODO: Move plot func to a separate file
 # Create the power cells as a list of polygons
 def dynamic_plot(points: np.ndarray, power_cells: List[np.ndarray]):
     """Create a dynamic 3D plot of the power cells and the input points."""
     polygons = []
     for i, cell in enumerate(power_cells):
-        polygons.append(go.Mesh3d(x=list(map(lambda x: x[0], cell)),
-                              y=list(map(lambda x: x[1], cell)),
-                              z=list(map(lambda x: x[2], cell)),
-                            #   color=plt.cm.jet(i/len(power_cells)),
-                              opacity=0.5))
+        polygons.append(
+            go.Mesh3d(
+                x=list(map(lambda x: x[0], cell)),
+                y=list(map(lambda x: x[1], cell)),
+                z=list(map(lambda x: x[2], cell)),
+                #   color=plt.cm.jet(i/len(power_cells)),
+                opacity=0.5,
+            )
+        )
 
-# Create the input points as a scatter plot
+    # Create the input points as a scatter plot
     if points is not None:
-        scatter = go.Scatter3d(x=points[:, 0],
-                        y=points[:, 1],
-                        z=points[:, 2],
-                        mode='markers',
-                        marker=dict(size=3, color='red'))
+        scatter = go.Scatter3d(
+            x=points[:, 0], y=points[:, 1], z=points[:, 2], mode="markers", marker=dict(size=3, color="red")
+        )
 
-# Combine the polygons and the scatter plot into a single figure
+    # Combine the polygons and the scatter plot into a single figure
     fig = go.Figure(data=polygons + [scatter])
 
-# Set the axis labels and the title
-    fig.update_layout(scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'),
-                  title='Power Cells')
+    # Set the axis labels and the title
+    fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"), title="Power Cells")
 
     fig.show()
 
 
 def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
-    """generates a random coordinate within the bounds of the bounding box
-
-    """
+    """generates a random coordinate within the bounds of the bounding box"""
     x = random.uniform(bounding_box[0][0], bounding_box[1][0])
     y = random.uniform(bounding_box[0][1], bounding_box[1][1])
     z = random.uniform(bounding_box[0][2], bounding_box[1][2])
     random_position = np.array((x, y, z))
     return random_position
 
+
 def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     """gets the bounding mesh of mesh that has the smallest volume
 
-        Args:
-            mesh (trimesh.Trimesh): original mesh
+    Args:
+        mesh (trimesh.Trimesh): original mesh
 
-        Returns:
-            trimesh.Trimesh: bounding mesh
+    Returns:
+        trimesh.Trimesh: bounding mesh
     """
-    options = [mesh.bounding_box_oriented,
-                mesh.bounding_sphere,
-                mesh.bounding_cylinder]
+    options = [mesh.bounding_box_oriented, mesh.bounding_sphere, mesh.bounding_cylinder]
     volume_min = np.argmin([i.volume for i in options])
     bounding_mesh = options[volume_min]
     return bounding_mesh
 
+
 def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rate: float) -> np.ndarray:
     """packs the objects inside the container
-    
+
     Args:
         container (trimesh.Trimesh): container mesh
         mesh (trimesh.Trimesh): mesh of the objects
@@ -76,7 +76,7 @@ def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rat
     """
     container_bound = get_min_bounding_mesh(container.apply_scale(0.8))
     max_volume = container_bound.volume * coverage_rate
-    acc_vol = 0 
+    acc_vol = 0
     objects_coords = []
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(container_bound.bounds)
@@ -85,9 +85,12 @@ def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rat
             acc_vol += mesh.volume
     return objects_coords
 
-def create_packed_scene(container: trimesh.Trimesh, objects_coords: List[np.ndarray], mesh: trimesh.Trimesh, mesh_scale: float = 1):
-    """make a trimesh scene with the container and the objects inside. 
-    
+
+def create_packed_scene(
+    container: trimesh.Trimesh, objects_coords: List[np.ndarray], mesh: trimesh.Trimesh, mesh_scale: float = 1
+):
+    """make a trimesh scene with the container and the objects inside.
+
     Args:
         container (trimesh.Trimesh): container mesh
         objects_coords (List[np.ndarray]): list of coordinates of the objects
@@ -96,14 +99,20 @@ def create_packed_scene(container: trimesh.Trimesh, objects_coords: List[np.ndar
     """
     objects = []
     for coord in objects_coords:
-        new_mesh = mesh.copy().apply_scale(mesh_scale).apply_translation(coord).apply_transform(trimesh.transformations.random_rotation_matrix())
+        new_mesh = (
+            mesh.copy()
+            .apply_scale(mesh_scale)
+            .apply_translation(coord)
+            .apply_transform(trimesh.transformations.random_rotation_matrix())
+        )
         new_mesh.visual.vertex_colors = trimesh.visual.random_color()
         objects.append(new_mesh)
 
     container.visual.vertex_colors = [250, 255, 255, 100]
-    objects.append(container) 
+    objects.append(container)
     scene = trimesh.Scene(objects)
     return scene
+
 
 def save_image(scene: trimesh.Scene, path: str):
     png = scene.save_image()
@@ -111,7 +120,8 @@ def save_image(scene: trimesh.Scene, path: str):
     with open(path, "wb") as f:
         f.write(png)
 
-#%%
+
+# %%
 # if __name__ == '__main__':
 
 #     DATA_FOLDER = './../../../data/mesh/'
@@ -129,6 +139,7 @@ def save_image(scene: trimesh.Scene, path: str):
 # %%
 from scipy.spatial import Voronoi
 
+
 class PartitionBuilder:
     vor: Voronoi
     container: trimesh.Trimesh
@@ -136,13 +147,13 @@ class PartitionBuilder:
     seed_points: np.ndarray = []
     threshold: float = 0.01
     power_cells: List[np.ndarray] = []
-    
+
     def __init__(self, container: trimesh.Trimesh, points: np.ndarray):
         self.container = container
         self.points = points
-        self.seed_points = np.random.rand(len(points), 3)*4
+        self.seed_points = np.random.rand(len(points), 3) * 4
         self.vor = Voronoi(points)
-    
+
     def power_cell_step(self):
         self.power_cells = []
         for i in range(len(self.points)):
@@ -159,17 +170,16 @@ class PartitionBuilder:
         # # Use a library such as numpy to compute the centroid of the cell
         #     centroid = np.mean(power_cell, axis=0)
         #     centroids.append(centroid)
-            
+
         # self.seed_points = centroids
-        
-            
+
     def plot_power_cells(self):
         dynamic_plot(self.points, self.power_cells)
 
     def run(self):
         for i in range(100):
             self.power_cell_step()
-    
+
 
 # #%%
 # container = trimesh.primitives.Box(extends=[4,4,4])
