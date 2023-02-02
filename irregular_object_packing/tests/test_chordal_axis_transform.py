@@ -1,15 +1,16 @@
-import sys
-
-sys.path[
-    0
-] = "/Users/maurits/code/cls/thesis/irregular-object-packing/irregular-object-packing/src/irregular_object_packing"
-
+import numpy as np
 import unittest
-from typing import List
-from unittest.util import sorted_list_difference
 
-from irregular_object_packing.packing.chordal_axis_transform import *
-from irregular_object_packing.packing.utils import *
+from irregular_object_packing.packing.chordal_axis_transform import (
+    TetPoint,
+    Triangle,
+    create_faces_2,
+    create_faces_3,
+    create_faces_4,
+    face_coord_to_points_and_faces,
+    single_point_4faces,
+)
+from irregular_object_packing.packing.utils import sort_faces_dict
 
 
 class TestCreateCatFaces(unittest.TestCase):
@@ -108,7 +109,8 @@ class TestCreateCatFaces(unittest.TestCase):
         self.a.add_triangle(Triangle([self.a.vertex, self.b.vertex, self.c.vertex], [], [0, 1, 2]))
         self.a.add_triangle(Triangle([self.a.vertex, self.c.vertex, self.d.vertex], [], [0, 2, 3]))
         self.a.add_triangle(Triangle([self.a.vertex, self.b.vertex, self.d.vertex], [], [0, 1, 3]))
-        expected_faces = {
+        # expected_faces = {
+        _ = {
             0: [  # from face a
                 [self.center, self.middle_ad, self.middle_acd],
                 [self.center, self.middle_ad, self.middle_abd],
@@ -195,7 +197,7 @@ class TestCreateCatFaces(unittest.TestCase):
         assert_faces_equal(self, computed_faces, expected_faces)
 
     def test_create_faces_2_aabb(self):
-        points = [TetPoint(self.a, 0, 0), TetPoint(self.b, 0, 0), TetPoint(self.c, 1, 0), TetPoint(self.d, 1, 0)]
+        self.set_object_ids([0, 0, 1, 1])
 
         occ = [(0, 2), (1, 2)]
 
@@ -209,59 +211,14 @@ class TestCreateCatFaces(unittest.TestCase):
         }
 
         computed_faces = {0: [], 1: [], 2: []}
-        create_faces_2(computed_faces, occ, points)
+        create_faces_2(computed_faces, occ, self.points)
         expected_faces = sort_faces_dict(expected_faces)
         computed_faces = sort_faces_dict(computed_faces)
 
         assert_faces_equal(self, computed_faces, expected_faces)
 
     def test_create_faces_2_abbb(self):
-        test_points = [
-            TetPoint(
-                np.array(
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                    ]
-                ),
-                0,
-                0,
-            ),
-            TetPoint(
-                np.array(
-                    [
-                        0.0,
-                        0.0,
-                        8.0,
-                    ]
-                ),
-                1,
-                0,
-            ),  # initialize other TetPoints
-            TetPoint(
-                np.array(
-                    [
-                        8.0,
-                        0.0,
-                        0.0,
-                    ]
-                ),
-                1,
-                0,
-            ),
-            TetPoint(
-                np.array(
-                    [
-                        0.0,
-                        8.0,
-                        0.0,
-                    ]
-                ),
-                1,
-                0,
-            ),
-        ]
+        self.set_object_ids([1, 0, 0, 0])
         occ = [(0, 3), (1, 1)]
 
         expected_faces = {
@@ -272,8 +229,35 @@ class TestCreateCatFaces(unittest.TestCase):
                 [self.middle_ab, self.middle_ac, self.middle_ad],
             ],
         }
+
         computed_faces = {0: [], 1: [], 2: []}
-        create_faces_2(computed_faces, occ, test_points)
+        create_faces_2(computed_faces, occ, self.points)
+        expected_faces = sort_faces_dict(expected_faces)
+        computed_faces = sort_faces_dict(computed_faces)
+
+        assert_faces_equal(self, computed_faces, expected_faces)
+
+    def test_create_faces_2_aabb_wide(self):
+        self.set_object_ids([0, 0, 1, 1])
+
+        occ = [(0, 2), (1, 2)]
+
+        self.a.vertex = np.array([0, 0, -2])
+        self.b.vertex = np.array([0, 0, 2])
+        self.c.vertex = np.array([0, 2, 0])
+        self.d.vertex = np.array([1, 2, 0])
+
+        expected_faces = {
+            0: [
+                [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
+            ],
+            1: [
+                [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
+            ],
+        }
+
+        computed_faces = {0: [], 1: [], 2: []}
+        create_faces_2(computed_faces, occ, self.points)
         expected_faces = sort_faces_dict(expected_faces)
         computed_faces = sort_faces_dict(computed_faces)
 
@@ -292,9 +276,10 @@ class TestCreateCatFaces(unittest.TestCase):
     def test_face_coord_to_points_and_faces_4_points(self):
         face_coords = [[np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([1, 1, 0]), np.array([0, 1, 0])]]
         expected_points = [np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([1, 1, 0]), np.array([0, 1, 0])]
-        expected_faces = [4, 0, 1, 2, 3]
+        expected_faces = [3, 0, 1, 2, 3, 2, 3, 1]
         points, faces = face_coord_to_points_and_faces(face_coords)
 
+        print(faces)
         for i in range(len(points)):
             self.assertTrue(np.array_equal(points[i], expected_points[i]))
         self.assertTrue(np.array_equal(faces, expected_faces))
@@ -316,6 +301,8 @@ class TestCreateCatFaces(unittest.TestCase):
         face_coords = [
             [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, 1, 1]), np.array([0, 0, 2])],
             [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, -1, 1])],
+            [np.array([1, -1, -1]), np.array([1, 4, 1]), np.array([-1, 1, 1]), np.array([0, 0, 2])],
+            [np.array([1, -1, -1]), np.array([1, 4, 1]), np.array([-1, -2, 1])],
         ]
         expected_points = [
             np.array([1, -1, 1]),
@@ -323,9 +310,13 @@ class TestCreateCatFaces(unittest.TestCase):
             np.array([-1, 1, 1]),
             np.array([0, 0, 2]),
             np.array([-1, -1, 1]),
+            np.array([1, -1, -1]),
+            np.array([1, 4, 1]),
+            np.array([-1, -2, 1]),
         ]
-        expected_faces = [4, 0, 1, 2, 3, 3, 0, 1, 4]
+        expected_faces = np.array([3, 0, 1, 2, 3, 2, 3, 1, 3, 0, 1, 4, 3, 5, 6, 2, 3, 2, 3, 6, 3, 5, 6, 7])
         points, faces = face_coord_to_points_and_faces(face_coords)
+        print(faces)
 
         for i in range(len(points)):
             self.assertTrue(np.array_equal(points[i], expected_points[i]))

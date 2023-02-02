@@ -1,7 +1,7 @@
 # %%
-import meshtaichi_patcher as Patcher
-import taichi as ti
-from taichi import Mesh, MeshInstance
+# import meshtaichi_patcher as Patcher
+# import taichi as ti
+# from taichi import Mesh, MeshInstance
 
 # import meshio
 # import pygmsh as pg

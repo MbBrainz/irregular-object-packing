@@ -27,8 +27,6 @@ def sort_points_clockwise(points, start, end):
     norm = np.linalg.norm(vector)
     n = vector / norm
 
-    print(points)
-
     p = points[0] - points[0].dot(n) * n  # take the first point to compute the first orthogonal vector
     q = np.cross(n, p)
 
@@ -137,3 +135,7 @@ def plot_shapes(shape1, shape2, shape3, shape4):
 
     # Show the plot
     plotter.show()
+
+
+def translation_matrix(x0, x1):
+    return np.array([[1, 0, 0, x1[0] - x0[0]], [0, 1, 0, x1[1] - x0[1]], [0, 0, 1, x1[2] - x0[2]], [0, 0, 0, 1]])

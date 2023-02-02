@@ -10,3 +10,4 @@ trimesh
 tqdm
 plotly
 rtree
+networkx

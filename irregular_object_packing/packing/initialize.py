@@ -5,6 +5,7 @@ Initialization phase of the packing algorithm.
 # %%
 import random
 from typing import List
+from scipy.spatial import Voronoi
 
 import numpy as np
 import plotly.graph_objs as go
@@ -66,28 +67,39 @@ def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     return bounding_mesh
 
 
-def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rate: float) -> np.ndarray:
-    """packs the objects inside the container
+def place_objects(
+    container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rate: float = 0.3, c_scale: float = 1.0
+) -> np.ndarray:
+    """Places the objects inside the container at initial location.
 
     Args:
         container (trimesh.Trimesh): container mesh
         mesh (trimesh.Trimesh): mesh of the objects
         coverage_rate (float): percentage of the container volume that should be filled
     """
-    container_bound = get_min_bounding_mesh(container.apply_scale(0.8))
-    max_volume = container_bound.volume * coverage_rate
+    if c_scale != 1.0:
+        scaled_container = container.copy().apply_scale(c_scale)
+    else:
+        scaled_container = container
+
+    # container_bound = get_min_bounding_mesh(container.apply_scale(0.8))
+    max_volume = container.volume * coverage_rate
     acc_vol = 0
     objects_coords = []
     while acc_vol < max_volume:
-        coord = random_coordinate_within_bounds(container_bound.bounds)
-        if container.contains([coord]):
+        coord = random_coordinate_within_bounds(scaled_container.bounds)
+        if scaled_container.contains([coord]):
             objects_coords.append(coord)
             acc_vol += mesh.volume
     return objects_coords
 
 
 def create_packed_scene(
-    container: trimesh.Trimesh, objects_coords: List[np.ndarray], mesh: trimesh.Trimesh, mesh_scale: float = 1
+    container: trimesh.Trimesh,
+    objects_coords: List[np.ndarray],
+    mesh: trimesh.Trimesh,
+    mesh_scale: float = 1,
+    rotate: bool = False,
 ):
     """make a trimesh scene with the container and the objects inside.
 
@@ -99,18 +111,20 @@ def create_packed_scene(
     """
     objects = []
     for coord in objects_coords:
-        new_mesh = (
-            mesh.copy()
-            .apply_scale(mesh_scale)
-            .apply_translation(coord)
-            .apply_transform(trimesh.transformations.random_rotation_matrix())
-        )
+        new_mesh = mesh.copy()
+        if rotate:
+            new_mesh = new_mesh.apply_transform(trimesh.transformations.random_rotation_matrix())
+
+        new_mesh.apply_scale(mesh_scale).apply_translation(coord)
+
         new_mesh.visual.vertex_colors = trimesh.visual.random_color()
         objects.append(new_mesh)
 
     container.visual.vertex_colors = [250, 255, 255, 100]
+
     objects.append(container)
     scene = trimesh.Scene(objects)
+
     return scene
 
 
@@ -137,7 +151,6 @@ def save_image(scene: trimesh.Scene, path: str):
 #     save_image(scene, 'packing.png')
 
 # %%
-from scipy.spatial import Voronoi
 
 
 class PartitionBuilder:
@@ -231,7 +244,7 @@ class PartitionBuilder:
 # vor = Voronoi(tri.points)
 
 # for i, seed in enumerate(seed_points):
-#     region = vor.regions[vor.point_region[i]]
+# \region = vor.regions[vor.point_region[i]]
 #     if len(region) > 0:
 #         verts = vor.vertices[region]
 #         # check if the seed point is contained within the container mesh
