@@ -1,7 +1,7 @@
 """ In step 4.2.1 of the algorithm, The CAT is computed by using the following steps:
 1. Create a Tetrahedron Mesh from all the points on the surface mesh of both the objects and the container as the input points.
 2. Use onlty those tetrahedrons that constructed of points from multiple objects.
-3. Compute the chordal axis of each tetrahedron. 
+3. Compute the chordal axis of each tetrahedron.
 4. Compute the chordal axis of the whole object by taking the union of all the chordal axis of the tetrahedrons.
 """
 # %%
@@ -12,7 +12,9 @@ import pyvista as pv
 from tqdm import tqdm
 
 # from utils import angle_between, sort_points_clockwise
-from irregular_object_packing.packing.utils import angle_between, sort_faces_dict, sort_points_clockwise
+from irregular_object_packing.packing.utils import (angle_between,
+                                                    sort_faces_dict,
+                                                    sort_points_clockwise)
 
 
 @dataclass
@@ -142,6 +144,7 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
         # Add face to each object cat cell
     if len(np.shape(face)) > 2:
         raise ValueError(f"face {face} has more than 2 dimensions")
+
     for k, f in occ:
         cat_faces[k].append(face)
 
@@ -280,63 +283,62 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
 
 
 def face_coord_to_points_and_faces(cat_faces0):
-    """Convert a list of faces represented by points with coordinates
+    """Convert a list of triangular only faces represented by points with coordinates
     to a list of points and a list of faces represented by the number of points and point ids.
 
     This function is used to convert the data so that it can be used by the pyvista.PolyData class.
 
     Note: Currently this function assumes that the indices of the points are not global with respect to other meshes.
 
-    Face with 3 points:
-    >>> face_coord_to_points_and_faces([[np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0])]])
-    ([array([0, 0, 0]), array([1, 0, 0]), array([1, 1, 0])], [3, 0, 1, 2])
-
-    face with 4 points:
-    >>> face_coord_to_points_and_faces([[np.array([0,0,0]), np.array([1,0,0]), np.array([1,1,0]), np.array([0,1,0])]])
-    ([array([0, 0, 0]), array([1, 0, 0]), array([1, 1, 0]), array([0, 1, 0])], [4, 0, 1, 2, 3])
-
-    faces with 3 and 4 points including overlapping points:
-    >>> face_coord_to_points_and_faces([[np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, 1, 1]), np.array([0,0,2])], [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, -1, 1])]])
-    ([array([ 1, -1,  1]), array([1, 1, 1]), array([-1,  1,  1]), array([0, 0, 2]), array([-1, -1,  1])], [4, 0, 1, 2, 3, 3, 0, 1, 4])
 
     """
     cat_points = []
     poly_faces = []
     n_entries = 0
     for face in cat_faces0:
-        n_entries += len(face) + 1
+        len_face = len(face)
+        if len_face == 3:
+            n_entries += 4
+        if len_face == 4:
+            n_entries += 8
 
     poly_faces = np.empty(n_entries, dtype=np.int32)
 
     points = {}
-    # points: list[Vertex] = []
-    # point_ids: list[int] = []
+
     counter = 0
     face_len = 0
     idx = 0
     for i, face in tqdm(enumerate(cat_faces0)):
-        # poly_face = [len(face)]]
         face_len = len(face)
-        poly_faces[idx] = face_len
-        # poly_face = np.empty(face_len + 1, dtype=np.float32)
-        # poly_face[0] = face_len
-        # face_point = 0
-
-        idx += 1
-        for point in face:
-            # if point not in points:
-            # true_array = [(old_point == point).all() for old_point in points.keys()]
-            if tuple(point) not in points.keys():
-                # if not np.any(true_array):
-                points[tuple(point)] = counter
-                cat_points.append(point)
+        for i in range(len(face)):
+            if tuple(face[i]) not in points.keys():
+                points[tuple(face[i])] = counter
+                cat_points.append(face[i])
                 counter += 1
 
-            poly_faces[idx] = points[tuple(point)]
-            idx += 1
+        # For a face with 4 points, we create 2 triangles,
+        # Because pyvista does not support quads correctly, while it says it does.
+        # The issue is that when you supply a quad, it will create 2 triangles,
+        # but the triangles will overlap by half, like an open envelope shape.
+        if face_len == 3:
+            poly_faces[idx] = 3
+            poly_faces[idx + 1] = points[tuple(face[0])]
+            poly_faces[idx + 2] = points[tuple(face[1])]
+            poly_faces[idx + 3] = points[tuple(face[2])]
+            idx += 4
 
-        # assert len(poly_face) >= 3, f"Not enough points for a triangle: {poly_face}"
-        # poly_faces += poly_face
+        elif face_len == 4:  # make 2 triangles for each quad
+            poly_faces[idx] = 3
+            poly_faces[idx + 1] = points[tuple(face[0])]
+            poly_faces[idx + 2] = points[tuple(face[1])]
+            poly_faces[idx + 3] = points[tuple(face[2])]
+            poly_faces[idx + 4] = 3
+            poly_faces[idx + 5] = points[tuple(face[2])]
+            poly_faces[idx + 6] = points[tuple(face[3])]
+            poly_faces[idx + 7] = points[tuple(face[1])]
+            idx += 8
+
     return cat_points, poly_faces
 
 
@@ -386,24 +388,34 @@ def plot_shapes(shape1, shape2, shape3, shape4, rotate, filename=None):
 
 def main():
     cat_points = np.array(
-        [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float
+        [[-1, 0, 0], [0, -1, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1.5]], dtype=float
     )  # . rotates_cube_points
     obj_shape = pv.PolyData(cat_points).delaunay_3d()
     container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=4)
+    # container = pv.Pyramid([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0], [1, 1, 1]])
 
     pc = pv.PolyData(np.concatenate([cat_points, container.points]))
     tetmesh = pc.delaunay_3d()
     cat_faces = compute_cat_cells([cat_points], container.points)
 
+    # cat_4_faces = [face for face in cat_faces[0] if len(face) == 4]
+
     cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
     polydata = pv.PolyData(cat_points, poly_faces)
+    plotter = pv.Plotter()
+    plotter.add_mesh(polydata.explode(), color="r", show_edges=True, edge_color="black")
+    plotter.add_mesh(tetmesh.explode(), opacity=0.3, show_edges=True, edge_color="b")
+    plotter.show()
+    print("wow")
 
-    plot_shapes(obj_shape, tetmesh.explode(), container, polydata.explode(), (0, 0, 10))
+    # plot_shapes(obj_shape, tetmesh.explode(), container, polydata.explode(), (0, 0, 10))
 
 
 if __name__ == "__main__":
     print("This is an example of the CAT algorithm.")
     main()
+
+# TODO check if holes in cells are caused by double trangles?
 
 
 # %%

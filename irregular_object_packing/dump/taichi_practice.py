@@ -39,7 +39,7 @@ def init_scene():
 
 
 @ti.kernel
-def j():
+def step_no_slide():
     """This is the main iteration of the simulation. It is basically a verlet integration,
     where the position of the particles is updated based on the velocity and the acceleration.
     The acceleration is calculated based on the forces that are applied to the particles."""
