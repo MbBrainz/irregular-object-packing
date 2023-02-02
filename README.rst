@@ -1,26 +1,26 @@
 ========================
 irregular-object-packing
 ========================
-.. image:: https://readthedocs.org/projects/irregular-object-packing/badge/?style=flat
-    :target: https://irregular-object-packing.readthedocs.io/
-    :alt: Documentation Status
+.. .. image:: https://readthedocs.org/projects/irregular-object-packing/badge/?style=flat
+..     :target: https://irregular-object-packing.readthedocs.io/
+..     :alt: Documentation Status
 
-.. image:: https://img.shields.io/travis/MbBrainz/irregular-object-packing.svg
-        :target: https://travis-ci.org/MbBrainz/irregular-object-packing
+.. .. image:: https://img.shields.io/travis/MbBrainz/irregular-object-packing.svg
+..         :target: https://travis-ci.org/MbBrainz/irregular-object-packing
 
-.. image:: https://img.shields.io/pypi/v/irregular-object-packing.svg
-        :target: https://pypi.python.org/pypi/irregular-object-packing
+.. .. image:: https://img.shields.io/pypi/v/irregular-object-packing.svg
+..         :target: https://pypi.python.org/pypi/irregular-object-packing
 
 .. image:: https://github.com/MbBrainz/irregular-object-packing/actions/workflows/github-actions.yml/badge.svg
     :alt: GitHub Actions Build Status
     :target: https://github.com/MbBrainz/irregular-object-packing/actions
 
-.. image:: https://ci.appveyor.com/api/projects/status/github/MbBrainz/irregular-object-packing?branch=main&svg=true
-    :alt: AppVeyor Build Status
-    :target: https://ci.appveyor.com/project/MbBrainz/irregular-object-packing
+.. .. image:: https://ci.appveyor.com/api/projects/status/github/MbBrainz/irregular-object-packing?branch=main&svg=true
+..     :alt: AppVeyor Build Status
+..     :target: https://ci.appveyor.com/project/MbBrainz/irregular-object-packing
 
-.. image:: https://img.shields.io/codacy/grade/MbBrainz/irregular-object-packing.svg
-    :target: https://www.codacy.com/gh/MbBrainz/irregular-object-packing
+.. image:: https://app.codacy.com/project/badge/Grade/498833b3aa9447c0a6147088c5c9fabd    
+    :target: https://www.codacy.com/gh/MbBrainz/irregular-object-packing/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=MbBrainz/irregular-object-packing&amp;utm_campaign=Badge_Grade
     :alt: Codacy Code Quality Status
 
 .. image:: https://img.shields.io/github/commits-since/MbBrainz/irregular-object-packing/v0.0.0.svg
