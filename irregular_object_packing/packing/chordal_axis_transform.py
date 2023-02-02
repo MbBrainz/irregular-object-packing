@@ -313,7 +313,7 @@ def face_coord_to_points_and_faces(cat_faces0):
     counter = 0
     face_len = 0
     idx = 0
-    for i, face in tqdm(enumerate(cat_faces0)):
+    for i, face in enumerate(cat_faces0):
         face_len = len(face)
         for i in range(len(face)):
             if tuple(face[i]) not in points.keys():
@@ -351,7 +351,7 @@ def face_coord_to_points_and_faces(cat_faces0):
 # ------------------ #
 def plot_shapes(shape1, shape2, shape3, shape4, rotate, filename=None):
     # Create a plotter object
-    plotter = pv.Plotter(shape="2|2")
+    plotter = pv.Plotter(shape="3|1")
 
     # Add the shapes to the plotter
     plotter.subplot(0)
@@ -364,25 +364,20 @@ def plot_shapes(shape1, shape2, shape3, shape4, rotate, filename=None):
     )
 
     plotter.subplot(1)
+    plotter.add_text("container")
+    shape3_r = shape3.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
+    plotter.add_mesh(shape3_r, show_edges=True)
+
+    plotter.subplot(2)
     plotter.add_text("delaunay tetrahedra")
     shape2_r = shape2.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
     plotter.add_mesh(shape2_r, show_edges=True, opacity=0.7)
 
-    plotter.subplot(2)
-    plotter.add_text("container")
-    shape3_r = shape3.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
-    plotter.add_mesh(
-        shape3_r,
-        show_edges=True,
-    )
-
     plotter.subplot(3)
     plotter.add_text("CAT faces")
     shape4_r = shape4.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
-    plotter.add_mesh(
-        shape4_r,
-        color="r",
-    )
+    plotter.add_mesh(shape1_r, color="r", opacity=0.9, show_edges=True, edge_color="r")
+    plotter.add_mesh(shape4_r, color="y")
     plotter.add_mesh(shape2_r, opacity=0.3, show_edges=True, edge_color="b")
 
     plotter.show()
@@ -392,7 +387,8 @@ def plot_shapes(shape1, shape2, shape3, shape4, rotate, filename=None):
 
 def main():
     cat_points = np.array(
-        [[-1, 0, 0], [0, -1, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1.5]], dtype=float
+        [[-1, 0, 0], [0, -1, 0], [1, 0, 0], [0, 1, 0], [-1, 0, 2], [0, -1, 2], [1, 0, 2], [0, 1, 2]],
+        dtype=float,
     )  # . rotates_cube_points
     obj_shape = pv.PolyData(cat_points).delaunay_3d()
     container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=4)
@@ -406,11 +402,12 @@ def main():
 
     cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
     polydata = pv.PolyData(cat_points, poly_faces)
-    plotter = pv.Plotter()
-    plotter.add_mesh(polydata.explode(), color="r", show_edges=True, edge_color="black")
-    plotter.add_mesh(tetmesh.explode(), opacity=0.3, show_edges=True, edge_color="b")
+
+    # plotter = pv.Plotter()
+    # plotter.add_mesh(polydata.explode(), color="y", show_edges=True, edge_color="black")
+    # plotter.add_mesh(tetmesh.explode(), opacity=0.3, show_edges=True, edge_color="b")
+    # plotter.add_mesh(obj_shape.explode(), color="r")
     # plotter.show()
-    print("wow")
 
     plot_shapes(obj_shape, tetmesh.explode(), container, polydata.explode(), (0, 0, 10))
 
@@ -418,8 +415,5 @@ def main():
 if __name__ == "__main__":
     print("This is an example of the CAT algorithm.")
     main()
-
-# TODO check if holes in cells are caused by double trangles?
-
 
 # %%

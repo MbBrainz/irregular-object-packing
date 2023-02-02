@@ -8,7 +8,7 @@ def create_plot(object_locations, object_meshes, object_cells, container_mesh):
 
     # Create a container mesh with specified opacity
     container = pv.wrap(container_mesh)
-
+    plotter.add_title("objects with CAT cells in Container", font_size=24, shadow=True)
     plotter.add_mesh(container, opacity=0.2)
 
     # Loop over objects and create a PyVista mesh for each object

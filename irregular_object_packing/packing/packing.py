@@ -3,6 +3,7 @@
 import numpy as np
 import pyvista as pv
 import trimesh
+from tqdm import tqdm
 
 from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume, translation_matrix
 from irregular_object_packing.mesh.utils import print_mesh_info
@@ -70,10 +71,6 @@ container_points = trimesh.sample.sample_surface_even(container, 10000)[0]
 cat_cells = compute_cat_cells(obj_points, container_points)
 
 # %%
-cat_points, poly_faces = face_coord_to_points_and_faces(cat_cells[0])
-
-# %%
-from tqdm import tqdm
 
 # Volumetric downscale before optimizing the packing
 down_scale = 0.1
