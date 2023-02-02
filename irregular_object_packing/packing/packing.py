@@ -2,6 +2,8 @@
 import numpy as np
 import pyvista as pv
 import trimesh
+from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume, translation_matrix
+from irregular_object_packing.mesh.utils import print_mesh_info
 
 from irregular_object_packing.packing.chordal_axis_transform import (
     compute_cat_cells, face_coord_to_points_and_faces)
@@ -9,65 +11,68 @@ from irregular_object_packing.packing.initialize import (create_packed_scene,
                                                          pack_objects,
                                                          save_image)
 from irregular_object_packing.packing.plots import create_plot
-from irregular_object_packing.tools.profile import cprofile, pprofile
 
-
-def translation_matrix(x0, x1):
-    return np.array([[1, 0, 0, x1[0] - x0[0]], [0, 1, 0, x1[1] - x0[1]], [0, 0, 1, x1[2] - x0[2]], [0, 0, 0, 1]])
+# lets define a mesh size and a container size
+mesh_volume = 0.1
+container_volume = 10
+coverage_rate = 0.3
 
 
 DATA_FOLDER = "./data/mesh/"
-original_mesh = trimesh.load_mesh(DATA_FOLDER + "yog.obj")
+loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
+print_mesh_info(loaded_mesh, "loaded mesh")
+trimesh.Scene([loaded_mesh]).show()
+
+    
+#%% 
+# Scale the mesh to the desired volume
+original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
+print_mesh_info(original_mesh, "scaled mesh")
+#%%
 # mesh = trimesh.primitives.Capsule(radius=1, height=1)
 container = trimesh.primitives.Cylinder(radius=1, height=1)
+print_mesh_info(container, "original container")
 
-container = container.apply_scale(40)
+container = scale_to_volume(container, container_volume)
 
-objects_coords = pack_objects(container, original_mesh, 0.2)
+print_mesh_info(container, "scaled container")
 
-scene = create_packed_scene(container, objects_coords, original_mesh)
+#%%
+
+objects_coords = pack_objects(container,original_mesh, coverage_rate=coverage_rate, c_scale=0.9)
+print_mesh_info(container, "container after packing")
+#%%
+scene = create_packed_scene(container, objects_coords, original_mesh, rotate=True)
+scene.show()
 
 # %%
 mesh = trimesh.sample.sample_surface_even(original_mesh, 1000)[0]
 obj_points = []
-for object_coords in objects_coords:
+rot_matrices = []
+for i in range(len(objects_coords)):
     # get the object
     object = mesh.copy()
+    #random rotation
+    M_rot = trimesh.transformations.random_rotation_matrix()
+    points = trimesh.transform_points(object, M_rot)
+    rot_matrices.append(M_rot)
     # apply the transformation
-    points = trimesh.transform_points(object, translation_matrix(np.array([0, 0, 0]), object_coords))
-    # object = object.apply_transform(translation_matrix(np.array([0, 0, 0]), object_coords))
-    # get the points of the object
-    # points = object.vertices
-    # add the points to the list of points
+    points = trimesh.transform_points(points, translation_matrix(np.array([0, 0, 0]), objects_coords[i]))
+
     obj_points.append(points)
 
 
 # %%
-
-
-@pprofile
-def prof_compute_cat_cells():
-    return compute_cat_cells(obj_points, trimesh.sample.sample_surface_even(container, 10000)[0])
-
-
-# cat_cells = prof_compute_cat_cells()
-
 cat_cells = compute_cat_cells(obj_points, trimesh.sample.sample_surface_even(container, 10000)[0])
+
 # %%
-
-
-@pprofile
-def prof_face_coord_to_points_and_faces():
-    return face_coord_to_points_and_faces(cat_cells[0])
-
-
-# cat_points, poly_faces = prof_face_coord_to_points_and_faces()
-
 cat_points, poly_faces = face_coord_to_points_and_faces(cat_cells[0])
-
 
 # %%
 from tqdm import tqdm
+
+# Volumetric downscale before optimizing the packing
+down_scale = 0.1 
 
 object_meshes = []
 cat_meshes = []
@@ -80,17 +85,14 @@ for k, v in tqdm(cat_cells.items()):
     cat_meshes.append(polydata)
 
     object_mesh = original_mesh.copy()
-    object_mesh.apply_scale(0.3)
+    object_mesh.apply_transform(rot_matrices[k])
+    object_mesh.apply_scale(down_scale**(1/3))
     object_mesh.vertices = trimesh.transformations.transform_points(
         object_mesh.vertices, translation_matrix(np.array([0, 0, 0]), objects_coords[k])
     )
     # object_mesh.transform(np.eye(4), object_coords[k])
     object_meshes.append(object_mesh)
-
-
+    
 # %%
-# TODO: create the scene with the cat_meshes
-# TODO: make sure the compute cat cells stops printing
-
 create_plot(objects_coords, object_meshes, cat_meshes, container.to_mesh())
 # %%
