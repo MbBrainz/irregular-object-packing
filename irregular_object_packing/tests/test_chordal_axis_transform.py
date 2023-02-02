@@ -11,8 +11,14 @@ from typing import List
 from unittest.util import sorted_list_difference
 
 from irregular_object_packing.packing.chordal_axis_transform import (
-    TetPoint, Triangle, create_faces_2, create_faces_3, create_faces_4,
-    face_coord_to_points_and_faces, single_point_4faces)
+    TetPoint,
+    Triangle,
+    create_faces_2,
+    create_faces_3,
+    create_faces_4,
+    face_coord_to_points_and_faces,
+    single_point_4faces,
+)
 from irregular_object_packing.packing.utils import sort_faces_dict
 
 
@@ -278,7 +284,7 @@ class TestCreateCatFaces(unittest.TestCase):
     def test_face_coord_to_points_and_faces_4_points(self):
         face_coords = [[np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([1, 1, 0]), np.array([0, 1, 0])]]
         expected_points = [np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([1, 1, 0]), np.array([0, 1, 0])]
-        expected_faces = [3, 0, 1, 2, 3, 3, 0, 1]
+        expected_faces = [3, 0, 1, 2, 3, 2, 3, 1]
         points, faces = face_coord_to_points_and_faces(face_coords)
 
         print(faces)
@@ -316,7 +322,7 @@ class TestCreateCatFaces(unittest.TestCase):
             np.array([1, 4, 1]),
             np.array([-1, -2, 1]),
         ]
-        expected_faces = [3, 0, 1, 2, 3, 3, 0, 1, 3, 0, 1, 4, 3, 5, 6, 2, 3, 3, 5, 6, 3, 5, 6, 7]
+        expected_faces = np.array([3, 0, 1, 2, 3, 2, 3, 1, 3, 0, 1, 4, 3, 5, 6, 2, 3, 2, 3, 6, 3, 5, 6, 7])
         points, faces = face_coord_to_points_and_faces(face_coords)
         print(faces)
 

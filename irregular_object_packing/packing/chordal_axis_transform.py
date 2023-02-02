@@ -1,4 +1,4 @@
-""" In step 4.2.1 of the algorithm, The CAT is computed by using the following steps:
+""" In step 4.2.1 of the algorithm in [Ma et al. 2018], The CAT is computed by using the following steps:
 1. Create a Tetrahedron Mesh from all the points on the surface mesh of both the objects and the container as the input points.
 2. Use onlty those tetrahedrons that constructed of points from multiple objects.
 3. Compute the chordal axis of each tetrahedron.
@@ -12,9 +12,7 @@ import pyvista as pv
 from tqdm import tqdm
 
 # from utils import angle_between, sort_points_clockwise
-from irregular_object_packing.packing.utils import (angle_between,
-                                                    sort_faces_dict,
-                                                    sort_points_clockwise)
+from irregular_object_packing.packing.utils import angle_between, sort_faces_dict, sort_points_clockwise
 
 
 @dataclass
@@ -222,11 +220,16 @@ def create_faces_4(cat_faces, tet_points: list[TetPoint]):
 
 def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np.ndarray):
     """Compute the CAT cells of the objects in the list and the container.
-    First a Tetrahedral mesh is create from the pointcloud of all the objects points and the container poins.
+    First a Tetrahedral mesh is created from the pointcloud of all the objects points and the container points.
+    Then, for each tetrahedron that has points from at least 2 different objects, the faces of the CAT mesh are computed.
+
 
     Args:
         - object_points_list: a list of point clouds which define the surface meshes of the objects
         - container_points: a point cloud of surface mesh of the container
+
+    Returns:
+        - dictionary of the CAT cells for each object.
     """
     pc = pv.PolyData(np.concatenate((object_points_list + [container_points])))
     tetmesh = pc.delaunay_3d()
@@ -242,7 +245,8 @@ def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np
 
 
 def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
-    """Compute the CAT faces of the tetrahedron mesh.
+    """Compute the CAT faces of the tetrahedron mesh, by checking which tetrahedrons
+    have points from more than one object and splitting those according to figure 2 from the main paper.
 
     args:
         - tetmesh: a tetrahedron mesh of the container and objects
@@ -405,10 +409,10 @@ def main():
     plotter = pv.Plotter()
     plotter.add_mesh(polydata.explode(), color="r", show_edges=True, edge_color="black")
     plotter.add_mesh(tetmesh.explode(), opacity=0.3, show_edges=True, edge_color="b")
-    plotter.show()
+    # plotter.show()
     print("wow")
 
-    # plot_shapes(obj_shape, tetmesh.explode(), container, polydata.explode(), (0, 0, 10))
+    plot_shapes(obj_shape, tetmesh.explode(), container, polydata.explode(), (0, 0, 10))
 
 
 if __name__ == "__main__":

@@ -66,8 +66,10 @@ def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     return bounding_mesh
 
 
-def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rate: float=0.3 ,c_scale: float = 1.0) -> np.ndarray:
-    """packs the objects inside the container
+def place_objects(
+    container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rate: float = 0.3, c_scale: float = 1.0
+) -> np.ndarray:
+    """Places the objects inside the container at initial location.
 
     Args:
         container (trimesh.Trimesh): container mesh
@@ -78,7 +80,7 @@ def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rat
         scaled_container = container.copy().apply_scale(c_scale)
     else:
         scaled_container = container
-        
+
     # container_bound = get_min_bounding_mesh(container.apply_scale(0.8))
     max_volume = container.volume * coverage_rate
     acc_vol = 0
@@ -92,7 +94,11 @@ def pack_objects(container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rat
 
 
 def create_packed_scene(
-    container: trimesh.Trimesh, objects_coords: List[np.ndarray], mesh: trimesh.Trimesh, mesh_scale: float = 1, rotate: bool = False
+    container: trimesh.Trimesh,
+    objects_coords: List[np.ndarray],
+    mesh: trimesh.Trimesh,
+    mesh_scale: float = 1,
+    rotate: bool = False,
 ):
     """make a trimesh scene with the container and the objects inside.
 
@@ -108,15 +114,13 @@ def create_packed_scene(
         if rotate:
             new_mesh = new_mesh.apply_transform(trimesh.transformations.random_rotation_matrix())
 
-        new_mesh \
-            .apply_scale(mesh_scale) \
-            .apply_translation(coord)
-        
+        new_mesh.apply_scale(mesh_scale).apply_translation(coord)
+
         new_mesh.visual.vertex_colors = trimesh.visual.random_color()
         objects.append(new_mesh)
 
     container.visual.vertex_colors = [250, 255, 255, 100]
-    
+
     objects.append(container)
     scene = trimesh.Scene(objects)
 
@@ -240,7 +244,7 @@ class PartitionBuilder:
 # vor = Voronoi(tri.points)
 
 # for i, seed in enumerate(seed_points):
-#     region = vor.regions[vor.point_region[i]]
+# \region = vor.regions[vor.point_region[i]]
 #     if len(region) > 0:
 #         verts = vor.vertices[region]
 #         # check if the seed point is contained within the container mesh

@@ -1,5 +1,6 @@
-import trimesh
 import numpy as np
+import trimesh
+
 
 def translation_matrix(x0, x1):
     return np.array([[1, 0, 0, x1[0] - x0[0]], [0, 1, 0, x1[1] - x0[1]], [0, 0, 1, x1[2] - x0[2]], [0, 0, 0, 1]])
