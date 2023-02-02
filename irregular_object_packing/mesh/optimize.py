@@ -1,4 +1,4 @@
-from taichi import MeshInstance as TaiMeshInstance
+# from taichi import MeshInstance as TaiMeshInstance
 
 # import gmsh
 # import pymesh

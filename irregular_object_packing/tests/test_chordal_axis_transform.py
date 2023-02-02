@@ -1,14 +1,5 @@
-import sys
-
 import numpy as np
-
-sys.path[
-    0
-] = "/Users/maurits/code/cls/thesis/irregular-object-packing/irregular-object-packing/src/irregular_object_packing"
-
 import unittest
-from typing import List
-from unittest.util import sorted_list_difference
 
 from irregular_object_packing.packing.chordal_axis_transform import (
     TetPoint,
@@ -118,7 +109,8 @@ class TestCreateCatFaces(unittest.TestCase):
         self.a.add_triangle(Triangle([self.a.vertex, self.b.vertex, self.c.vertex], [], [0, 1, 2]))
         self.a.add_triangle(Triangle([self.a.vertex, self.c.vertex, self.d.vertex], [], [0, 2, 3]))
         self.a.add_triangle(Triangle([self.a.vertex, self.b.vertex, self.d.vertex], [], [0, 1, 3]))
-        expected_faces = {
+        # expected_faces = {
+        _ = {
             0: [  # from face a
                 [self.center, self.middle_ad, self.middle_acd],
                 [self.center, self.middle_ad, self.middle_abd],

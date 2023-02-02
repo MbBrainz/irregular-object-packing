@@ -5,6 +5,7 @@ Initialization phase of the packing algorithm.
 # %%
 import random
 from typing import List
+from scipy.spatial import Voronoi
 
 import numpy as np
 import plotly.graph_objs as go
@@ -150,7 +151,6 @@ def save_image(scene: trimesh.Scene, path: str):
 #     save_image(scene, 'packing.png')
 
 # %%
-from scipy.spatial import Voronoi
 
 
 class PartitionBuilder:

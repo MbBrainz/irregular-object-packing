@@ -34,11 +34,12 @@ def cprofile(func):
     return inner
 
 
-# # Example use 
+# # Example use
 # @pprofile
 # def prof_face_coord_to_points_and_faces():
 #     return face_coord_to_points_and_faces(cat_cells[0])
 # cat_points, poly_faces = prof_face_coord_to_points_and_faces()
+
 
 def pprofile(func):
     """

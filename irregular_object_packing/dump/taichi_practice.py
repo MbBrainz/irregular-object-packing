@@ -105,8 +105,9 @@ def step_slide():
         # set speed to zero if the particle is at the surface of the ball
         if (x[i] - ball_center[0]).norm() <= ball_radius:
             # v[i] = ti.Vector([0.0, 0.0, 0.0])
-            # # for sliding, we want the velocity in de direction of the ball radius to be zero, so we project the velocity on the ball radius
-            # project velocity vector on the normal vector of the ball surface, this is the velocity in the direction of the ball radius. that we need to substract
+            # # for sliding, we want the velocity in de direction of the ball radius to be zero,
+            # so we project the velocity vector on the normal vector of the ball surface,
+            # this is the velocity in the direction of the ball radius. that we need to substract
             n_c = x[i] - ball_center[0]  # normal vector on ball surface
             proj_n_v = v[i].dot(n_c) * n_c / ball_radius
             v[i] = v[i] - proj_n_v
@@ -120,7 +121,8 @@ def step_slide():
 
 
 # %% Rendering of the simulation
-# The cloth will be rpresented as a triangle mesh, which for a square grid is just a grid of triangles, where each cell ■ exists of two triangles. ◣ & ◥.
+# The cloth will be rpresented as a triangle mesh, which for a square grid is just a grid
+# of triangles, where each cell ■ exists of two triangles. ◣ & ◥.
 num_triangles = (N - 1) * (N - 1) * 2
 indices = ti.field(int, num_triangles * 3)
 vertices = ti.Vector.field(3, float, N * N)
@@ -128,7 +130,9 @@ vertices = ti.Vector.field(3, float, N * N)
 
 @ti.kernel
 def set_vertices():
-    """Sets the vertices of the mesh to the positions of the particles. The `i * N` is because the mesh is a 1D array of vertices, and we need to convert the 2D indices to 1D."""
+    """Sets the vertices of the mesh to the positions of the particles.
+    The `i * N` is because the mesh is a 1D array of vertices,
+    and we need to convert the 2D indices to 1D."""
     for i, j in ti.ndrange(N, N):
         vertices[i * N + j] = x[i, j]
 

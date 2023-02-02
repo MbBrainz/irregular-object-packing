@@ -11,7 +11,7 @@ from irregular_object_packing.packing.chordal_axis_transform import (
     compute_cat_cells,
     face_coord_to_points_and_faces,
 )
-from irregular_object_packing.packing.initialize import create_packed_scene, place_objects, save_image
+from irregular_object_packing.packing.initialize import create_packed_scene, place_objects
 from irregular_object_packing.packing.plots import create_plot
 
 # lets define a mesh size and a container size

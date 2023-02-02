@@ -9,10 +9,9 @@ from dataclasses import dataclass
 
 import numpy as np
 import pyvista as pv
-from tqdm import tqdm
 
 # from utils import angle_between, sort_points_clockwise
-from irregular_object_packing.packing.utils import angle_between, sort_faces_dict, sort_points_clockwise
+from irregular_object_packing.packing.utils import sort_points_clockwise
 
 
 @dataclass
@@ -98,8 +97,6 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
 
     assert len(most) == 2
     assert len(least) == 2
-
-    face: list[np.ndarray] = []
 
     # find center point of 2 triangles
     triangles: list[Triangle] = []
