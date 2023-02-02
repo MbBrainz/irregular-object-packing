@@ -4,6 +4,7 @@ codecov
 coverage
 flake8
 pytest
+pytest-cov
 sphinx
 twine
 pre-commit
