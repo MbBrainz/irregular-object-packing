@@ -108,14 +108,14 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
     aac_face = [least[1].center(most[0]), least[1].center(most[1]), triangles[0].center(), triangles[1].center()]
 
     # Add face to each object cat cell
-    cat_faces[most[0].obj_id].append(aab_face)
-    cat_faces[most[0].obj_id].append(aac_face)
+    cat_faces[most[0].obj_id][most[0].vertex].append(aab_face)
+    cat_faces[most[0].obj_id][most[0].vertex].append(aac_face)
 
-    cat_faces[least[0].obj_id].append(bc_face)
-    cat_faces[least[0].obj_id].append(aab_face)
+    cat_faces[least[0].obj_id][least[0].vertex].append(bc_face)
+    cat_faces[least[0].obj_id][least[0].vertex].append(aab_face)
 
-    cat_faces[least[1].obj_id].append(bc_face)
-    cat_faces[least[1].obj_id].append(aac_face)
+    cat_faces[least[1].obj_id][least[1].vertex].append(bc_face)
+    cat_faces[least[1].obj_id][least[1].vertex].append(aac_face)
 
 
 def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
@@ -141,7 +141,13 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
         raise ValueError(f"face {face} has more than 2 dimensions")
 
     for k, f in occ:
-        cat_faces[k].append(face)
+        for p in most:
+            cat_faces[k][p].append(face)
+            
+        for p in least:
+            cat_faces[k][p].append(face)
+            
+        # cat_faces[k].append(face)
 
 
 def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center: np.ndarray):
@@ -173,11 +179,11 @@ def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center:
         points.append(midpoint)
 
     sorted_points = sort_points_clockwise(points, v0, tet_center)
-    cat_faces = []
+    faces = []
     for i in range(len(sorted_points)):
-        cat_faces.append([tet_center, sorted_points[i], sorted_points[(i + 1) % len(sorted_points)]])
+        faces.append([tet_center, sorted_points[i], sorted_points[(i + 1) % len(sorted_points)]])
 
-    return cat_faces
+    return faces
 
 
 def create_faces_4(cat_faces, tet_points: list[TetPoint]):
@@ -212,7 +218,7 @@ def create_faces_4(cat_faces, tet_points: list[TetPoint]):
     for point in tet_points:
         others = [other for other in tet_points if not (other == point).all()]
         cat = single_point_4faces(point, others, tet_center)
-        cat_faces[point.obj_id] += cat
+        cat_faces[point.obj_id][point.vertex] += cat
 
 
 def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np.ndarray):
@@ -250,8 +256,13 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
         - point_sets: a list of sets of points, each set contains points from a single object
     """
     cat_faces = {}
-    for obj_id in range(len(point_sets)):
-        cat_faces[obj_id] = []
+    for i, obj_id in enumerate(range(len(point_sets))):
+        cat_faces[obj_id] = {}
+
+        # For each point in the point set, create an empty list of faces
+        # this is required for the growwth based optimisation
+        for point in point_sets[i]:
+            cat_faces[obj_id][point] = []
 
     for cell in range(tetmesh.n_cells):
         occ = {}
