@@ -65,6 +65,11 @@ def constraint_multiple_points(x, v, facets_sets):
     return np.array(constr).flatten()
 
 
+def constraints_from_dict(x, cat_faces):
+    v, facets_sets = [*zip(*cat_faces.items())]
+    return constraint_multiple_points(x, v, facets_sets)
+
+
 # Define a function to compute the rotation matrix from a rotational vector
 def rotation_matrix(rx, ry, rz):
     cx, cy, cz = np.cos(rx), np.cos(ry), np.cos(rz)
@@ -125,9 +130,11 @@ bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
 # %%
 v_2 = np.array([0, 0.9, 0.0])
 v_3 = np.array([0.9, 0.0, 0.0])
+cat_faces = {tuple(v_1): facets, tuple(v_2): facets, tuple(v_3): facets}
 v = [v_1, v_2, v_3]
 
-constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
+# constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
+constraint_dict = {"type": "ineq", "fun": constraints_from_dict, "args": (cat_faces,)}
 res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
 # %%
 # Print the results
