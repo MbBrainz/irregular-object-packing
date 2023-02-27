@@ -27,9 +27,9 @@ def transform_v(v_i, x):
     f, theta, t = x[0], x[1:4], x[4:]
     R = rotation_matrix(*theta)
     T = np.eye(4)  # identity transformation matrix
-    T[:3, :3] = R  # compute rotation matrix
     T[3, 3] = f
-    # T[0, 0], T[1, 1], T[2, 2], T[3, 3] = f, f, f, f  # **1/3  # set scaling factor
+    T[:3, :3] = f * R  # compute rotation matrix
+    T[0, 0], T[1, 1], T[2, 2], T[3, 3] = f, f, f, f  # **1/3  # set scaling factor
     T[:3, 3] = t  # set translation vector
 
     transformed_v_i = T @ np.hstack((v_i, 1))  # transform v_i
@@ -49,8 +49,8 @@ def constraint_single_point(x, facets, v_i):
 
         # normals = facet[1:]  # remaining points in facet are normals
         for q_j in facet[:1]:
-            condition = np.dot(transformed_v_i - q_j, n_j) / np.linalg.norm(n_j) ** 2
-            values.append(condition)
+            condition = np.dot(transformed_v_i - q_j, n_j) / np.linalg.norm(n_j)
+            values.append(-condition)
 
     values
 
@@ -91,6 +91,10 @@ facets = [
 x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0])
 v_1 = np.array([0, 0, 0.9])
 
+# Define the initial guess for the variables
+x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0])
+
+transform_v(v_1, x0)
 
 # Define the bounds for the variables
 r_bound = (-1 / 4 * np.pi, 1 / 4 * np.pi)
@@ -99,8 +103,6 @@ bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
 
 # Define the constraints for the optimization problem
 constraint_dict = {"type": "ineq", "fun": constraint_single_point, "args": (facets, v_1)}
-
-transform_v(v_1, x0)
 
 # initial guess
 init_res = constraint_single_point(x0, facets, v_1)
@@ -116,6 +118,12 @@ print(-res.fun)
 print("resulting vector:")
 print(transform_v(v_1, res.x))
 
+
+# %%
+# Define the bounds for the variables
+r_bound = (-1 / 2 * np.pi, 1 / 2 * np.pi)
+t_bound = (0, 1)
+bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
 
 # %%
 v_2 = np.array([0, 0.9, 0.0])
