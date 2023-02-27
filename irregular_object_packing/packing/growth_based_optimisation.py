@@ -28,7 +28,7 @@ def transform_v(v_i, x):
     R = rotation_matrix(*theta)
     T = np.eye(4)  # identity transformation matrix
     T[:3, :3] = R  # compute rotation matrix
-    T[3, 3] = f**1 / 3
+    T[3, 3] = f
     # T[0, 0], T[1, 1], T[2, 2], T[3, 3] = f, f, f, f  # **1/3  # set scaling factor
     T[:3, 3] = t  # set translation vector
 
@@ -86,13 +86,11 @@ facets = [
     np.array([[-4, 4, 0], [4, 4, 0], [4, 4, 1], [-4, 4, 1]], dtype=np.float64),
 ]
 
-v_1 = np.array([0, 0, 0.9])
-
 
 # Define the initial guess for the variables
 x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0])
+v_1 = np.array([0, 0, 0.9])
 
-transform_v(v_1, x0)
 
 # Define the bounds for the variables
 r_bound = (-1 / 4 * np.pi, 1 / 4 * np.pi)
@@ -101,6 +99,8 @@ bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
 
 # Define the constraints for the optimization problem
 constraint_dict = {"type": "ineq", "fun": constraint_single_point, "args": (facets, v_1)}
+
+transform_v(v_1, x0)
 
 # initial guess
 init_res = constraint_single_point(x0, facets, v_1)
@@ -155,12 +155,12 @@ pairs = [
 colors = ["r", "g", "b"]  # Different colors for each pair
 for i, pair in enumerate(pairs):
     color = colors[i % len(colors)]  # Cycle through the colors
-    ax.plot(pair[:, 0], pair[:, 1], pair[:, 2], color=color)
+    ax.plot(*zip(*pair), color=color, marker="o", linestyle="-")
 
 # Set the plot limits and labels
-ax.set_xlim(0, 1)
-ax.set_ylim(0, 1)
-ax.set_zlim(0, 1)
+ax.set_xlim(-5, 5)
+ax.set_ylim(-5, 5)
+ax.set_zlim(-1, 2)
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("Z")
