@@ -1,6 +1,7 @@
 # %%
 import numpy as np
 from scipy.optimize import minimize
+from tqdm import tqdm
 
 
 # Define the objective function to be maximized
@@ -27,7 +28,7 @@ def construct_transform_matrix(x):
     f, theta, t = x[0], x[1:4], x[4:]
     R = rotation_matrix(*theta)
     T = np.eye(4)  # identity transformation matrix
-    T[3, 3] = f  # ** (1 / 3)
+    T[3, 3] = f  # ** (1 / 3) # TODO: THIS is wrong. The matrices can be multiplyed, but are not commutative
     T[:3, :3] = R  # compute rotation matrix
     # T[0, 0], T[1, 1], T[2, 2], T[3, 3] = f, f, f, f  # **1/3  # set scaling factor
     T[:3, 3] = t  # set translation vector
@@ -53,21 +54,22 @@ def constraint_single_point(x, facets, v_i):
         n_j = compute_face_normal(facet, v_i)
 
         # normals = facet[1:]  # remaining points in facet are normals
-        for q_j in facet[:1]:
-            condition = np.dot(transformed_v_i - q_j, n_j) / np.linalg.norm(n_j)
-            values.append(condition)
+        # for q_j in facet[:1]:
+        q_j = facet[0]
+        condition = np.dot(transformed_v_i - q_j, n_j) / np.linalg.norm(n_j)
+        values.append(condition)
 
     values
 
-    return np.array(values)
+    return values
 
 
-def constraint_multiple_points(x, v, facets_sets):
+def constraint_multiple_points(x, v, facets_sets, pbar=False):
     constr = []  # list of constraints
-    for i, v_i in enumerate(v):
-        constr.append(constraint_single_point(x, facets_sets[i], v_i))
+    for i, v_i in tqdm(enumerate(v), disable=not pbar):
+        constr += constraint_single_point(x, facets_sets[i], v_i)
 
-    return np.array(constr).flatten()
+    return constr
 
 
 def constraints_from_dict(x, cat_faces):
