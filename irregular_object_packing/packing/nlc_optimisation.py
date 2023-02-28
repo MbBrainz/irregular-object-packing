@@ -23,7 +23,7 @@ def compute_face_normal(points, v_i):
     return normal
 
 
-def transform_v(v_i, x):
+def construct_transform_matrix(x):
     f, theta, t = x[0], x[1:4], x[4:]
     R = rotation_matrix(*theta)
     T = np.eye(4)  # identity transformation matrix
@@ -31,6 +31,11 @@ def transform_v(v_i, x):
     T[:3, :3] = R  # compute rotation matrix
     # T[0, 0], T[1, 1], T[2, 2], T[3, 3] = f, f, f, f  # **1/3  # set scaling factor
     T[:3, 3] = t  # set translation vector
+    return T
+
+
+def transform_v(v_i, x):
+    T = construct_transform_matrix(x)
 
     transformed_v_i = T @ np.hstack((v_i, 1))  # transform v_i
 
@@ -120,22 +125,24 @@ def test_nlcp():
     print("resulting vector:")
     print(transform_v(v_1, res.x))
 
-    # %%
-    # Define the bounds for the variables
-    r_bound = (-1 / 12 * np.pi, 1 / 4 * np.pi)
-    t_bound = (0, 1)
-    bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+    ## %%
 
-    # %%
+    ## %%
     v_2 = np.array([0, 0.9, 0.0])
     v_3 = np.array([0.9, 0.0, 0.0])
-    cat_faces = {tuple(v_1): facets, tuple(v_2): facets, tuple(v_3): facets}
+    cat_faces = {"all": [], tuple(v_1): facets, tuple(v_2): facets, tuple(v_3): facets}
     v = [v_1, v_2, v_3]
 
+    cat_faces.pop("all")
+
+    # Define the bounds for the variables
+    r_bound = (-1 / 12 * np.pi, 1 / 12 * np.pi)
+    t_bound = (0, 1)
+    bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
     # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
     constraint_dict = {"type": "ineq", "fun": constraints_from_dict, "args": (cat_faces,)}
     res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
-    # %%
+    ## %%
     # Print the results
     print("Optimal solution:")
     print(res.x)
@@ -146,7 +153,7 @@ def test_nlcp():
     print(transform_v(v_2, res.x))
     print(transform_v(v_3, res.x))
 
-    # %%
+    ## %%
     # Create a 3D plot
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -183,4 +190,5 @@ def test_nlcp():
     plt.show()
 
 
+# test_nlcp()
 # %%
