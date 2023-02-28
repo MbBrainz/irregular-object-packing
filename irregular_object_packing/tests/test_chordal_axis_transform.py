@@ -19,7 +19,7 @@ class TestCreateCatFaces(unittest.TestCase):
         self.b = TetPoint(np.array([8.0, 0.0, 0.0]))
         self.c = TetPoint(np.array([0.0, 8.0, 0.0]))
         self.d = TetPoint(np.array([0.0, 0.0, 8.0]))
-        self.cat_faces = {0: {}, 1: {}, 2: {}, 3: {}}
+        self.cat_faces = {0: {}, 1: {}, 2: {}, 3: {}, "all": []}
         self.setup_cat_faces_lists()
 
         return super().setUp()
@@ -92,24 +92,27 @@ class TestCreateCatFaces(unittest.TestCase):
         self.a.add_triangle(Triangle([self.a.vertex, self.c.vertex, self.d.vertex], [], [0, 2, 3]))
         self.a.add_triangle(Triangle([self.a.vertex, self.b.vertex, self.d.vertex], [], [0, 1, 3]))
 
+        face_for_a = [
+            [self.center, self.middle_ad, self.middle_acd],
+            [self.center, self.middle_ad, self.middle_abd],
+            [self.center, self.middle_ab, self.middle_abd],
+            [self.center, self.middle_ab, self.middle_abc],
+            [self.center, self.middle_ac, self.middle_abc],
+            [self.center, self.middle_ac, self.middle_acd],
+        ]
         expected_faces = {
-            0: {
-                tuple(self.a.vertex): [
-                    [self.center, self.middle_ad, self.middle_acd],
-                    [self.center, self.middle_ad, self.middle_abd],
-                    [self.center, self.middle_ab, self.middle_abd],
-                    [self.center, self.middle_ab, self.middle_abc],
-                    [self.center, self.middle_ac, self.middle_abc],
-                    [self.center, self.middle_ac, self.middle_acd],
-                ]
-            },
+            0: {"all": face_for_a, tuple(self.a.vertex): face_for_a},
         }
 
         computed_faces = {
-            0: {tuple(self.a.vertex): single_point_4faces(self.points[0], self.points[1:], self.center)}
+            0: {
+                "all": single_point_4faces(self.points[0], self.points[1:], self.center),
+                tuple(self.a.vertex): single_point_4faces(self.points[0], self.points[1:], self.center),
+            },
         }
 
         # # sort faces so that they can be compared
+        assert len(computed_faces.get("all")) > 0
 
         # NOTE: This test is manually checked for now
 
@@ -122,7 +125,7 @@ class TestCreateCatFaces(unittest.TestCase):
     def test_create_faces_4(self):
         self.set_object_ids([0, 1, 2, 3])
 
-        # cat_faces = {0: {}, 1: {}, 2: {}, 3: {}}
+        computed_faces = self.cat_faces
         self.a.add_triangle(Triangle([self.a.vertex, self.b.vertex, self.c.vertex], [], [0, 1, 2]))
         self.a.add_triangle(Triangle([self.a.vertex, self.c.vertex, self.d.vertex], [], [0, 2, 3]))
         self.a.add_triangle(Triangle([self.a.vertex, self.b.vertex, self.d.vertex], [], [0, 1, 3]))
@@ -169,7 +172,7 @@ class TestCreateCatFaces(unittest.TestCase):
             },
         }
 
-        create_faces_4(self.cat_faces, self.points)
+        create_faces_4(computed_faces, self.points)
         # NOTE: Since the change for nlc-opt this commented because it doesnt serves its puprose anymore.
         # for k in self.cat_faces.keys():
         #     for face in self.cat_faces[k]:
@@ -179,6 +182,8 @@ class TestCreateCatFaces(unittest.TestCase):
 
         # for k in self.cat_faces.keys():
         #     self.assertEqual(np.shape(self.cat_faces[k]), (6, 3, 3))
+
+        assert len(computed_faces.get("all")) > 0
 
         # # This assertion fails but its to much work to debug.  # # The single4 works, so Its probably my test expected result that is wrongly ordered.  # cat_faces = sort_faces_dict(cat_faces) # expected_faces = sort_faces_dict(expected_faces)
         # assert_faces_equal(self, self.cat_faces, expected_faces)
@@ -223,6 +228,7 @@ class TestCreateCatFaces(unittest.TestCase):
 
         computed_faces = self.cat_faces
         create_faces_3(computed_faces, occ, self.points)
+        assert len(computed_faces.get("all")) > 0
 
         # NOTE: This test has been manually checked using debug mode and is correct.
         #       crazy anoying to test of list of list of arrays contain the same list of arrays
@@ -267,6 +273,7 @@ class TestCreateCatFaces(unittest.TestCase):
         # expected_faces = sort_faces_dict(expected_faces)
         # computed_faces = sort_faces_dict(computed_faces)
 
+        assert len(computed_faces.get("all")) > 0
         assert_faces_equal(self, computed_faces, expected_faces)
 
     def test_create_faces_2_abbb(self):
@@ -294,6 +301,7 @@ class TestCreateCatFaces(unittest.TestCase):
 
         computed_faces = self.cat_faces
         create_faces_2(computed_faces, occ, self.points)
+        assert len(computed_faces.get("all")) > 0
         # expected_faces = sort_faces_dict(expected_faces)
         # computed_faces = sort_faces_dict(computed_faces)
 
@@ -332,6 +340,7 @@ class TestCreateCatFaces(unittest.TestCase):
 
         computed_faces = self.cat_faces
         create_faces_2(computed_faces, occ, self.points)
+        assert len(computed_faces.get("all")) > 0
         # expected_faces = sort_faces_dict(expected_faces)
         # computed_faces = sort_faces_dict(computed_faces)
 

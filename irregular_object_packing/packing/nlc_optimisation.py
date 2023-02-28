@@ -80,107 +80,107 @@ def rotation_matrix(rx, ry, rz):
     return R_x @ R_y @ R_z
 
 
-# Define the set of facets and the point v_i
-# facets = [np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]), np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])]
-facets = [
-    np.array([[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]], dtype=np.float64),
-    np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]], dtype=np.float64),
-    np.array([[-1, -1, 1], [1, -1, 1], [-1, -1, 0], [1, -1, 0]], dtype=np.float64),
-    np.array([[1, -1, 0], [1, -1, 1], [1, 1, 1], [1, 1, 0]], dtype=np.float64),
-    np.array([[-1, -1, 1], [-1, -1, 0], [-1, 1, 0], [-1, 1, 1]], dtype=np.float64),
-    np.array([[-1, 1, 0], [1, 1, 0], [1, 1, 1], [-1, 1, 1]], dtype=np.float64),
-]
+def test_nlcp():
+    # Define the set of facets and the point v_i
+    # facets = [np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]), np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])]
+    facets = [
+        np.array([[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]], dtype=np.float64),
+        np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]], dtype=np.float64),
+        np.array([[-1, -1, 1], [1, -1, 1], [-1, -1, 0], [1, -1, 0]], dtype=np.float64),
+        np.array([[1, -1, 0], [1, -1, 1], [1, 1, 1], [1, 1, 0]], dtype=np.float64),
+        np.array([[-1, -1, 1], [-1, -1, 0], [-1, 1, 0], [-1, 1, 1]], dtype=np.float64),
+        np.array([[-1, 1, 0], [1, 1, 0], [1, 1, 1], [-1, 1, 1]], dtype=np.float64),
+    ]
 
+    # Define the initial guess for the variables
+    x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+    v_1 = np.array([0, 0, 0.9])
 
-# Define the initial guess for the variables
-x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
-v_1 = np.array([0, 0, 0.9])
+    transform_v(v_1, x0)
 
-transform_v(v_1, x0)
+    # Define the bounds for the variables
+    r_bound = (-1 / 4 * np.pi, 1 / 4 * np.pi)
+    t_bound = (0, 1)
+    bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
 
-# Define the bounds for the variables
-r_bound = (-1 / 4 * np.pi, 1 / 4 * np.pi)
-t_bound = (0, 1)
-bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+    # Define the constraints for the optimization problem
+    constraint_dict = {"type": "ineq", "fun": constraint_single_point, "args": (facets, v_1)}
 
-# Define the constraints for the optimization problem
-constraint_dict = {"type": "ineq", "fun": constraint_single_point, "args": (facets, v_1)}
+    # initial guess
+    init_res = constraint_single_point(x0, facets, v_1)
 
-# initial guess
-init_res = constraint_single_point(x0, facets, v_1)
+    # Solve the optimization problem using the SQP method
+    res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
 
-# Solve the optimization problem using the SQP method
-res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
+    # Print the results
+    print("Optimal solution:")
+    print(res.x)
+    print("Maximum scaling factor:")
+    print(-res.fun)
+    print("resulting vector:")
+    print(transform_v(v_1, res.x))
 
-# Print the results
-print("Optimal solution:")
-print(res.x)
-print("Maximum scaling factor:")
-print(-res.fun)
-print("resulting vector:")
-print(transform_v(v_1, res.x))
+    # %%
+    # Define the bounds for the variables
+    r_bound = (-1 / 12 * np.pi, 1 / 4 * np.pi)
+    t_bound = (0, 1)
+    bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
 
+    # %%
+    v_2 = np.array([0, 0.9, 0.0])
+    v_3 = np.array([0.9, 0.0, 0.0])
+    cat_faces = {tuple(v_1): facets, tuple(v_2): facets, tuple(v_3): facets}
+    v = [v_1, v_2, v_3]
 
-# %%
-# Define the bounds for the variables
-r_bound = (-1 / 12 * np.pi, 1 / 4 * np.pi)
-t_bound = (0, 1)
-bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+    # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
+    constraint_dict = {"type": "ineq", "fun": constraints_from_dict, "args": (cat_faces,)}
+    res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
+    # %%
+    # Print the results
+    print("Optimal solution:")
+    print(res.x)
+    print("Maximum scaling factor:")
+    print(-res.fun)
+    print("resulting vectors:")
+    print(transform_v(v_1, res.x))
+    print(transform_v(v_2, res.x))
+    print(transform_v(v_3, res.x))
 
-# %%
-v_2 = np.array([0, 0.9, 0.0])
-v_3 = np.array([0.9, 0.0, 0.0])
-cat_faces = {tuple(v_1): facets, tuple(v_2): facets, tuple(v_3): facets}
-v = [v_1, v_2, v_3]
+    # %%
+    # Create a 3D plot
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-# constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
-constraint_dict = {"type": "ineq", "fun": constraints_from_dict, "args": (cat_faces,)}
-res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
-# %%
-# Print the results
-print("Optimal solution:")
-print(res.x)
-print("Maximum scaling factor:")
-print(-res.fun)
-print("resulting vectors:")
-print(transform_v(v_1, res.x))
-print(transform_v(v_2, res.x))
-print(transform_v(v_3, res.x))
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
 
-# %%
-# Create a 3D plot
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    # Plot the faces with opacity = 0.5
+    for face in facets:
+        collection = Poly3DCollection([face], alpha=0.5, facecolor="blue", edgecolor="black")
+        ax.add_collection(collection)
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection="3d")
+    pairs = [
+        [v_1, transform_v(v_1, res.x)],
+        [v_2, transform_v(v_2, res.x)],
+        [v_3, transform_v(v_3, res.x)],
+    ]
 
-# Plot the faces with opacity = 0.5
-for face in facets:
-    collection = Poly3DCollection([face], alpha=0.5, facecolor="blue", edgecolor="black")
-    ax.add_collection(collection)
+    # Plot the pairs of points with lines connecting them
+    colors = ["r", "g", "b"]  # Different colors for each pair
+    for i, pair in enumerate(pairs):
+        color = colors[i % len(colors)]  # Cycle through the colors
+        ax.plot(*zip(*pair), color=color, marker="o", linestyle="-")
 
-pairs = [
-    [v_1, transform_v(v_1, res.x)],
-    [v_2, transform_v(v_2, res.x)],
-    [v_3, transform_v(v_3, res.x)],
-]
+    # Set the plot limits and labels
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_zlim(-0.1, 1.1)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
 
-# Plot the pairs of points with lines connecting them
-colors = ["r", "g", "b"]  # Different colors for each pair
-for i, pair in enumerate(pairs):
-    color = colors[i % len(colors)]  # Cycle through the colors
-    ax.plot(*zip(*pair), color=color, marker="o", linestyle="-")
+    # Show the plot
+    plt.show()
 
-# Set the plot limits and labels
-ax.set_xlim(-1, 1)
-ax.set_ylim(-1, 1)
-ax.set_zlim(-0.1, 1.1)
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-ax.set_zlabel("Z")
-
-# Show the plot
-plt.show()
 
 # %%

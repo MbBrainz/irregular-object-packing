@@ -107,15 +107,21 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
     aab_face = [least[0].center(most[1]), least[0].center(most[0]), triangles[0].center(), triangles[1].center()]
     aac_face = [least[1].center(most[0]), least[1].center(most[1]), triangles[0].center(), triangles[1].center()]
 
-    # Add face to each object cat cell
+    # Add face to each object cat cell NOTE: Most[0] and most[1] are the same object
+    cat_faces[most[0].obj_id]["all"].append(aab_face)
+    cat_faces[most[0].obj_id]["all"].append(aac_face)
     cat_faces[most[0].obj_id][tuple(most[0].vertex)].append(aab_face)
     cat_faces[most[0].obj_id][tuple(most[0].vertex)].append(aac_face)
     cat_faces[most[1].obj_id][tuple(most[1].vertex)].append(aab_face)
     cat_faces[most[1].obj_id][tuple(most[1].vertex)].append(aac_face)
 
+    cat_faces[least[0].obj_id]["all"].append(bc_face)
+    cat_faces[least[0].obj_id]["all"].append(aab_face)
     cat_faces[least[0].obj_id][tuple(least[0].vertex)].append(bc_face)
     cat_faces[least[0].obj_id][tuple(least[0].vertex)].append(aab_face)
 
+    cat_faces[least[1].obj_id]["all"].append(bc_face)
+    cat_faces[least[1].obj_id]["all"].append(aac_face)
     cat_faces[least[1].obj_id][tuple(least[1].vertex)].append(bc_face)
     cat_faces[least[1].obj_id][tuple(least[1].vertex)].append(aac_face)
 
@@ -142,15 +148,15 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
     if len(np.shape(face)) > 2:
         raise ValueError(f"face {face} has more than 2 dimensions")
 
-    # for k, f in occ:
+    for k, f in occ:
+        cat_faces[k]["all"].append(face)
     # for each point add all the faces
+
     for p in most:
         cat_faces[occ[0][0]][tuple(p.vertex)].append(face)
 
     for p in least:
         cat_faces[occ[1][0]][tuple(p.vertex)].append(face)
-
-        # cat_faces[k].append(face)
 
 
 def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center: np.ndarray):
@@ -221,6 +227,8 @@ def create_faces_4(cat_faces, tet_points: list[TetPoint]):
     for point in tet_points:
         others = [other for other in tet_points if not (other == point).all()]
         cat = single_point_4faces(point, others, tet_center)
+        # note that we use += here because we want to add a list of faces to the list of faces, not just one face
+        cat_faces[point.obj_id]["all"] += cat
         cat_faces[point.obj_id][tuple(point.vertex)] += cat
 
 
@@ -260,7 +268,9 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
     """
     cat_faces = {}
     for i, obj_id in enumerate(range(len(point_sets))):
-        cat_faces[obj_id] = {}
+        cat_faces[obj_id] = {
+            "all": [],
+        }
 
         # For each point in the point set, create an empty list of faces
         # this is required for the growwth based optimisation
@@ -412,7 +422,7 @@ def main():
 
     # cat_4_faces = [face for face in cat_faces[0] if len(face) == 4]
 
-    cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
+    cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0]["all"])
     polydata = pv.PolyData(cat_points, poly_faces)
 
     # plotter = pv.Plotter()
