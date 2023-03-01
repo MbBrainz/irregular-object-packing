@@ -19,13 +19,18 @@ def objective(x):
 
 def compute_face_normal(points, v_i):
     # Compute the cross product of two vectors that lie on the face
-    v1 = points[1] - points[0]
-    v2 = points[2] - points[0]
-    normal = np.cross(v1, v2)
-    # Normalize the normal vector
-    normal /= np.linalg.norm(normal)
+    # Compute the cross product of two vectors that lie on the face
+    # Calculate the centroid of the points
+    centroid = np.mean(points, axis=0)
 
-    if np.dot(normal, v_i - v1) < 0:
+    # Calculate the vectors between the centroid and all other points
+    vectors = np.array(points) - centroid
+
+    # Calculate the cross product of two of the vectors to get the normal vector
+    normal = np.cross(vectors[0], vectors[1])
+
+    # Check if the other point is on the same side of the plane as the normal vector
+    if np.dot(normal, np.array(v_i) - centroid) < 0:
         normal *= -1
 
     return normal
@@ -33,12 +38,19 @@ def compute_face_normal(points, v_i):
 
 def construct_transform_matrix(x):
     f, theta, t = x[0], x[1:4], x[4:]
-    R = rotation_matrix(*theta)
     T = np.eye(4)  # identity transformation matrix
-    T[3, 3] = f  # ** (1 / 3) # TODO: THIS is wrong. The matrices can be multiplyed, but are not commutative
-    T[:3, :3] = R  # compute rotation matrix
-    # T[0, 0], T[1, 1], T[2, 2], T[3, 3] = f, f, f, f  # **1/3  # set scaling factor
-    T[:3, 3] = t  # set translation vector
+    R = rotation_matrix(*theta)
+    f = f ** (1 / 3)
+    S = np.diag([f, f, f])
+    T[:3, :3] = R @ S  # compute rotation matrix and transpose
+    T[:3, 3] = t
+
+    # R = rotation_matrix(*theta)
+    # T = np.eye(4)  # identity transformation matrix
+    # T[3, 3] = f  # ** (1 / 3) # TODO: THIS is wrong. The matrices can be multiplyed, but are not commutative
+    # T[:3, :3] = R  # compute rotation matrix
+    # # T[0, 0], T[1, 1], T[2, 2], T[3, 3] = f, f, f, f  # **1/3  # set scaling factor
+    # T[:3, 3] = t  # set translation vector
     return T
 
 
@@ -135,7 +147,8 @@ def test_nlcp():
     vectors = {}
 
     # Define the initial guess for the variables
-    x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+    # x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+    x0 = np.array([0.9, 0.01, 0.01, 0.01, 0, 0, 0])
 
     v = [9, 10, 11]
 
@@ -147,7 +160,7 @@ def test_nlcp():
 
     # Define the bounds for the variables
     r_bound = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-    t_bound = (0, 1)
+    t_bound = (0, 0)
     bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
     # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
     constraint_dict = {
