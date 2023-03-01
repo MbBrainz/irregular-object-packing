@@ -16,7 +16,7 @@ def scale_to_volume(mesh: trimesh.Trimesh, target_volume):
     return mesh.copy().apply_scale(scale_factor)
 
 
-def scale_and_center_mesh(mesh, target_volume):
+def scale_and_center_mesh(mesh: trimesh.Trimesh, target_volume):
     mesh = scale_to_volume(mesh, target_volume)
     M_t = translation_matrix(mesh.center_mass, [0, 0, 0])
     mesh.apply_transform(M_t)

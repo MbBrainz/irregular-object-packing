@@ -7,6 +7,8 @@
 # %%
 from dataclasses import dataclass
 
+import pickle
+
 import numpy as np
 import pyvista as pv
 
@@ -92,12 +94,14 @@ class IropData:
     point_ids: dict
     cat_faces: dict
     cat_cells: dict
+    object_coords: np.ndarray
 
     def __init__(self, point_sets: list[set[tuple]]):
         self.points = {}
         self.point_ids = {}
         self.cat_faces = {}
         self.cat_cells = {}
+        self.object_coords = np.array([])
 
         for obj_id in range(len(point_sets)):
             self.cat_cells[obj_id] = []
@@ -147,6 +151,21 @@ class IropData:
 
     def get_face(self, face: list[int]) -> list[np.ndarray]:
         return [np.array(self.point(p_id)) for p_id in face]
+
+    def save(self, filename: str):
+        with open(filename, "wb") as file:
+            pickle.dump(self, file)
+
+    @staticmethod
+    def load(filename: str) -> "IropData":
+        with open(filename, "rb") as file:
+            return pickle.load(file)
+
+
+def extract_points_of_interest(data: IropData, obj_id: int, translation: np.ndarray):
+    point_ids = set(np.concat(data.cat_faces[obj_id]))
+    points = {p_id: data.points[p_id] - translation for p_id in point_ids}
+    return points
 
 
 def create_faces_3(data: IropData, occ, tet_points: list[TetPoint]):

@@ -36,7 +36,7 @@ import irregular_object_packing.packing.chordal_axis_transform as cat
 # %%
 # all_k_faces = cat_cells[k].pop("all")
 k = 0
-irop_data = cat.cat.IropData([])
+irop_data = cat.IropData([])
 
 
 def optimal_transform(k, irop_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None):
@@ -53,9 +53,26 @@ def optimal_transform(k, irop_data, scale_bound=(0.1, None), max_angle=1 / 12 * 
             irop_data,
         ),
     }
-
     res = minimize(nlc.objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
     return res.x
 
 
 tf_arr = optimal_transform(k, irop_data)
+
+
+"""
+I need a function that takes the global points of the object and the CAT cell
+and returns the following:
+
+for NLC I need:
+- Local object mess
+- object rotation, scale
+- global coordinate
+- points with related faces
+
+To get that, i need: CAT
+- function that gets all the points for an object.
+- translates those points to the local system
+- computes tf-array
+- transforms load mesh
+"""

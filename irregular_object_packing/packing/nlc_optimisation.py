@@ -36,14 +36,15 @@ def compute_face_normal(points, v_i):
     return normal
 
 
-def construct_transform_matrix(x):
+def construct_transform_matrix(x, translation=True):
     f, theta, t = x[0], x[1:4], x[4:]
     T = np.eye(4)  # identity transformation matrix
     R = rotation_matrix(*theta)
     f = f ** (1 / 3)
     S = np.diag([f, f, f])
     T[:3, :3] = R @ S  # compute rotation matrix and transpose
-    T[:3, 3] = t
+    if translation:
+        T[:3, 3] = t
 
     # R = rotation_matrix(*theta)
     # T = np.eye(4)  # identity transformation matrix
@@ -54,9 +55,7 @@ def construct_transform_matrix(x):
     return T
 
 
-def transform_v(v_i, x):
-    T = construct_transform_matrix(x)
-
+def transform_v(v_i, T: np.ndarray):
     transformed_v_i = T @ np.hstack((v_i, 1))  # transform v_i
 
     # Normalize the resulting homogeneous coordinate vector to get the transformed 3D coordinate
@@ -66,13 +65,13 @@ def transform_v(v_i, x):
 
 
 # Define the constraint function
-def constraint_single_point(tf_arr, facets, v_i, irop_data: IropData):
-    v_i = np.array(irop_data.point(v_i))
+def constraint_single_point(v_i, transform_matrix, facets, points: dict, obj_coord=np.zeros(3)):
+    v_i = np.array(points[v_i]) - obj_coord
 
-    transformed_v_i = transform_v(v_i, tf_arr)  # transform v_i
+    transformed_v_i = transform_v(v_i, transform_matrix)  # transform v_i
     values = []
-    for facet_points in facets:
-        facet = irop_data.get_face(facet_points)
+    for facet_p_ids in facets:
+        facet = [np.array(points[p_id]) - obj_coord for p_id in facet_p_ids]
 
         n_j = compute_face_normal(facet, v_i)
 
@@ -88,19 +87,28 @@ def constraint_single_point(tf_arr, facets, v_i, irop_data: IropData):
 
 
 def constraint_multiple_points(
-    tf_arr: list[float], v: list[int], facets_sets: dict[list[int]], irop_data: IropData, pbar=False
+    tf_arr: list[float],
+    v: list[int],
+    facets_sets: dict[list[int]],
+    points: dict,
+    obj_coords=np.zeros(3),
+    pbar=False,
 ):
-    constr = []  # list of constraints
-    for i, v_i in tqdm(enumerate(v), disable=not pbar):
-        constr += constraint_single_point(tf_arr, facets_sets[i], v_i, irop_data)
+    transform_matrix = construct_transform_matrix(tf_arr)
 
-    return constr
+    constraints = []  # list of constraints
+    for i, v_i in tqdm(enumerate(v), disable=not pbar):
+        constraints += constraint_single_point(v_i, transform_matrix, facets_sets[i], points, obj_coords)
+
+    return constraints
 
 
 def constraints_from_dict(tf_arr: list[float], obj_id: int, irop_data: IropData):
+    # item will be in the form (vi, [facet1, facet2, ...])
     items = irop_data.cat_faces[obj_id].items()
+
     v, facets_sets = [*zip(*items)]
-    return constraint_multiple_points(tf_arr, v, facets_sets, irop_data)
+    return constraint_multiple_points(tf_arr, v, facets_sets, irop_data.points, irop_data.object_coords[obj_id])
 
 
 # Define a function to compute the rotation matrix from a rotational vector
@@ -224,5 +232,5 @@ def test_nlcp():
     plt.show()
 
 
-test_nlcp()
+# test_nlcp()
 # %%
