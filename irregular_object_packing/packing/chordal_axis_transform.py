@@ -88,12 +88,17 @@ class TetPoint:
 class IropData:
     """A class to hold the data for the IROP algorithm."""
 
-    points: dict = {}
-    point_ids: dict = {}
-    cat_faces: dict = {}
-    cat_cells: dict = {}
+    points: dict
+    point_ids: dict
+    cat_faces: dict
+    cat_cells: dict
 
     def __init__(self, point_sets: list[set[tuple]]):
+        self.points = {}
+        self.point_ids = {}
+        self.cat_faces = {}
+        self.cat_cells = {}
+
         for obj_id in range(len(point_sets)):
             self.cat_cells[obj_id] = []
             self.cat_faces[obj_id] = {}
@@ -103,7 +108,6 @@ class IropData:
 
     def point_id(self, point: np.ndarray) -> int:
         point = tuple(point)
-        # NOTE: when a point is added to the dict, both the id and the key are added, so the length of the dict is doubled
         n_points = len(self.points)
         p_id = self.point_ids.get(point, n_points)
         if p_id == n_points:
@@ -115,7 +119,7 @@ class IropData:
         return self.points[p_id]
 
     def new_point(self, point: tuple) -> int:
-        p_id = len(self.points) / 2
+        p_id = len(self.points)
         self.add_point(point, p_id)
         return p_id
 
@@ -140,6 +144,9 @@ class IropData:
     def set_cat_faces(self, point: TetPoint, faces: list[list[int]]) -> None:
         for face in faces:
             self.set_cat_face(point, face)
+
+    def get_face(self, face: list[int]) -> list[np.ndarray]:
+        return [np.array(self.point(p_id)) for p_id in face]
 
 
 def create_faces_3(data: IropData, occ, tet_points: list[TetPoint]):
@@ -329,17 +336,17 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
     """
     data = IropData(point_sets)
 
-    # FOR EACH POINT
-    # TODO: this for loop can be abstracted to IropData class
-    for i, obj_id in enumerate(range(len(point_sets))):
-        data.cat_faces[obj_id] = {
-            "all": [],
-        }
+    # # FOR EACH POINT
+    # # TODO: this for loop can be abstracted to IropData class
+    # for i, obj_id in enumerate(range(len(point_sets))):
+    #     data.cat_faces[obj_id] = {
+    #         "all": [],
+    #     }
 
-        # For each point in the point set, create an empty list of faces
-        # this is required for the growwth based optimisation
-        for point in point_sets[i]:  # aka for point in obj:
-            data.add_obj_point(obj_id, point)
+    #     # For each point in the point set, create an empty list of faces
+    #     # this is required for the growwth based optimisation
+    #     for point in point_sets[i]:  # aka for point in obj:
+    #         data.add_obj_point(obj_id, point)
 
     # FOR EACH TETRAHEDRON
     for cell in range(tetmesh.n_cells):

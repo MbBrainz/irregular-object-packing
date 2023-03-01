@@ -3,6 +3,13 @@ import numpy as np
 from scipy.optimize import minimize
 from tqdm import tqdm
 
+import irregular_object_packing.packing.chordal_axis_transform as cat
+from importlib import reload
+
+# reload(cat)
+
+IropData = cat.IropData
+
 
 # Define the objective function to be maximized
 def objective(x):
@@ -47,10 +54,14 @@ def transform_v(v_i, x):
 
 
 # Define the constraint function
-def constraint_single_point(x, facets, v_i):
-    transformed_v_i = transform_v(v_i, x)  # transform v_i
+def constraint_single_point(tf_arr, facets, v_i, irop_data: IropData):
+    v_i = np.array(irop_data.point(v_i))
+
+    transformed_v_i = transform_v(v_i, tf_arr)  # transform v_i
     values = []
-    for facet in facets:
+    for facet_points in facets:
+        facet = irop_data.get_face(facet_points)
+
         n_j = compute_face_normal(facet, v_i)
 
         # normals = facet[1:]  # remaining points in facet are normals
@@ -64,17 +75,20 @@ def constraint_single_point(x, facets, v_i):
     return values
 
 
-def constraint_multiple_points(x, v, facets_sets, pbar=False):
+def constraint_multiple_points(
+    tf_arr: list[float], v: list[int], facets_sets: dict[list[int]], irop_data: IropData, pbar=False
+):
     constr = []  # list of constraints
     for i, v_i in tqdm(enumerate(v), disable=not pbar):
-        constr += constraint_single_point(x, facets_sets[i], v_i)
+        constr += constraint_single_point(tf_arr, facets_sets[i], v_i, irop_data)
 
     return constr
 
 
-def constraints_from_dict(x, cat_faces):
-    v, facets_sets = [*zip(*cat_faces.items())]
-    return constraint_multiple_points(x, v, facets_sets)
+def constraints_from_dict(tf_arr: list[float], obj_id: int, irop_data: IropData):
+    items = irop_data.cat_faces[obj_id].items()
+    v, facets_sets = [*zip(*items)]
+    return constraint_multiple_points(tf_arr, v, facets_sets, irop_data)
 
 
 # Define a function to compute the rotation matrix from a rotational vector
@@ -90,61 +104,65 @@ def rotation_matrix(rx, ry, rz):
 def test_nlcp():
     # Define the set of facets and the point v_i
     # facets = [np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]), np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])]
+    import numpy as np
+
+    # Define points
+    points = {
+        1: np.array([-1, -1, 1], dtype=np.float64),
+        2: np.array([1, -1, 1], dtype=np.float64),
+        3: np.array([1, 1, 1], dtype=np.float64),
+        4: np.array([-1, 1, 1], dtype=np.float64),
+        5: np.array([-1, -1, 0], dtype=np.float64),
+        6: np.array([1, -1, 0], dtype=np.float64),
+        7: np.array([1, 1, 0], dtype=np.float64),
+        8: np.array([-1, 1, 0], dtype=np.float64),
+        9: np.array([0, 0, 0.9]),
+        10: np.array([0, 0.9, 0.0]),
+        11: np.array([0.9, 0.0, 0.0]),
+    }
+
+    # Define facets
     facets = [
-        np.array([[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]], dtype=np.float64),
-        np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]], dtype=np.float64),
-        np.array([[-1, -1, 1], [1, -1, 1], [-1, -1, 0], [1, -1, 0]], dtype=np.float64),
-        np.array([[1, -1, 0], [1, -1, 1], [1, 1, 1], [1, 1, 0]], dtype=np.float64),
-        np.array([[-1, -1, 1], [-1, -1, 0], [-1, 1, 0], [-1, 1, 1]], dtype=np.float64),
-        np.array([[-1, 1, 0], [1, 1, 0], [1, 1, 1], [-1, 1, 1]], dtype=np.float64),
+        np.array([1, 2, 3, 4]),
+        np.array([5, 6, 7, 8]),
+        np.array([1, 2, 6, 5]),
+        np.array([2, 3, 7, 6]),
+        np.array([3, 4, 8, 7]),
+        np.array([4, 1, 5, 8]),
     ]
+
+    # Define vectors
+    vectors = {}
 
     # Define the initial guess for the variables
     x0 = np.array([0.9, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
-    v_1 = np.array([0, 0, 0.9])
 
-    transform_v(v_1, x0)
+    v = [9, 10, 11]
 
-    # Define the bounds for the variables
-    r_bound = (-1 / 4 * np.pi, 1 / 4 * np.pi)
-    t_bound = (0, 1)
-    bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
-
-    # Define the constraints for the optimization problem
-    constraint_dict = {"type": "ineq", "fun": constraint_single_point, "args": (facets, v_1)}
-
-    # initial guess
-    init_res = constraint_single_point(x0, facets, v_1)
-
-    # Solve the optimization problem using the SQP method
-    res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
-
-    # Print the results
-    print("Optimal solution:")
-    print(res.x)
-    print("Maximum scaling factor:")
-    print(-res.fun)
-    print("resulting vector:")
-    print(transform_v(v_1, res.x))
-
-    ## %%
-
-    ## %%
-    v_2 = np.array([0, 0.9, 0.0])
-    v_3 = np.array([0.9, 0.0, 0.0])
-    cat_faces = {"all": [], tuple(v_1): facets, tuple(v_2): facets, tuple(v_3): facets}
-    v = [v_1, v_2, v_3]
-
-    cat_faces.pop("all")
+    data = IropData([])
+    data.points = {k: tuple(v) for k, v in points.items()}
+    data.point_ids = {tuple(v): k for k, v in points.items()}
+    data.cat_cells = {0: facets}
+    data.cat_faces = {0: {v_i: facets for v_i in v}}
 
     # Define the bounds for the variables
     r_bound = (-1 / 12 * np.pi, 1 / 12 * np.pi)
     t_bound = (0, 1)
     bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
     # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
-    constraint_dict = {"type": "ineq", "fun": constraints_from_dict, "args": (cat_faces,)}
+    constraint_dict = {
+        "type": "ineq",
+        "fun": constraints_from_dict,
+        "args": (
+            0,
+            data,
+        ),
+    }
     res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
     ## %%
+    v_1 = data.point(v[0])
+    v_2 = data.point(v[1])
+    v_3 = data.point(v[2])
     # Print the results
     print("Optimal solution:")
     print(res.x)
@@ -165,9 +183,10 @@ def test_nlcp():
 
     # Plot the faces with opacity = 0.5
     for face in facets:
+        face = data.get_face(face)
+
         collection = Poly3DCollection([face], alpha=0.5, facecolor="blue", edgecolor="black")
         ax.add_collection(collection)
-
     pairs = [
         [v_1, transform_v(v_1, res.x)],
         [v_2, transform_v(v_2, res.x)],
@@ -192,5 +211,5 @@ def test_nlcp():
     plt.show()
 
 
-# test_nlcp()
+test_nlcp()
 # %%

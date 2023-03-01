@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 
 from irregular_object_packing.packing import nlc_optimisation as nlc
 from irregular_object_packing.packing import packing as pkn
+import irregular_object_packing.packing.chordal_axis_transform as cat
 
 
 # %%
@@ -33,3 +34,28 @@ from irregular_object_packing.packing import packing as pkn
 # We will now combine the NLC optimisation with the CAT cells to create a single iteration of the optimisation.
 #
 # %%
+# all_k_faces = cat_cells[k].pop("all")
+k = 0
+irop_data = cat.cat.IropData([])
+
+
+def optimal_transform(k, irop_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None):
+    r_bound = (-max_angle, max_angle)
+    t_bound = (0, max_t)
+    bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+    x0 = np.array([0.1, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+
+    constraint_dict = {
+        "type": "ineq",
+        "fun": nlc.constraints_from_dict,
+        "args": (
+            k,
+            irop_data,
+        ),
+    }
+
+    res = minimize(nlc.objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
+    return res.x
+
+
+tf_arr = optimal_transform(k, irop_data)
