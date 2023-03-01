@@ -89,17 +89,21 @@ class IropData:
     """A class to hold the data for the IROP algorithm."""
 
     points: dict = {}
+    point_ids: dict = {}
     cat_faces: dict = {}
 
     def point_id(self, point: np.ndarray) -> int:
         point = tuple(point)
         # NOTE: when a point is added to the dict, both the id and the key are added, so the length of the dict is doubled
-        n_points = len(self.points) / 2
-        p_id = self.points.get(point, n_points)
+        n_points = len(self.points)
+        p_id = self.point_ids.get(point, n_points)
         if p_id == n_points:
             self.add_point(point, p_id)
 
         return p_id
+
+    def point(self, p_id: int) -> tuple:
+        return self.points[p_id]
 
     def new_point(self, point: tuple) -> int:
         p_id = len(self.points) / 2
@@ -113,7 +117,7 @@ class IropData:
 
     def add_point(self, point: tuple, p_id: int) -> None:
         self.points[p_id] = point
-        self.points[point] = p_id
+        self.point_ids[point] = p_id
 
     def add_cat_face(self, obj_id: int, face: list[int]) -> None:
         self.cat_faces[obj_id]["all"].append(face)
@@ -339,7 +343,9 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
                 # check if the cell has points from more than one point set
                 if tuple(cell_point) in obj:
                     occ[i] = occ.get(i, 0) + 1
-                    tet_points.append(TetPoint(cell_point, data.points[tuple(cell_point)], obj_id=i, tet_id=cell))
+                    tet_points.append(
+                        TetPoint(cell_point, data.point_ids[tuple(cell_point)], obj_id=i, tet_id=cell)
+                    )
 
         # sort occ on value
         assert len(tet_points) == 4, f"tet_points: {tet_points}"  # lil check
@@ -361,7 +367,23 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
     return data
 
 
-def face_coord_to_points_and_faces(cat_faces0):
+def convert_single_to_pyvista(data: IropData, obj_id: int):
+    """Convert the data to a pyvista.PolyData object.
+
+    args:
+        - data: the data to convert
+    """
+    points = []
+    faces = []
+
+    for face in data.cat_faces[obj_id]["all"]:
+        faces.extend([3, *face])
+
+    points = np.array(points)
+    faces = np.array(faces)
+
+
+def face_coord_to_points_and_faces(data: IropData, obj_id: int):
     # FIXME: This function is not functional anymore. ill fix it later
     """Convert a list of triangular only faces represented by points with coordinates
     to a list of points and a list of faces represented by the number of points and point ids.
@@ -372,15 +394,17 @@ def face_coord_to_points_and_faces(cat_faces0):
 
 
     """
+    cat_faces = data.cat_faces[obj_id]["all"]
     cat_points = []
     poly_faces = []
     n_entries = 0
-    for face in cat_faces0:
+    for face in cat_faces:
         len_face = len(face)
         if len_face == 3:
             n_entries += 4
         if len_face == 4:
-            n_entries += 8
+            n_entries += 5
+            # n_entries += 8
 
     poly_faces = np.empty(n_entries, dtype=np.int32)
 
@@ -389,13 +413,19 @@ def face_coord_to_points_and_faces(cat_faces0):
     counter = 0
     face_len = 0
     idx = 0
-    for i, face in enumerate(cat_faces0):
+
+    new_faces = []
+
+    for i, face in enumerate(cat_faces):
         face_len = len(face)
+        new_face = np.zeros(face_len)
         for i in range(len(face)):
-            if tuple(face[i]) not in points.keys():
-                points[tuple(face[i])] = counter
-                cat_points.append(face[i])
+            if face[i] not in points.keys():
+                points[data.point(face[i])] = counter
+                cat_points.append(data.point(face[i]))
                 counter += 1
+
+            new_face[i] = points[data.point(face[i])]
 
         # For a face with 4 points, we create 2 triangles,
         # Because pyvista does not support quads correctly, while it says it does.
@@ -403,21 +433,29 @@ def face_coord_to_points_and_faces(cat_faces0):
         # but the triangles will overlap by half, like an open envelope shape.
         if face_len == 3:
             poly_faces[idx] = 3
-            poly_faces[idx + 1] = points[tuple(face[0])]
-            poly_faces[idx + 2] = points[tuple(face[1])]
-            poly_faces[idx + 3] = points[tuple(face[2])]
+            poly_faces[idx + 1] = new_face[0]
+            poly_faces[idx + 2] = new_face[1]
+            poly_faces[idx + 3] = new_face[2]
             idx += 4
 
         elif face_len == 4:  # make 2 triangles for each quad
-            poly_faces[idx] = 3
-            poly_faces[idx + 1] = points[tuple(face[0])]
-            poly_faces[idx + 2] = points[tuple(face[1])]
-            poly_faces[idx + 3] = points[tuple(face[2])]
-            poly_faces[idx + 4] = 3
-            poly_faces[idx + 5] = points[tuple(face[2])]
-            poly_faces[idx + 6] = points[tuple(face[3])]
-            poly_faces[idx + 7] = points[tuple(face[1])]
-            idx += 8
+            poly_faces[idx] = 4
+            poly_faces[idx + 1] = new_face[0]
+            poly_faces[idx + 2] = new_face[1]
+            poly_faces[idx + 3] = new_face[2]
+            poly_faces[idx + 4] = new_face[3]
+            idx += 5
+
+        # elif face_len == 4:  # make 2 triangles for each quad
+        #     poly_faces[idx] = 3
+        #     poly_faces[idx + 1] = face[0]
+        #     poly_faces[idx + 2] = face[1]
+        #     poly_faces[idx + 3] = face[2]
+        #     poly_faces[idx + 4] = 3
+        #     poly_faces[idx + 5] = face[2]
+        #     poly_faces[idx + 6] = face[3]
+        #     poly_faces[idx + 7] = face[1]
+        #     idx += 8
 
     return cat_points, poly_faces
 
@@ -476,9 +514,9 @@ def main():
 
     # cat_4_faces = [face for face in cat_faces[0] if len(face) == 4]
 
-    cat_points, poly_faces = face_coord_to_points_and_faces(data.cat_faces[0]["all"])
-    polydata = pv.PolyData(cat_points, poly_faces)
+    poly_points, poly_faces = face_coord_to_points_and_faces(data, 0)
 
+    polydata = pv.PolyData(poly_points, poly_faces)
     # plotter = pv.Plotter()
     # plotter.add_mesh(polydata.explode(), color="y", show_edges=True, edge_color="black")
     # plotter.add_mesh(tetmesh.explode(), opacity=0.3, show_edges=True, edge_color="b")
