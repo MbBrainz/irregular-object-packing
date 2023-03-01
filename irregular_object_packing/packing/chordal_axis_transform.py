@@ -91,6 +91,15 @@ class IropData:
     points: dict = {}
     point_ids: dict = {}
     cat_faces: dict = {}
+    cat_cells: dict = {}
+
+    def __init__(self, point_sets: list[set[tuple]]):
+        for obj_id in range(len(point_sets)):
+            self.cat_cells[obj_id] = []
+            self.cat_faces[obj_id] = {}
+
+            for point in point_sets[obj_id]:
+                self.add_obj_point(obj_id, point)
 
     def point_id(self, point: np.ndarray) -> int:
         point = tuple(point)
@@ -113,14 +122,13 @@ class IropData:
     def add_obj_point(self, obj_id: int, point: tuple) -> None:
         p_id = self.new_point(point)
         self.cat_faces[obj_id][p_id] = []
-        self.cat_faces[obj_id]["all"].append([p_id])
 
     def add_point(self, point: tuple, p_id: int) -> None:
         self.points[p_id] = point
         self.point_ids[point] = p_id
 
     def add_cat_face(self, obj_id: int, face: list[int]) -> None:
-        self.cat_faces[obj_id]["all"].append(face)
+        self.cat_cells[obj_id].append(face)
 
     def set_cat_face(self, point: TetPoint, face: list[int]) -> None:
         self.cat_faces[point.obj_id][point.p_id].append(face)
@@ -319,7 +327,7 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
         - tetmesh: a tetrahedron mesh of the container and objects
         - point_sets: a list of sets of points, each set contains points from a single object
     """
-    data = IropData()
+    data = IropData(point_sets)
 
     # FOR EACH POINT
     # TODO: this for loop can be abstracted to IropData class
@@ -394,7 +402,7 @@ def face_coord_to_points_and_faces(data: IropData, obj_id: int):
 
 
     """
-    cat_faces = data.cat_faces[obj_id]["all"]
+    cat_faces = data.cat_cells[obj_id]
     cat_points = []
     poly_faces = []
     n_entries = 0
