@@ -96,12 +96,12 @@ class IropData:
     cat_cells: dict
     object_coords: np.ndarray
 
-    def __init__(self, point_sets: list[set[tuple]]):
+    def __init__(self, point_sets: list[set[tuple]], object_coords: np.ndarray):
         self.points = {}
         self.point_ids = {}
         self.cat_faces = {}
         self.cat_cells = {}
-        self.object_coords = np.array([])
+        self.object_coords = object_coords
 
         for obj_id in range(len(point_sets)):
             self.cat_cells[obj_id] = []
@@ -166,6 +166,11 @@ def extract_points_of_interest(data: IropData, obj_id: int, translation: np.ndar
     point_ids = set(np.concat(data.cat_faces[obj_id]))
     points = {p_id: data.points[p_id] - translation for p_id in point_ids}
     return points
+
+
+def cat_mesh_from_data(cat_data: IropData, k: int) -> pv.PolyData:
+    cat_points, poly_faces = face_coord_to_points_and_faces(cat_data, k)
+    return pv.PolyData(cat_points, poly_faces)
 
 
 def create_faces_3(data: IropData, occ, tet_points: list[TetPoint]):
@@ -258,7 +263,9 @@ def create_faces_2(data: IropData, occ, tet_points: list[TetPoint]):
         data.set_cat_face(most[0], face)
 
 
-def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np.ndarray):
+def compute_cat_cells(
+    object_points_list: list[np.ndarray], container_points: np.ndarray, obj_coords: list[np.ndarray]
+):
     """Compute the CAT cells of the objects in the list and the container.
     First a Tetrahedral mesh is created from the pointcloud of all the objects points and the container points.
     Then, for each tetrahedron that has points from at least 2 different objects, the faces of the CAT mesh are computed.
@@ -279,7 +286,7 @@ def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np
     obj_point_sets = [set(map(tuple, obj)) for obj in object_points_list] + [set(map(tuple, container_points))]
 
     # Each cat cell is a list of faces, each face is a list of points
-    cat_cells = compute_cat_faces(tetmesh, obj_point_sets)
+    cat_cells = compute_cat_faces(tetmesh, obj_point_sets, obj_coords)
 
     return cat_cells
 
@@ -345,7 +352,7 @@ def create_faces_4(data: IropData, tet_points: list[TetPoint]):
     data.set_cat_faces(tet_points[3], faces_d)
 
 
-def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
+def compute_cat_faces(tetmesh, point_sets: list[set[tuple]], obj_coords: list[np.ndarray]):
     """Compute the CAT faces of the tetrahedron mesh, by checking which tetrahedrons
     have points from more than one object and splitting those according to figure 2 from the main paper.
 
@@ -353,7 +360,7 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
         - tetmesh: a tetrahedron mesh of the container and objects
         - point_sets: a list of sets of points, each set contains points from a single object
     """
-    data = IropData(point_sets)
+    data = IropData(point_sets, obj_coords)
 
     # # FOR EACH POINT
     # # TODO: this for loop can be abstracted to IropData class
@@ -544,7 +551,7 @@ def main():
 
     pc = pv.PolyData(np.concatenate([cat_points, container.points]))
     tetmesh = pc.delaunay_3d()
-    data = compute_cat_cells([cat_points], container.points)
+    data = compute_cat_cells([cat_points], container.points, [0, 0, 0])
 
     # cat_4_faces = [face for face in cat_faces[0] if len(face) == 4]
 
