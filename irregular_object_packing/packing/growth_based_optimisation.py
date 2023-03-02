@@ -177,3 +177,29 @@ print(simulation.transform_log[0][test_k])
 print(simulation.transform_data[test_k])
 
 # %%
+# Plot of the final packing
+import pyvista as pv
+from irregular_object_packing.packing.plots import create_plot
+
+object_meshes = []
+cat_meshes = []
+
+data = simulation.cat_data
+
+lim = len(data.cat_faces.keys())
+for k, v in tqdm(data.cat_faces.items()):
+    if k >= lim - 1:
+        break
+    cat_points, poly_faces = cat.face_coord_to_points_and_faces(data, k)
+    polydata = pv.PolyData(cat_points, poly_faces)
+    cat_meshes.append(polydata)
+
+    object_mesh = original_mesh.copy()
+
+    transform_matrix = nlc.construct_transform_matrix(simulation.transform_data[k])
+    object_mesh = object_mesh.apply_transform(transform_matrix)
+
+    object_meshes.append(object_mesh)
+
+create_plot(simulation.transform_data, object_meshes, cat_meshes, container.to_mesh())
+# %%
