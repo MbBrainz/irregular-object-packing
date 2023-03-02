@@ -24,8 +24,10 @@ def create_plot(object_locations, object_meshes, object_cells, container_mesh):
     plotter.show()
 
 
-def plot_step_comparison(original_mesh, tf_arrs, cat_cell_mesh):
+def plot_step_comparison(original_mesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_2=None):
     tf_init, tf_fin = tf_arrs
+    if cat_cell_mesh_2 is None:
+        cat_cell_mesh_2 = cat_cell_mesh_1
 
     object_mesh = original_mesh.copy()
     post_mesh = original_mesh.copy()
@@ -40,14 +42,14 @@ def plot_step_comparison(original_mesh, tf_arrs, cat_cell_mesh):
     plotter.subplot(0)
     plotter.add_title("Initial Placement")
     plotter.add_mesh(init_mesh, color="red", opacity=0.8)
-    plotter.add_mesh(cat_cell_mesh, color="yellow", opacity=0.4)
+    plotter.add_mesh(cat_cell_mesh_1, color="yellow", opacity=0.4)
 
     # create the second plot
     # plot2 = pv.Plotter()
     plotter.subplot(1)
     plotter.add_title("Optimized Placement")
     plotter.add_mesh(post_mesh, color="red", opacity=0.8)
-    plotter.add_mesh(cat_cell_mesh, color="yellow", opacity=0.4)
+    plotter.add_mesh(cat_cell_mesh_2, color="yellow", opacity=0.4)
     plotter.show()
 
     return plotter

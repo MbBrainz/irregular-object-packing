@@ -89,8 +89,10 @@ def place_objects(
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(scaled_container.bounds)
         if scaled_container.contains([coord]):
-            objects_coords.append(coord)
-            acc_vol += mesh.volume
+            distance_arr = [np.linalg.norm(coord - i) > mesh.volume ** (1 / 3) for i in objects_coords]
+            if np.alltrue(distance_arr):
+                objects_coords.append(coord)
+                acc_vol += mesh.volume
     return objects_coords
 
 

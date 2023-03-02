@@ -1,7 +1,9 @@
 # %%
 from collections import namedtuple
+from copy import copy
 import numpy as np
 from scipy.optimize import minimize
+from tqdm import tqdm, tqdm_notebook
 import trimesh
 import sys
 from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
@@ -39,7 +41,7 @@ def optimal_transform(k, irop_data, scale_bound=(0.1, None), max_angle=1 / 12 * 
     return res.x
 
 
-SimSettings = namedtuple("sim_settings", ["sample_rate", "max_angle", "max_t", "initial_scale"])
+SimSettings = namedtuple("sim_settings", ["sample_rate", "max_angle", "max_t", "initial_scale", "i_max"])
 
 
 class Simulation:
@@ -58,6 +60,8 @@ class Simulation:
         self.cat_data = None
         self.transform_data = np.empty(0)
         self.previous_transform_data = np.empty(0)
+        self.transform_log = []
+        self.cat_log = []
 
     def mesh_sample_rate(self, k):
         # TODO: implement a function that returns the sample rate for each mesh based on the relative volume wrt the container
@@ -83,40 +87,49 @@ class Simulation:
             tf_i = np.array([object_scales[i], *object_rotations[i], *object_coords[i]])
             self.transform_data[i] = tf_i
 
-        # for i in range(len(self.settings.i_max)):
-        # first iteration
+        self.transform_log.append(self.transform_data.copy())
+        progress_bar = tqdm(range(self.settings.i_max), desc="Iteration", postfix=["obj_id ", dict(value=0)])
 
-        mesh_sample_rate = self.mesh_sample_rate(m_id)
+        for i in range(self.settings.i_max):
+            progress_bar.update(1)
+            # first iteration
 
-        # RESAMPLE SURFACE MESHES
-        container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
-        meshes = [
-            trimesh.sample.sample_surface_even(self.meshes[i], mesh_sample_rate[i])[0]
-            for i in range(len(self.meshes))
-        ]
+            mesh_sample_rate = self.mesh_sample_rate(m_id)
 
-        # single mesh for simplicity
-        mesh = meshes[m_id]
+            # RESAMPLE SURFACE MESHES
+            container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
+            meshes = [
+                trimesh.sample.sample_surface_even(self.meshes[i], mesh_sample_rate[i])[0]
+                for i in range(len(self.meshes))
+            ]
 
-        obj_points = []
+            # single mesh for simplicity
+            mesh = meshes[m_id]
 
-        for obj_id in range(self.n_objects):
-            M = nlc.construct_transform_matrix(self.transform_data[obj_id])
-            object_i = mesh.copy()
-            points = trimesh.transform_points(object_i, M)
-            obj_points.append(points)
+            obj_points = []
 
-        self.cat_data = cat.compute_cat_cells(obj_points, container_points, object_coords)
+            for obj_id in range(self.n_objects):
+                M = nlc.construct_transform_matrix(self.transform_data[obj_id])
+                object_i = mesh.copy()
+                points = trimesh.transform_points(object_i, M)
+                obj_points.append(points)
 
-        scale_bound = (0.1, None)
-        for k in range(self.n_objects):
-            self.previous_transform_data[k] = self.transform_data[k]
-            tf_arr = optimal_transform(
-                k, self.cat_data, scale_bound, max_angle=self.settings.max_angle, max_t=self.settings.max_t
-            )
-            new_tf = self.transform_data[k] + tf_arr
-            new_tf[0] = tf_arr[0] * self.transform_data[k][0]
-            self.transform_data[k] = new_tf
+            self.cat_data = cat.compute_cat_cells(obj_points, container_points, object_coords)
+
+            scale_bound = (0.1, None)
+            for k in range(self.n_objects):
+                progress_bar.set_postfix(obj_id=k)
+                progress_bar.refresh()
+                self.previous_transform_data[k] = self.transform_data[k]
+                tf_arr = optimal_transform(
+                    k, self.cat_data, scale_bound, max_angle=self.settings.max_angle, max_t=self.settings.max_t
+                )
+                new_tf = self.transform_data[k] + tf_arr
+                new_tf[0] = tf_arr[0] * self.transform_data[k][0]
+                self.transform_data[k] = new_tf
+
+            self.cat_log.append(copy(self.cat_data))
+            self.transform_log.append(self.transform_data.copy())
 
 
 mesh_volume = 0.1
@@ -138,7 +151,7 @@ print_mesh_info(container, "original container")
 container = scale_to_volume(container, container_volume)
 print_mesh_info(container, "scaled container")
 
-settings = SimSettings(sample_rate=200, max_angle=1 / 12 * np.pi, max_t=None, initial_scale=0.1)
+settings = SimSettings(sample_rate=50, max_angle=1 / 12 * np.pi, max_t=None, initial_scale=0.1, i_max=2)
 simulation = Simulation([original_mesh], container, settings)
 
 # %%
@@ -146,18 +159,21 @@ simulation.run()
 # %%
 from irregular_object_packing.packing.plots import plot_step_comparison
 
-
-test_k = 1
-cat_cell_mesh = cat.cat_mesh_from_data(simulation.cat_data, test_k)
+iteration = 1
+test_k = 0
+cat_cell_mesh_0 = cat.cat_mesh_from_data(simulation.cat_log[0], test_k)
+cat_cell_mesh_1 = cat.cat_mesh_from_data(simulation.cat_log[iteration], test_k)
 
 plot_step_comparison(
     original_mesh,
-    [simulation.previous_transform_data[test_k], simulation.transform_data[test_k]],
-    cat_cell_mesh,
+    [simulation.transform_log[0][test_k], simulation.transform_log[iteration][test_k]],
+    cat_cell_mesh_0,
+    cat_cell_mesh_1,
 )
 
 # %%
-print(simulation.previous_transform_data[test_k])
+test_k = 0
+print(simulation.transform_log[0][test_k])
 print(simulation.transform_data[test_k])
 
 # %%
