@@ -59,24 +59,7 @@ def plot_step_comparison(original_mesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_
 
 
 def plot_state(optimizer: Optimizer):
-    object_meshes = []
-    cat_meshes = []
-
-    data = optimizer.cat_data
-
-    lim = len(data.cat_faces.keys())
-    for k, v in data.cat_faces.items():
-        if k >= lim - 1:
-            break
-        cat_points, poly_faces = face_coord_to_points_and_faces(data, k)
-        polydata = pv.PolyData(cat_points, poly_faces)
-        cat_meshes.append(polydata)
-
-        object_mesh = optimizer.meshes[0].copy()
-
-        transform_matrix = nlc_optimisation.construct_transform_matrix(optimizer.transform_data[k])
-        object_mesh = object_mesh.apply_transform(transform_matrix)
-
-        object_meshes.append(object_mesh)
+    object_meshes = optimizer.get_processed_meshes()
+    cat_meshes = optimizer.get_cat_meshes()
 
     create_plot(optimizer.transform_data, object_meshes, cat_meshes, optimizer.container.to_mesh())

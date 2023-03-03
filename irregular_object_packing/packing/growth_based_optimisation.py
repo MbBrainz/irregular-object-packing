@@ -2,6 +2,7 @@
 from collections import namedtuple
 from copy import copy
 import numpy as np
+from pyvista import PolyData
 from scipy.optimize import minimize
 from tqdm import tqdm
 import trimesh
@@ -65,6 +66,8 @@ class Optimizer:
         m_id = 0
         object_coords = self.setup()
 
+        self.check_overlap()
+
         for i in (pbar := tqdm(range(self.settings.i_max), desc="Iteration", postfix=["obj_id ", dict(value=0)])):
             mesh_sample_rate = self.mesh_sample_rate(m_id)
 
@@ -97,6 +100,9 @@ class Optimizer:
             self.cat_log.append(copy(self.cat_data))
             self.transform_log.append(self.transform_data.copy())
 
+        coll = self.check_overlap()
+        print(f"Collision: {coll}")
+
     def setup(self):
         m_id = 0
         object_coords = initialize.place_objects(self.container, self.meshes[m_id], coverage_rate=0.3, c_scale=0.9)
@@ -115,9 +121,33 @@ class Optimizer:
         self.transform_log.append(self.transform_data.copy())
         return object_coords
 
+    def check_overlap(self):
+        manager = trimesh.collision.CollisionManager()
+        for mesh in self.get_processed_meshes():
+            manager.add_object(mesh)
+
+        coll_data = manager.in_collision_internal()
+        return coll_data
+
     def mesh_sample_rate(self, k):
         # TODO: implement a function that returns the sample rate for each mesh based on the relative volume wrt the container
         return [self.settings.sample_rate for i in range(len(self.meshes))]  # currently simple
 
     def container_sample_rate(self):
         return self.settings.sample_rate * 10
+
+    def get_processed_meshes(self) -> list[PolyData]:
+        object_meshes = []
+
+        for i in range(self.n_objects):
+            transform_matrix = nlc.construct_transform_matrix(self.transform_data[i])
+            object_mesh = self.meshes[0].copy().apply_transform(transform_matrix)
+            object_meshes.append(object_mesh)
+
+    def get_cat_meshes(self) -> list[PolyData]:
+        cat_meshes = []
+
+        for i in range(self.n_objects):
+            cat_points, cat_faces = cat.face_coord_to_points_and_faces(self.cat_data, i)
+            poly_data = trimesh.Trimesh(vertices=cat_points, faces=cat_faces)
+            cat_meshes.append(poly_data)
