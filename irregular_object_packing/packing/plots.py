@@ -1,10 +1,13 @@
 import pyvista as pv
 from irregular_object_packing.packing import nlc_optimisation
+from irregular_object_packing.packing.chordal_axis_transform import face_coord_to_points_and_faces
+from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
 
-def create_plot(object_locations, object_meshes, object_cells, container_mesh):
+def create_plot(object_locations, object_meshes, object_cells, container_mesh, plotter=None):
     # Create a PyVista plotter object
-    plotter = pv.Plotter()
+    if plotter is None:
+        plotter = pv.Plotter()
 
     # Create a container mesh with specified opacity
     container = pv.wrap(container_mesh)
@@ -53,3 +56,27 @@ def plot_step_comparison(original_mesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_
     plotter.show()
 
     return plotter
+
+
+def plot_state(optimizer: Optimizer):
+    object_meshes = []
+    cat_meshes = []
+
+    data = optimizer.cat_data
+
+    lim = len(data.cat_faces.keys())
+    for k, v in data.cat_faces.items():
+        if k >= lim - 1:
+            break
+        cat_points, poly_faces = face_coord_to_points_and_faces(data, k)
+        polydata = pv.PolyData(cat_points, poly_faces)
+        cat_meshes.append(polydata)
+
+        object_mesh = optimizer.meshes[0].copy()
+
+        transform_matrix = nlc_optimisation.construct_transform_matrix(optimizer.transform_data[k])
+        object_mesh = object_mesh.apply_transform(transform_matrix)
+
+        object_meshes.append(object_mesh)
+
+    create_plot(optimizer.transform_data, object_meshes, cat_meshes, optimizer.container.to_mesh())

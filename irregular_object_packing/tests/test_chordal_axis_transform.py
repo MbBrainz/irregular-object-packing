@@ -4,6 +4,7 @@ import unittest
 from irregular_object_packing.packing.chordal_axis_transform import (
     TetPoint,
     Triangle,
+    CatData,
     create_faces_2,
     create_faces_3,
     create_faces_4,
@@ -11,6 +12,18 @@ from irregular_object_packing.packing.chordal_axis_transform import (
     single_point_4faces,
 )
 from irregular_object_packing.packing.utils import sort_faces_dict
+
+
+class TestCreateFaces3(unittest.TestCase):
+    def setUp(self):
+        # Define a simple CatData object with 3 points and 3 faces.
+        point_sets = [
+            {(0, 0, 0), (1, 0, 0), (0, 1, 0)},
+            {(1, 1, 0), (1, 0, 0), (0, 1, 0)},
+            {(0, 0, 1), (1, 0, 1), (0, 1, 1)},
+        ]
+        object_coords = np.array([(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (0, 0, 1), (1, 0, 1), (0, 1, 1)])
+        self.cat_data = CatData(point_sets, object_coords)
 
 
 class TestCreateCatFaces(unittest.TestCase):
@@ -36,6 +49,19 @@ class TestCreateCatFaces(unittest.TestCase):
         self.b.obj_id = object_ids[1]
         self.c.obj_id = object_ids[2]
         self.d.obj_id = object_ids[3]
+
+    def assertCatFacesEqual(self, cat_faces1, cat_faces2):
+        self.assertEqual(len(cat_faces1), len(cat_faces2))
+        for p_id, faces1 in cat_faces1.items():
+            self.assertListEqual(faces1, cat_faces2[p_id])
+
+    def assertCatPointsEqual(self, cat_points1, cat_points2):
+        self.assertEqual(len(cat_points1), len(cat_points2))
+        for p_id, point1 in cat_points1.items():
+            self.assertPointsEqual(point1, cat_points2[p_id])
+
+    def assertPointsEqual(self, point1, point2):
+        np.testing.assert_array_equal(point1, point2)
 
     @property
     def points(self):

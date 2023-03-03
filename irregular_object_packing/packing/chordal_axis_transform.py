@@ -51,14 +51,12 @@ class TetPoint:
     obj_id: int
     p_id: int
     tet_id: int
-    triangles: list[Triangle]
 
     def __init__(self, point: np.ndarray, p_id, obj_id=-1, tet_id=-1):
         self.vertex = point
         self.p_id = p_id
         self.obj_id = obj_id
         self.tet_id = tet_id
-        self.triangles = []
 
     def __eq__(self, other):
         return self.vertex == other.vertex
@@ -87,8 +85,8 @@ class TetPoint:
         self.triangles.append(triangle)
 
 
-class IropData:
-    """A class to hold the data for the IROP algorithm."""
+class CatData:
+    """A class to hold the data for the CAT algorithm."""
 
     points: dict
     point_ids: dict
@@ -157,23 +155,23 @@ class IropData:
             pickle.dump(self, file)
 
     @staticmethod
-    def load(filename: str) -> "IropData":
+    def load(filename: str) -> "CatData":
         with open(filename, "rb") as file:
             return pickle.load(file)
 
 
-def extract_points_of_interest(data: IropData, obj_id: int, translation: np.ndarray):
+def extract_points_of_interest(data: CatData, obj_id: int, translation: np.ndarray):
     point_ids = set(np.concat(data.cat_faces[obj_id]))
     points = {p_id: data.points[p_id] - translation for p_id in point_ids}
     return points
 
 
-def cat_mesh_from_data(cat_data: IropData, k: int) -> pv.PolyData:
+def cat_mesh_from_data(cat_data: CatData, k: int) -> pv.PolyData:
     cat_points, poly_faces = face_coord_to_points_and_faces(cat_data, k)
     return pv.PolyData(cat_points, poly_faces)
 
 
-def create_faces_3(data: IropData, occ, tet_points: list[TetPoint]):
+def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
     """Create the faces of a tetrahedron with 3 different objects.
 
     Args:
@@ -217,7 +215,7 @@ def create_faces_3(data: IropData, occ, tet_points: list[TetPoint]):
     data.set_cat_face(least[1], least_face)
 
 
-def create_faces_2(data: IropData, occ, tet_points: list[TetPoint]):
+def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
     """Create the faces of a tetrahedron with 2 different objects.
     This function serves both for the case of 2 and 2 points for object a and b resp., as for 3 and 1 points for object a and b resp.
 
@@ -291,7 +289,7 @@ def compute_cat_cells(
     return cat_cells
 
 
-def create_faces_4(data: IropData, tet_points: list[TetPoint]):
+def create_faces_4(data: CatData, tet_points: list[TetPoint]):
     center_point = data.point_id(sum([point.vertex for point in tet_points]) / 4)
     ab_point = data.point_id((tet_points[0].vertex + tet_points[1].vertex) / 2)
     ac_point = data.point_id((tet_points[0].vertex + tet_points[2].vertex) / 2)
@@ -360,19 +358,7 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]], obj_coords: list[np
         - tetmesh: a tetrahedron mesh of the container and objects
         - point_sets: a list of sets of points, each set contains points from a single object
     """
-    data = IropData(point_sets, obj_coords)
-
-    # # FOR EACH POINT
-    # # TODO: this for loop can be abstracted to IropData class
-    # for i, obj_id in enumerate(range(len(point_sets))):
-    #     data.cat_faces[obj_id] = {
-    #         "all": [],
-    #     }
-
-    #     # For each point in the point set, create an empty list of faces
-    #     # this is required for the growwth based optimisation
-    #     for point in point_sets[i]:  # aka for point in obj:
-    #         data.add_obj_point(obj_id, point)
+    data = CatData(point_sets, obj_coords)
 
     # FOR EACH TETRAHEDRON
     for cell in range(tetmesh.n_cells):
@@ -408,7 +394,7 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]], obj_coords: list[np
     return data
 
 
-def convert_single_to_pyvista(data: IropData, obj_id: int):
+def convert_single_to_pyvista(data: CatData, obj_id: int):
     """Convert the data to a pyvista.PolyData object.
 
     args:
@@ -424,7 +410,7 @@ def convert_single_to_pyvista(data: IropData, obj_id: int):
     faces = np.array(faces)
 
 
-def face_coord_to_points_and_faces(data: IropData, obj_id: int):
+def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     # FIXME: This function is not functional anymore. ill fix it later
     """Convert a list of triangular only faces represented by points with coordinates
     to a list of points and a list of faces represented by the number of points and point ids.
