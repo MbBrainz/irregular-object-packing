@@ -4,7 +4,7 @@ from irregular_object_packing.packing.chordal_axis_transform import face_coord_t
 from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
 
-def create_plot(object_locations, object_meshes, object_cells, container_mesh, plotter=None):
+def create_plot(object_locations, object_meshes: list[pv.PolyData], object_cells, container_mesh, plotter=None):
     # Create a PyVista plotter object
     if plotter is None:
         plotter = pv.Plotter()
@@ -17,9 +17,10 @@ def create_plot(object_locations, object_meshes, object_cells, container_mesh, p
     # Loop over objects and create a PyVista mesh for each object
     for i in range(len(object_locations)):
         # object_mesh = pv.PolyData(object_meshes[i])
-        object_mesh = pv.wrap(object_meshes[i])
+        object_mesh = object_meshes[i]
         # object_mesh.transform(np.eye(4), object_locations[i])
-        plotter.add_mesh(object_mesh, color="r", opacity=0.7)
+        plotter.add_mesh(object_mesh.decimate(0.1), color="r", opacity=0.7)
+
         plotter.add_mesh(object_cells[i], color="y", opacity=0.3)
 
     # Set background color and show the plot

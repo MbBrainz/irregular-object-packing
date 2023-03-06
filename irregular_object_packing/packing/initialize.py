@@ -68,7 +68,10 @@ def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
 
 
 def place_objects(
-    container: trimesh.Trimesh, mesh: trimesh.Trimesh, coverage_rate: float = 0.3, c_scale: float = 1.0
+    container: trimesh.Trimesh,
+    mesh: trimesh.Trimesh,
+    coverage_rate: float = 0.3,
+    c_scale: float = 1.0,
 ) -> np.ndarray:
     """Places the objects inside the container at initial location.
 
