@@ -67,7 +67,7 @@ def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     return bounding_mesh
 
 
-def place_objects(
+def init_coordinates(
     container: trimesh.Trimesh,
     mesh: trimesh.Trimesh,
     coverage_rate: float = 0.3,

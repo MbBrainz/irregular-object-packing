@@ -1,4 +1,5 @@
 import pyvista as pv
+from trimesh import Trimesh
 from irregular_object_packing.packing import nlc_optimisation
 from irregular_object_packing.packing.chordal_axis_transform import face_coord_to_points_and_faces
 from irregular_object_packing.packing.growth_based_optimisation import Optimizer
@@ -28,19 +29,19 @@ def create_plot(object_locations, object_meshes: list[pv.PolyData], object_cells
     plotter.show()
 
 
-def plot_step_comparison(original_mesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_2=None):
+def plot_step_comparison(original_mesh: Trimesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_2=None):
     tf_init, tf_fin = tf_arrs
     if cat_cell_mesh_2 is None:
         cat_cell_mesh_2 = cat_cell_mesh_1
 
     object_mesh = original_mesh.copy()
-    post_mesh = original_mesh.copy()
+    post_mesh = object_mesh.copy()
 
     original_tranform = nlc_optimisation.construct_transform_matrix(tf_init)
     modified_transform = nlc_optimisation.construct_transform_matrix(tf_fin)
 
-    init_mesh = object_mesh.apply_transform(original_tranform)
-    post_mesh = post_mesh.apply_transform(modified_transform)
+    init_mesh = pv.wrap(object_mesh.apply_transform(original_tranform)).decimate(0.1)
+    post_mesh = pv.wrap(post_mesh.apply_transform(modified_transform)).decimate(0.1)
 
     plotter = pv.Plotter(shape="1|1", notebook=True)  # replace with the filename/path of your first mesh
     plotter.subplot(0)
@@ -63,4 +64,4 @@ def plot_state(optimizer: Optimizer):
     object_meshes = optimizer.get_processed_meshes()
     cat_meshes = optimizer.get_cat_meshes()
 
-    create_plot(optimizer.transform_data, object_meshes, cat_meshes, optimizer.container.to_mesh())
+    create_plot(optimizer.tf_arrs, object_meshes, cat_meshes, optimizer.container.to_mesh())

@@ -15,7 +15,11 @@ from irregular_object_packing.mesh.utils import print_mesh_info
 
 sys.path.append("../irregular_object_packing/")
 
-from irregular_object_packing.packing import initialize, nlc_optimisation as nlc, chordal_axis_transform as cat
+from irregular_object_packing.packing import (
+    initialize as init,
+    nlc_optimisation as nlc,
+    chordal_axis_transform as cat,
+)
 
 ## %% [markdown] {"slideshow": {"slide_type": "slide"}}
 # ### NLC optimisation with CAT cells single interation
@@ -46,117 +50,136 @@ def optimal_transform(k, irop_data, scale_bound=(0.1, None), max_angle=1 / 12 * 
 @dataclass
 class SimSettings:
     sample_rate: int = 50
-    max_angle: float = 1 / 12 * np.pi
+    """The sample rate of the object surface mesh"""
+    max_a: float = 1 / 12 * np.pi
+    """The maximum rotation angle per growth step"""
     max_t: float = None
-    initial_scale: float = 0.1
+    """The maximum translation per growth step"""
+    init_f: float = 0.1
+    """The initial scale factor"""
     itn_max: int = 1
+    """The maximum number of iterations per scaling step"""
     n_scaling_steps: int = 1
-    coverage_rate: float = 0.3
+    """The number of scaling steps"""
+    r: float = 0.3
+    """The coverage rate"""
 
 
 class Optimizer:
-    shapes: list[trimesh.Trimesh]
+    shape: trimesh.Trimesh
     container: trimesh.Trimesh
     settings: SimSettings
     cat_data: cat.CatData
-    transform_data: np.ndarray[np.ndarray]
+    tf_arrs: np.ndarray[np.ndarray]
     object_coords: np.ndarray
-    previous_transform_data: np.ndarray[np.ndarray]
-    n_objects: int = 0
+    prev_tf_arrs: np.ndarray[np.ndarray]
 
-    def __init__(self, shapes: list[trimesh.Trimesh], container: trimesh.Trimesh, settings: SimSettings):
-        self.shapes = shapes
+    def __init__(self, shape: trimesh.Trimesh, container: trimesh.Trimesh, settings: SimSettings):
+        self.shape = shape
         self.container = container
         self.settings = settings
         self.cat_data = None
-        self.transform_data = np.empty(0)
+        self.tf_arrs = np.empty(0)
         self.object_coords = np.empty(0)
-        self.previous_transform_data = np.empty(0)
-        self.tf_log = {}
-        self.cat_log = {}
-
-    def run(self):
-        # NOTE: Hardcoded mesh index 0
-        m_id = 0
-        self.setup()
-
-        scaling_barier = np.linspace(self.settings.initial_scale, 1, num=self.settings.n_scaling_steps + 1)
-        self.check_overlap()
-
-        for i_b in (pbar1 := tqdm(range(0, len(scaling_barier) - 1), desc="scaling_barrier", position=0)):
-            pbar1.set_postfix([("max_scale", scaling_barier[i_b + 1])])
-
-            # for i in range(self.settings.itn_max):
-            for i in (
-                pbar2 := tqdm(
-                    range(self.settings.itn_max), desc="Iteration", postfix=["obj_id", dict(value=0)], position=1
-                )
-            ):
-                mesh_sample_rate = self.mesh_sample_rate(m_id)
-
-                # Resample surface meshes
-                container_points = trimesh.sample.sample_surface_even(
-                    self.container, self.container_sample_rate()
-                )[0]
-                shape_points_list = [
-                    trimesh.sample.sample_surface_even(mesh, mesh_sample_rate[i])[0]
-                    for i, mesh in enumerate(self.shapes)
-                ]
-                mesh = shape_points_list[m_id]
-
-                obj_points = [
-                    trimesh.transform_points(mesh.copy(), nlc.construct_transform_matrix(transform_data))
-                    for transform_data in self.transform_data
-                ]
-
-                self.cat_data = cat.compute_cat_cells(obj_points, container_points, self.object_coords)
-
-                scale_bound = (scaling_barier[i_b], scaling_barier[i_b + 1])
-                for obj_i, transform_data_i in enumerate(self.transform_data):
-                    pbar2.set_postfix(obj_id=obj_i)
-                    self.previous_transform_data[obj_i] = transform_data_i.copy()
-                    tf_arr = optimal_transform(
-                        obj_i,
-                        self.cat_data,
-                        scale_bound=scale_bound,
-                        max_angle=self.settings.max_angle,
-                        max_t=self.settings.max_t,
-                    )
-                    new_tf = transform_data_i + tf_arr
-                    new_tf[0] = tf_arr[0]  # * transform_data_i[0]
-                    self.transform_data[obj_i] = new_tf
-                    self.object_coords[obj_i] = new_tf[4:]
-
-                self.cat_log[i_b * self.settings.itn_max + i] = copy(self.cat_data)
-                self.tf_log[i_b * self.settings.itn_max + i + 1] = self.transform_data.copy()
-
-        self.cat_log[0] = copy(self.cat_log[1])
-        coll = self.check_overlap()
-
-        print(f"Collision: {coll}")
-        print(f"Optimisation complete. scales: {[t[0] for t in self.transform_data]}")
+        self.prev_tf_arrs = np.empty(0)
+        self.log = {}
+        self.log_index = 0
 
     def setup(self):
-        m_id = 0
-        object_coords = initialize.place_objects(
-            self.container, self.shapes[m_id], coverage_rate=self.settings.coverage_rate, c_scale=0.9
+        self.object_coords = init.init_coordinates(
+            self.container,
+            self.shape,
+            coverage_rate=self.settings.r,
+            c_scale=0.9,
         )
-        self.n_objects = len(object_coords)
 
-        object_rotations = np.random.uniform(-np.pi, np.pi, (self.n_objects, 3))
-        object_scales = np.ones(self.n_objects) * self.settings.initial_scale
+        init_f = self.settings.init_f
+        object_rotations = np.random.uniform(-np.pi, np.pi, (self.n_objs, 3))
 
         # SET TRANSFORM DATA
-        self.transform_data = np.empty((self.n_objects, 7))
-        self.previous_transform_data = np.empty((self.n_objects, 7))
-        for i in range(self.n_objects):
-            tf_i = np.array([object_scales[i], *object_rotations[i], *object_coords[i]])
-            self.transform_data[i] = tf_i
+        self.tf_arrs = np.empty((self.n_objs, 7))
+        self.prev_tf_arrs = np.empty((self.n_objs, 7))
 
-        self.tf_log[0] = self.transform_data.copy()
-        self.object_coords = object_coords
+        for i in range(self.n_objs):
+            tf_arr_i = np.array([init_f, *object_rotations[i], *self.object_coords[i]])
+            self.tf_arrs[i] = tf_arr_i
 
-    def check_overlap(self, pbar: tqdm = None):
+        self.tf_log[0] = self.tf_arrs.copy()
+        self.setup_pbars()
+
+    def setup_pbars(self):
+        self.pbar1 = tqdm(range(0, self.settings.n_scaling_steps - 1), desc="scaling", position=0)
+        self.pbar2 = tqdm(range(self.settings.itn_max), desc="Iteration", position=1)
+
+    def update_log(self, i_b, i):
+        self.log[self.log_index] = {"tf_arrs": self.tf_arrs.copy(), "cat_data": copy(self.cat_data)}
+        self.log[(i_b, i)] = self.log[self.log_index]  # nice lil' reference
+        self.log_index += 1
+
+    def run(self):
+        self.setup()
+
+        scaling_barrier = np.linspace(self.settings.init_f, 1, num=self.settings.n_scaling_steps)
+        self.check_overlap()
+
+        for i_b in range(0, self.settings.n_scaling_steps):
+            for i in range(self.settings.itn_max):
+                self.iteration(scaling_barrier[i_b])
+
+                # administrative stuff
+                self.update_log(i_b, i)
+                self.pbar2.update()
+            self.pbar1.update()
+
+        coll = self.check_overlap()
+
+    # ----------------------------------------------------------------------------------------------
+    # Optimisation
+    # ----------------------------------------------------------------------------------------------
+    def iteration(self, scale_bound):
+        """Perform a single iteration of the optimisation"""
+        sample_rate = self.mesh_sample_rate(0)
+
+        # Resample surface meshes
+        container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
+        shape_points = trimesh.sample.sample_surface_even(self.shape, sample_rate)[0]
+
+        obj_points = [
+            trimesh.transform_points(shape_points.copy(), nlc.construct_transform_matrix(transform_data))
+            for transform_data in self.tf_arrs
+        ]
+
+        self.cat_data = cat.compute_cat_cells(obj_points, container_points, self.object_coords)
+
+        for obj_i, transform_data_i in enumerate(self.tf_arrs):
+            self.pbar2.set_postfix(obj_id=obj_i)
+            self.local_optimisation(obj_i, self.cat_data, transform_data_i, scale_bound)
+
+        # self.cat_log[i_b * self.settings.itn_max + i] = copy(self.cat_data)
+        # self.tf_log[i_b * self.settings.itn_max + i + 1] = self.transform_data.copy()
+
+    def local_optimisation(self, obj_id, cat_data, transform_data_i, max_scale):
+        # self.prev_tf_arrs[obj_id] = transform_data_i.copy()
+        tf_arr = optimal_transform(
+            obj_id,
+            cat_data,
+            scale_bound=(self.settings.init_f, max_scale),
+            max_angle=self.settings.max_a,
+            max_t=self.settings.max_t,
+        )
+        new_tf = transform_data_i + tf_arr
+        new_tf[0] = tf_arr[0]  # * transform_data_i[0]
+        self.tf_arrs[obj_id] = new_tf
+        self.object_coords[obj_id] = new_tf[4:]
+
+    # ----------------------------------------------------------------------------------------------
+    # Helper functions
+    # ----------------------------------------------------------------------------------------------
+    @property
+    def n_objs(self):
+        return len(self.object_coords)
+
+    def check_overlap(self):
         p_meshes = self.get_processed_meshes()
         i, colls = 0, 0
         for mesh_1, mesh_2 in combinations(p_meshes, 2):
@@ -166,15 +189,13 @@ class Optimizer:
                 colls += n_contacts
 
         if i > 0:
-            if pbar != None:
-                pbar.write(f"! collision found for {i} objectts with total of {colls} contacts")
+            if self.pbar1 != None:
+                self.pbar1.write(f"! collision found for {i} objectts with total of {colls} contacts")
             else:
                 print(f"! collision found for {i} objectts with total of {colls} contacts")
-        # return coll_data
 
     def mesh_sample_rate(self, k):
-        # TODO: implement a function that returns the sample rate for each mesh based on the relative volume wrt the container
-        return [self.settings.sample_rate for i in range(len(self.shapes))]  # currently simple
+        return self.settings.sample_rate  # currently simple
 
     def container_sample_rate(self):
         return self.settings.sample_rate * 10
@@ -182,17 +203,17 @@ class Optimizer:
     def get_processed_meshes(self) -> list[PolyData]:
         object_meshes = []
 
-        for i in range(self.n_objects):
-            transform_matrix = nlc.construct_transform_matrix(self.transform_data[i])
-            object_mesh = self.shapes[0].copy().apply_transform(transform_matrix)
-            object_meshes.append(pv.wrap(object_mesh))
+        for i in range(self.n_objs):
+            transform_matrix = nlc.construct_transform_matrix(self.tf_arrs[i])
+            object_mesh = self.shape.copy().apply_transform(transform_matrix)
+            object_meshes.append(pv.wrap(object_mesh).decimate(0.1))
 
         return object_meshes
 
     def get_cat_meshes(self) -> list[PolyData]:
         cat_meshes = []
 
-        for i in range(self.n_objects):
+        for i in range(self.n_objs):
             cat_points, cat_faces = cat.face_coord_to_points_and_faces(self.cat_data, i)
             poly_data = pv.PolyData(cat_points, cat_faces)
 
@@ -200,5 +221,28 @@ class Optimizer:
 
         return cat_meshes
 
+    @staticmethod
+    def default_setup() -> "Optimizer":
+        DATA_FOLDER = "./data/mesh/"
+
+        mesh_volume = 0.1
+        container_volume = 10
+
+        loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
+        container = trimesh.primitives.Cylinder(radius=1, height=1)
+
+        # Scale the mesh and container to the desired volume
+        container = scale_to_volume(container, container_volume)
+        original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
+
+        settings = SimSettings()
+        optimizer = Optimizer(original_mesh, container, settings)
+        optimizer.run()
+        return optimizer
+
+
+# %%
+
+optimizer = Optimizer.default_setup()
 
 # %%

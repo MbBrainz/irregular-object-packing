@@ -11,7 +11,7 @@ from irregular_object_packing.packing.chordal_axis_transform import (
     compute_cat_cells,
     face_coord_to_points_and_faces,
 )
-from irregular_object_packing.packing.initialize import create_packed_scene, place_objects
+from irregular_object_packing.packing.initialize import create_packed_scene, init_coordinates
 from irregular_object_packing.packing.plots import create_plot
 
 # lets define a mesh size and a container size
@@ -40,7 +40,7 @@ print_mesh_info(container, "scaled container")
 
 # %%
 # Initial placement of the objects
-objects_coords = place_objects(container, original_mesh, coverage_rate=coverage_rate, c_scale=0.9)
+objects_coords = init_coordinates(container, original_mesh, coverage_rate=coverage_rate, c_scale=0.9)
 
 scene = create_packed_scene(container, objects_coords, original_mesh, rotate=True)
 scene.show()
