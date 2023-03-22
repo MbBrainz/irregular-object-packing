@@ -88,14 +88,23 @@ def init_coordinates(
     # container_bound = get_min_bounding_mesh(container.apply_scale(0.8))
     max_volume = container.volume * coverage_rate
     acc_vol = 0
+    skipped = 0
     objects_coords = []
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(scaled_container.bounds)
         if scaled_container.contains([coord]):
             distance_arr = [np.linalg.norm(coord - i) > mesh.volume ** (1 / 3) for i in objects_coords]
+            distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
+
+            distance_arr.append(distance_to_container > 1 / 5 * mesh.volume ** (1 / 3))
+
             if np.alltrue(distance_arr):
                 objects_coords.append(coord)
                 acc_vol += mesh.volume
+            else:
+                skipped += 1
+
+    print(f"Skipped {skipped} points for total of {len(objects_coords)} points")
     return objects_coords
 
 

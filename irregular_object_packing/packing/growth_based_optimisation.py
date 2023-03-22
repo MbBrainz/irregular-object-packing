@@ -2,6 +2,8 @@
 import sys
 
 sys.path.append("../irregular_object_packing/")
+
+
 # %%
 
 from collections import namedtuple
@@ -18,6 +20,7 @@ import pyvista as pv
 from pyvistaqt import BackgroundPlotter
 from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
 from irregular_object_packing.mesh.utils import print_mesh_info
+from irregular_object_packing.tools.profile import pprofile
 import irregular_object_packing.packing.plots as plots
 
 pv.set_jupyter_backend("panel")
@@ -42,15 +45,20 @@ def trimesh_to_pyvista(mesh: trimesh.Trimesh):
     return pv.wrap(mesh)
 
 
+# NOTE: Unfortunately this method produces too many issues i dont know to deal with rn. reconsidering design...
 def downsample_mesh(mesh: trimesh.Trimesh, sample_rate: float):
-    target_reduction = sample_rate / mesh.vertices
+    nvertices = len(mesh.vertices)
+    if not nvertices > sample_rate:
+        return mesh
+
+    target_reduction = sample_rate / nvertices
 
     pv_mesh = pv.wrap(mesh)
-    trimesh = pyvista_to_trimesh(pv_mesh.decimate(target_reduction).triangulate().clean().extract_geometry())
+    trimesh = pyvista_to_trimesh(pv_mesh.decimate(target_reduction).clean().triangulate().extract_geometry())
     return trimesh
 
 
-def compute_collisions(p_meshes: list[PolyData], plotter: BackgroundPlotter = None):
+def compute_collisions(p_meshes: list[PolyData]):
     i, colls = 0, 0
     coll_meshes = []
     for mesh_1, mesh_2 in combinations(p_meshes, 2):
@@ -128,6 +136,7 @@ class Optimizer:
         self.shape = shape
         self.container0 = container
         self.container = container
+        self.pv_shape = trimesh_to_pyvista(shape).decimate_pro(0.01)
         self.settings = settings
         self.cat_data = None
         self.tf_arrs = np.empty(0)
@@ -170,12 +179,13 @@ class Optimizer:
         self.pbar2 = tqdm(range(self.settings.itn_max), desc="Iteration\t", position=1)
 
     def update_data(self, i_b, i):
+        self.log(f"Updating data for {i_b=}, {i=}")
         self.data[self.data_index] = {"tf_arrs": self.tf_arrs.copy(), "cat_data": copy(self.cat_data)}
         self.data[(i_b, i)] = self.data[self.data_index]  # nice lil' reference
         self.data_index += 1
 
-    def log(self, msg, loglvl=0):
-        if loglvl >= self.settings.loglvl:
+    def log(self, msg, log_lvl=0):
+        if log_lvl >= self.settings.log_lvl:
             if self.pbar1 is None:
                 self.pbar1.write(msg)
             else:
@@ -192,7 +202,6 @@ class Optimizer:
         for i_b in range(0, self.settings.n_scaling_steps):
             self.pbar1.set_postfix(ƒ_max=f"{scaling_barrier[i_b]:.2f}")
             self.pbar2.reset()
-            sample_rate = self.mesh_sample_rate(0)
 
             for i in range(self.settings.itn_max):
                 self.iteration(scaling_barrier[i_b])
@@ -203,21 +212,29 @@ class Optimizer:
                 self.pbar2.update()
             self.pbar1.update()
 
-        coll = self.check_overlap()
+        self.check_overlap()
 
     # ----------------------------------------------------------------------------------------------
     # Optimisation
     # ----------------------------------------------------------------------------------------------
     def iteration(self, scale_bound):
         """Perform a single iteration of the optimisation"""
+        # DOWN SAMPLE MESHES
+        container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
+        sample_points = trimesh.sample.sample_surface_even(self.shape, self.mesh_sample_rate())[0]
+
+        # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
         obj_points = [
-            trimesh.transform_points(self.shape.vertices.copy(), nlc.construct_transform_matrix(transform_data))
+            trimesh.transform_points(sample_points.copy(), nlc.construct_transform_matrix(transform_data))
             for transform_data in self.tf_arrs
         ]
 
-        self.cat_data = cat.compute_cat_cells(obj_points, self.container.vertices, self.object_coords)
+        # COMPUTE CAT CELLS
+        self.log("Computing CAT cells")
+        self.cat_data = cat.compute_cat_cells(obj_points, container_points, self.object_coords)
         self.update_plot()
 
+        # GROWTH-BASED OPTIMISATION
         for obj_i, transform_data_i in enumerate(self.tf_arrs):
             self.pbar2.set_postfix(obj_id=obj_i)
             self.local_optimisation(obj_i, self.cat_data, transform_data_i, scale_bound)
@@ -245,40 +262,49 @@ class Optimizer:
         return len(self.object_coords)
 
     def resample_meshes(self):
-        self.container = downsample_mesh(self.container0, self.container_sample_rate())
-        self.shape = downsample_mesh(self.shape0, self.mesh_sample_rate(0))
+        self.log("resampling meshes", 0)
+        self.container = self.container0
+        self.shape = self.shape0
+        # currently doing nothing
+        # self.container = downsample_mesh(self.container0.to_mesh(), self.container_sample_rate())
+        # self.shape = downsample_mesh(self.shape0, self.mesh_sample_rate(0))
 
-    def check_overlap(self, plotter: BackgroundPlotter = None):
+    def check_overlap(self):
+        self.log("checking for collisions", 0)
         p_meshes = self.get_processed_meshes()
-        i, colls, coll_meshes = compute_collisions(plotter, p_meshes)
+        i, colls, coll_meshes = compute_collisions(p_meshes)
 
         if i > 0:
             self.log(f"! collision found for {i} objectts with total of {colls} contacts", 3)
-            if self.plotter is None: return
-                
+            if self.plotter is None:
+                return
+
             for mesh in coll_meshes:
                 self.plotter.add_mesh(mesh)
 
             self.plotter.render()
 
-
-    def mesh_sample_rate(self, k):
+    def mesh_sample_rate(self, k=0):
         return self.settings.sample_rate  # currently simple
 
     def container_sample_rate(self):
-        return self.settings.sample_rate * 5
+        return self.settings.sample_rate * 2 * self.n_objs
 
     def get_processed_meshes(self) -> list[PolyData]:
+        self.log("processing meshes", 0)
         object_meshes = []
 
         for i in range(self.n_objs):
             transform_matrix = nlc.construct_transform_matrix(self.tf_arrs[i])
-            object_mesh = self.shape.copy().apply_transform(transform_matrix)
-            object_meshes.append(pv.wrap(object_mesh).decimate(0.1))
+            # object_mesh = self.shape.copy().apply_transform(transform_matrix)
+            # object_meshes.append(pv.wrap(object_mesh).decimate(0.1))
+            object_mesh = self.pv_shape.transform(transform_matrix, inplace=False)
+            object_meshes.append(object_mesh)
 
         return object_meshes
 
     def get_cat_meshes(self) -> list[PolyData]:
+        self.log("converting CAT data to meshes", 0)
         cat_meshes = []
 
         for i in range(self.n_objs):
@@ -290,10 +316,11 @@ class Optimizer:
         return cat_meshes
 
     def update_plot(self):
-        if self.plotter is None: return
+        if self.plotter is None:
+            return
 
         self.plotter.clear_actors()
-        self.plotter.add_mesh(self.container, color="grey", opacity=0.2)
+        self.plotter.add_mesh(self.container.to_mesh(), color="grey", opacity=0.2)
         colors = plots.generate_tinted_colors(self.n_objs)
         for i, mesh in enumerate(self.get_processed_meshes()):
             self.plotter.add_mesh(mesh, color=colors[1][i])
@@ -319,12 +346,12 @@ class Optimizer:
 
         settings = SimSettings(
             itn_max=2,
-            n_scaling_steps=2,
+            n_scaling_steps=1,
             final_scale=0.3,
-            sample_rate=30,
+            sample_rate=50,
+            # plot_intermediate=True,
         )
         optimizer = Optimizer(original_mesh, container, settings)
-        optimizer.run()
         return optimizer
 
     def report(self):
@@ -338,10 +365,18 @@ from importlib import reload
 reload(plots)
 
 optimizer = Optimizer.default_setup()
-optimizer.report()
+optimizer.run()
 
 
-# # %%
+# %%
+@pprofile
+def profile_optimizer():
+    optimizer.run()
+
+
+profile_optimizer()
+
+# %%
 # plotter = pv.Plotter()
 # # enumerate
 # tints = plots.generate_tinted_colors(optimizer.n_objs)

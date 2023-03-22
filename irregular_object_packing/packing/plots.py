@@ -19,7 +19,7 @@ def create_plot(object_locations, object_meshes: list[pv.PolyData], object_cells
     # Loop over objects and create a PyVista mesh for each object
     for i in range(len(object_locations)):
         # object_mesh = pv.PolyData(object_meshes[i])
-        object_mesh = object_meshes[i]
+        object_mesh = pv.wrap(object_meshes[i])
         # object_mesh.transform(np.eye(4), object_locations[i])
         plotter.add_mesh(object_mesh.decimate(0.1), color="r", opacity=0.7)
 
