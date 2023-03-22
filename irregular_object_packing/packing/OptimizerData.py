@@ -50,7 +50,7 @@ class OptimizerData:
     # ------------------- Public methods -------------------
     def mesh_before(self, iteration: int, obj_id: int, mesh: PolyData):
         """Get the mesh of the object at the given iteration, before the optimisation."""
-        return self._mesh(iteration - 1, obj_id, mesh)
+        return self._get_mesh(iteration - 1, obj_id, mesh)
 
     def mesh_after(self, iteration: int, obj_id: int, mesh: PolyData):
         """Get the mesh of the object at the given iteration, after the optimisation."""
@@ -58,7 +58,7 @@ class OptimizerData:
 
     def cat_mesh(self, iteration: int, obj_id: int) -> PolyData:
         """Get the mesh of the cat cell that corresponds to the object from the given iteration"""
-        return PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration)[obj_id]))
+        return PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
 
     def meshes_before(self, iteration: int, mesh: PolyData):
         """Get the meshes of all objects at the given iteration, before the optimisation."""
@@ -71,8 +71,8 @@ class OptimizerData:
     def cat_meshes(self, iteration: int) -> list[PolyData]:
         """Get the meshes of all cat cells that correspond to the objects from the given iteration"""
         return [
-            PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), i))
-            for i in range(len(self._tf_arrays(iteration)))
+            PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
+            for obj_id in range(len(self._tf_arrays(iteration)))
         ]
 
     def final_meshes_after(self, mesh: PolyData):

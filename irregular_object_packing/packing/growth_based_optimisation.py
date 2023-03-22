@@ -24,10 +24,9 @@ from irregular_object_packing.tools.profile import pprofile
 import irregular_object_packing.packing.plots as plots
 from irregular_object_packing.packing.OptimizerData import OptimizerData
 
-pv.set_jupyter_backend("panel")
+# pv.set_jupyter_backend("panel")
 
 # %%
-
 
 from irregular_object_packing.packing import (
     initialize as init,
@@ -78,7 +77,7 @@ def compute_collisions(p_meshes: list[PolyData]):
 #
 
 
-def optimal_transform(k, irop_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None):
+def optimal_transform(k, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None):
     r_bound = (-max_angle, max_angle)
     t_bound = (0, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
@@ -89,7 +88,7 @@ def optimal_transform(k, irop_data, scale_bound=(0.1, None), max_angle=1 / 12 * 
         "fun": nlc.constraints_from_dict,
         "args": (
             k,
-            irop_data,
+            cat_data,
         ),
     }
     res = minimize(nlc.objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
@@ -286,7 +285,7 @@ class Optimizer(OptimizerData):
         return self.settings.sample_rate  # currently simple
 
     def container_sample_rate(self):
-        return self.settings.sample_rate * 2 * self.n_objs
+        return self.settings.sample_rate * 10 * self.n_objs
 
     def update_plot(self):
         if self.plotter is None:
@@ -307,11 +306,11 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./data/mesh/"
 
-        mesh_volume = 0.99
+        mesh_volume = 0.5
         container_volume = 10
 
         loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
-        container = trimesh.primitives.Cylinder(radius=1, height=1)
+        container = trimesh.primitives.Cylinder(radius=1, height=2)
 
         # Scale the mesh and container to the desired volume
         container = scale_to_volume(container, container_volume)
@@ -321,7 +320,7 @@ class Optimizer(OptimizerData):
             itn_max=2,
             n_scaling_steps=1,
             final_scale=0.3,
-            sample_rate=20,
+            sample_rate=100,
             # plot_intermediate=True,
         )
         optimizer = Optimizer(original_mesh, container, settings)
@@ -332,39 +331,38 @@ class Optimizer(OptimizerData):
         return df
 
 
-# %%
-from importlib import reload
+# # %%
+# from importlib import reload
 
-reload(plots)
+# reload(plots)
 
-optimizer = Optimizer.default_setup()
-optimizer.run()
-
-
-# %%
-@pprofile
-def profile_optimizer():
-    optimizer.run()
+# optimizer = Optimizer.default_setup()
+# optimizer.run()
 
 
-profile_optimizer()
+# # %%
+# @pprofile
+# def profile_optimizer():
+#     optimizer.run()
 
-# %%
-plotter = pv.Plotter()
-# enumerate
-tints = plots.generate_tinted_colors(optimizer.n_objs)
 
-for i, mesh in enumerate(optimizer.final_meshes_after(optimizer.pv_shape)):
-    plotter.add_mesh(mesh, color=tints[1][i], opacity=0.8)
+# # profile_optimizer()
 
-for i, mesh in enumerate(optimizer.final_cat_meshes()):
-    plotter.add_mesh(mesh, color=tints[0][i], opacity=0.5)
+# # %%
+# plotter = pv.Plotter()
+# # enumerate
+# tints = plots.generate_tinted_colors(optimizer.n_objs)
 
-plotter.add_mesh(optimizer.container.to_mesh(), color="grey", opacity=0.3)
-# plotter.add_mesh(optimizer.container, color="grey", opacity=0.2)
+# for i, mesh in enumerate(optimizer.final_meshes_after(optimizer.pv_shape)):
+#     plotter.add_mesh(mesh, color=tints[1][i], opacity=0.8)
 
-plotter.show(
-    interactive=False,
-)
-# %%
+# for i, mesh in enumerate(optimizer.final_cat_meshes()):
+#     plotter.add_mesh(mesh, color=tints[0][i], opacity=0.5)
+
+# plotter.add_mesh(optimizer.container.to_mesh(), color="grey", opacity=0.3)
+# # plotter.add_mesh(optimizer.container, color="grey", opacity=0.2)
+
+# plotter.show(
+#     interactive=False,
+# )
 # %%

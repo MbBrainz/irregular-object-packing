@@ -30,35 +30,67 @@ def create_plot(object_locations, object_meshes: list[pv.PolyData], object_cells
     plotter.show()
 
 
-def plot_full_comparison():
-    pass
+def plot_full_comparison(
+    meshes_before,
+    meshes_after,
+    cat_cell_meshes,
+    plotter=None,
+    title_left="Initial Placement",
+    title_right="Improved Placement",
+):
+    if plotter is None:
+        plotter = pv.Plotter()
+
+    plotter = pv.Plotter(shape="1|1", notebook=True)
+
+    colors = generate_tinted_colors(len(meshes_before))
+    plotter.subplot(0)
+    plotter.add_title(title_left)
+    for i, mesh in enumerate(meshes_before):
+        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.8)
+
+    for i, cat_mesh in enumerate(cat_cell_meshes):
+        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.4)
+
+    plotter.subplot(1)
+    plotter.add_title(title_right)
+    for i, mesh in enumerate(meshes_after):
+        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.8)
+
+    for i, cat_mesh in enumerate(cat_cell_meshes):
+        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.4)
+    plotter.show()
+
+    return plotter
 
 
-def plot_step_comparison(original_mesh: Trimesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_2=None):
-    tf_init, tf_fin = tf_arrs
+# def plot_step_comparison(original_mesh: Trimesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_2=None):
+def plot_step_comparison(
+    mesh_before,
+    mesh_after,
+    cat_cell_mesh_1,
+    cat_cell_mesh_2=None,
+    plotter=None,
+    title_left="Initial Placement",
+    title_right="Improved Placement",
+):
+    if plotter is None:
+        plotter = pv.Plotter()
+
     if cat_cell_mesh_2 is None:
         cat_cell_mesh_2 = cat_cell_mesh_1
 
-    object_mesh = original_mesh.copy()
-    post_mesh = object_mesh.copy()
-
-    original_tranform = nlc_optimisation.construct_transform_matrix(tf_init)
-    modified_transform = nlc_optimisation.construct_transform_matrix(tf_fin)
-
-    init_mesh = pv.wrap(object_mesh.apply_transform(original_tranform)).decimate(0.1)
-    post_mesh = pv.wrap(post_mesh.apply_transform(modified_transform)).decimate(0.1)
-
     plotter = pv.Plotter(shape="1|1", notebook=True)  # replace with the filename/path of your first mesh
     plotter.subplot(0)
-    plotter.add_title("Initial Placement")
-    plotter.add_mesh(init_mesh, color="red", opacity=0.8)
+    plotter.add_title(title_left)
+    plotter.add_mesh(mesh_before, color="red", opacity=0.8)
     plotter.add_mesh(cat_cell_mesh_1, color="yellow", opacity=0.4)
 
     # create the second plot
     # plot2 = pv.Plotter()
     plotter.subplot(1)
-    plotter.add_title("Optimized Placement")
-    plotter.add_mesh(post_mesh, color="red", opacity=0.8)
+    plotter.add_title(title_right)
+    plotter.add_mesh(mesh_after, color="red", opacity=0.8)
     plotter.add_mesh(cat_cell_mesh_2, color="yellow", opacity=0.4)
     plotter.show()
 

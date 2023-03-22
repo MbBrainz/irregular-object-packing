@@ -4,11 +4,9 @@ from scipy.optimize import minimize
 from tqdm import tqdm
 
 import irregular_object_packing.packing.chordal_axis_transform as cat
+from irregular_object_packing.packing.chordal_axis_transform import CatData
+
 from importlib import reload
-
-# reload(cat)
-
-IropData = cat.CatData
 
 
 # Define the objective function to be maximized
@@ -40,19 +38,14 @@ def compute_face_normal(points, v_i):
     >>> compute_face_normal([(0, 0, 0), (0, 0, 1)], (0, 1, 2))
     (0.0, 1.0, 0.0)
     """
-    # Calculate the centroid of the points
-    centroid = np.mean(points, axis=0)
+    n_points = len(points)
+    assert 3 <= n_points <= 4, "The number of points should be either 3 or 4."
 
-    # Calculate the vectors between the centroid and all other points
-    vectors = np.array(points) - centroid
-
-    # Calculate the cross product of two of the vectors to get the normal vector
-    normal = np.cross(vectors[0], vectors[1])
-
-    # Check if the other point is on the same side of the plane as the normal vector
-    if np.dot(normal, np.array(v_i) - centroid) < 0:
+    v0 = points[1] - points[0]
+    v1 = points[2] - points[0]
+    normal = np.cross(v0, v1)
+    if np.dot(normal, v_i - points[0]) < 0:
         normal *= -1
-
     return normal
 
 
@@ -249,7 +242,7 @@ def constraint_multiple_points(
     return constraints
 
 
-def constraints_from_dict(tf_arr: list[float], obj_id: int, irop_data: IropData):
+def constraints_from_dict(tf_arr: list[float], obj_id: int, irop_data: CatData):
     # item will be in the form (vi, [facet1, facet2, ...])
     items = irop_data.cat_faces[obj_id].items()
 
