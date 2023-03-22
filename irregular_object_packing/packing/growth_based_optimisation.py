@@ -121,7 +121,7 @@ class SimSettings:
     """The log level maximum level is 3"""
 
 
-class Optimizer:
+class Optimizer(OptimizerData):
     shape0: trimesh.Trimesh
     shape: trimesh.Trimesh
     container0: trimesh.Trimesh
@@ -143,8 +143,6 @@ class Optimizer:
         self.tf_arrs = np.empty(0)
         self.object_coords = np.empty(0)
         self.prev_tf_arrs = np.empty(0)
-        # self.data = {}
-        self.data = OptimizerData()
         self.plotter = None
         self.data_index = -1
         self.objects = None
@@ -182,7 +180,7 @@ class Optimizer:
 
     def update_data(self, i_b, i):
         self.log(f"Updating data for {i_b=}, {i=}")
-        self.data.add(self.tf_arrs, self.cat_data, (i_b, i))
+        self.add(self.tf_arrs, self.cat_data, (i_b, i))
 
     def log(self, msg, log_lvl=0):
         if log_lvl >= self.settings.log_lvl:
@@ -271,7 +269,7 @@ class Optimizer:
 
     def check_overlap(self):
         self.log("checking for collisions", 0)
-        p_meshes = self.data.final_meshes_after(self.pv_shape)
+        p_meshes = self.final_meshes_after(self.pv_shape)
         i, colls, coll_meshes = compute_collisions(p_meshes)
 
         if i > 0:
@@ -297,10 +295,10 @@ class Optimizer:
         self.plotter.clear_actors()
         self.plotter.add_mesh(self.container.to_mesh(), color="grey", opacity=0.2)
         colors = plots.generate_tinted_colors(self.n_objs)
-        for i, mesh in enumerate(self.data.final_meshes_after(self.pv_shape)):
+        for i, mesh in enumerate(self.final_meshes_after(self.pv_shape)):
             self.plotter.add_mesh(mesh, color=colors[1][i])
 
-        for i, mesh in enumerate(self.data.final_cat_meshes()):
+        for i, mesh in enumerate(self.final_cat_meshes()):
             self.plotter.add_mesh(mesh, color=colors[0][i])
 
         self.plotter.render()
@@ -355,14 +353,14 @@ profile_optimizer()
 plotter = pv.Plotter()
 # enumerate
 tints = plots.generate_tinted_colors(optimizer.n_objs)
-plotter.add_mesh(optimizer.container.to_mesh(), color="grey", opacity=0.3)
 
-for i, mesh in enumerate(optimizer.data.final_meshes_after(optimizer.pv_shape)):
+for i, mesh in enumerate(optimizer.final_meshes_after(optimizer.pv_shape)):
     plotter.add_mesh(mesh, color=tints[1][i], opacity=0.8)
 
-for i, mesh in enumerate(optimizer.data.final_cat_meshes()):
+for i, mesh in enumerate(optimizer.final_cat_meshes()):
     plotter.add_mesh(mesh, color=tints[0][i], opacity=0.5)
 
+plotter.add_mesh(optimizer.container.to_mesh(), color="grey", opacity=0.3)
 # plotter.add_mesh(optimizer.container, color="grey", opacity=0.2)
 
 plotter.show(
