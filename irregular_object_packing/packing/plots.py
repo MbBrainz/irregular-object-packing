@@ -1,5 +1,7 @@
+from numpy import ndarray
 import pyvista as pv
 from trimesh import Trimesh
+import trimesh
 from irregular_object_packing.packing import nlc_optimisation
 from irregular_object_packing.packing.chordal_axis_transform import face_coord_to_points_and_faces
 
@@ -97,13 +99,6 @@ def plot_step_comparison(
     return plotter
 
 
-# def plot_state(optimizer: Optimizer):
-#     object_meshes = optimizer.get_processed_meshes()
-#     cat_meshes = optimizer.get_cat_meshes()
-
-#     create_plot(optimizer.tf_arrs, object_meshes, cat_meshes, optimizer.container.to_mesh())
-
-
 def generate_tinted_colors(num_tints, base_color_1="FFFF00", base_color_2="FF0000"):
     """
     Generates two lists of hex colors with corresponding tints.
@@ -132,3 +127,37 @@ def generate_tinted_colors(num_tints, base_color_1="FFFF00", base_color_2="FF000
         tinted_colors_2.append(tinted_color_2_hex)
 
     return tinted_colors_1, tinted_colors_2
+
+
+def create_packed_scene(
+    container: trimesh.Trimesh,
+    objects_coords: list[ndarray],
+    mesh: trimesh.Trimesh,
+    mesh_scale: float = 1,
+    rotate: bool = False,
+):
+    """make a trimesh scene with the container and the objects inside.
+
+    Args:
+        container (trimesh.Trimesh): container mesh
+        objects_coords (List[np.ndarray]): list of coordinates of the objects
+        mesh (trimesh.Trimesh): mesh of the objects
+        mesh_scale (float, optional): scale of the objects. Defaults to 1.
+    """
+    objects = []
+    for coord in objects_coords:
+        new_mesh = mesh.copy()
+        if rotate:
+            new_mesh = new_mesh.apply_transform(trimesh.transformations.random_rotation_matrix())
+
+        new_mesh.apply_scale(mesh_scale).apply_translation(coord)
+
+        new_mesh.visual.vertex_colors = trimesh.visual.random_color()
+        objects.append(new_mesh)
+
+    container.visual.vertex_colors = [250, 255, 255, 100]
+
+    objects.append(container)
+    scene = trimesh.Scene(objects)
+
+    return scene
