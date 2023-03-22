@@ -19,3 +19,4 @@ numpydoc
 sphinx-copybutton
 sphinx_rtd_theme
 tornado=6.1
+jupyter_client=7.3.2

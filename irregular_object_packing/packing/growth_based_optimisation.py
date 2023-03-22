@@ -22,6 +22,7 @@ from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale
 from irregular_object_packing.mesh.utils import print_mesh_info
 from irregular_object_packing.tools.profile import pprofile
 import irregular_object_packing.packing.plots as plots
+from irregular_object_packing.packing.OptimizerData import OptimizerData
 
 pv.set_jupyter_backend("panel")
 
@@ -142,7 +143,8 @@ class Optimizer:
         self.tf_arrs = np.empty(0)
         self.object_coords = np.empty(0)
         self.prev_tf_arrs = np.empty(0)
-        self.data = {}
+        # self.data = {}
+        self.data = OptimizerData()
         self.plotter = None
         self.data_index = -1
         self.objects = None
@@ -180,9 +182,7 @@ class Optimizer:
 
     def update_data(self, i_b, i):
         self.log(f"Updating data for {i_b=}, {i=}")
-        self.data[self.data_index] = {"tf_arrs": self.tf_arrs.copy(), "cat_data": copy(self.cat_data)}
-        self.data[(i_b, i)] = self.data[self.data_index]  # nice lil' reference
-        self.data_index += 1
+        self.data.add(self.tf_arrs, self.cat_data, (i_b, i))
 
     def log(self, msg, log_lvl=0):
         if log_lvl >= self.settings.log_lvl:
@@ -207,8 +207,8 @@ class Optimizer:
                 self.iteration(scaling_barrier[i_b])
 
                 # administrative stuff
-                self.check_overlap()
                 self.update_data(i_b, i)
+                self.check_overlap()
                 self.pbar2.update()
             self.pbar1.update()
 
@@ -271,7 +271,7 @@ class Optimizer:
 
     def check_overlap(self):
         self.log("checking for collisions", 0)
-        p_meshes = self.get_processed_meshes()
+        p_meshes = self.data.final_meshes_after(self.pv_shape)
         i, colls, coll_meshes = compute_collisions(p_meshes)
 
         if i > 0:
@@ -290,31 +290,6 @@ class Optimizer:
     def container_sample_rate(self):
         return self.settings.sample_rate * 2 * self.n_objs
 
-    def get_processed_meshes(self) -> list[PolyData]:
-        self.log("processing meshes", 0)
-        object_meshes = []
-
-        for i in range(self.n_objs):
-            transform_matrix = nlc.construct_transform_matrix(self.tf_arrs[i])
-            # object_mesh = self.shape.copy().apply_transform(transform_matrix)
-            # object_meshes.append(pv.wrap(object_mesh).decimate(0.1))
-            object_mesh = self.pv_shape.transform(transform_matrix, inplace=False)
-            object_meshes.append(object_mesh)
-
-        return object_meshes
-
-    def get_cat_meshes(self) -> list[PolyData]:
-        self.log("converting CAT data to meshes", 0)
-        cat_meshes = []
-
-        for i in range(self.n_objs):
-            cat_points, cat_faces = cat.face_coord_to_points_and_faces(self.cat_data, i)
-            poly_data = pv.PolyData(cat_points, cat_faces)
-
-            cat_meshes.append(poly_data)
-
-        return cat_meshes
-
     def update_plot(self):
         if self.plotter is None:
             return
@@ -322,10 +297,10 @@ class Optimizer:
         self.plotter.clear_actors()
         self.plotter.add_mesh(self.container.to_mesh(), color="grey", opacity=0.2)
         colors = plots.generate_tinted_colors(self.n_objs)
-        for i, mesh in enumerate(self.get_processed_meshes()):
+        for i, mesh in enumerate(self.data.final_meshes_after(self.pv_shape)):
             self.plotter.add_mesh(mesh, color=colors[1][i])
 
-        for i, mesh in enumerate(self.get_cat_meshes()):
+        for i, mesh in enumerate(self.data.final_cat_meshes()):
             self.plotter.add_mesh(mesh, color=colors[0][i])
 
         self.plotter.render()
@@ -348,7 +323,7 @@ class Optimizer:
             itn_max=2,
             n_scaling_steps=1,
             final_scale=0.3,
-            sample_rate=50,
+            sample_rate=20,
             # plot_intermediate=True,
         )
         optimizer = Optimizer(original_mesh, container, settings)
@@ -377,20 +352,21 @@ def profile_optimizer():
 profile_optimizer()
 
 # %%
-# plotter = pv.Plotter()
-# # enumerate
-# tints = plots.generate_tinted_colors(optimizer.n_objs)
+plotter = pv.Plotter()
+# enumerate
+tints = plots.generate_tinted_colors(optimizer.n_objs)
+plotter.add_mesh(optimizer.container.to_mesh(), color="grey", opacity=0.3)
 
-# for i, mesh in enumerate(optimizer.get_processed_meshes()):
-#     plotter.add_mesh(mesh, color=tints[1][i], opacity=0.8)
+for i, mesh in enumerate(optimizer.data.final_meshes_after(optimizer.pv_shape)):
+    plotter.add_mesh(mesh, color=tints[1][i], opacity=0.8)
 
-# for i, mesh in enumerate(optimizer.get_cat_meshes()):
-#     plotter.add_mesh(mesh, color=tints[0][i], opacity=0.5)
+for i, mesh in enumerate(optimizer.data.final_cat_meshes()):
+    plotter.add_mesh(mesh, color=tints[0][i], opacity=0.5)
 
-# # plotter.add_mesh(optimizer.container, color="grey", opacity=0.2)
+# plotter.add_mesh(optimizer.container, color="grey", opacity=0.2)
 
-# plotter.show(
-#     interactive=False,
-# )
-# # %%
+plotter.show(
+    interactive=False,
+)
+# %%
 # %%
