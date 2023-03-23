@@ -11,3 +11,4 @@ tqdm
 plotly
 rtree
 networkx
+pandas

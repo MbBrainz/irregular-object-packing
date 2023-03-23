@@ -7,6 +7,8 @@
 # %%
 from dataclasses import dataclass
 
+import pickle
+
 import numpy as np
 import pyvista as pv
 
@@ -47,14 +49,14 @@ class Triangle(CatFace):
 class TetPoint:
     vertex: np.ndarray
     obj_id: int
+    p_id: int
     tet_id: int
-    triangles: list[Triangle]
 
-    def __init__(self, point: np.ndarray, obj_id=-1, tet_id=-1):
+    def __init__(self, point: np.ndarray, p_id, obj_id=-1, tet_id=-1):
         self.vertex = point
+        self.p_id = p_id
         self.obj_id = obj_id
         self.tet_id = tet_id
-        self.triangles = []
 
     def __eq__(self, other):
         return self.vertex == other.vertex
@@ -83,7 +85,93 @@ class TetPoint:
         self.triangles.append(triangle)
 
 
-def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
+class CatData:
+    """A class to hold the data for the CAT algorithm."""
+
+    points: dict
+    point_ids: dict
+    cat_faces: dict
+    cat_cells: dict
+    object_coords: np.ndarray
+
+    def __init__(self, point_sets: list[set[tuple]], object_coords: np.ndarray):
+        self.points = {}
+        self.point_ids = {}
+        self.cat_faces = {}
+        self.cat_cells = {}
+        self.object_coords = object_coords
+
+        for obj_id in range(len(point_sets)):
+            self.cat_cells[obj_id] = []
+            self.cat_faces[obj_id] = {}
+
+            for point in point_sets[obj_id]:
+                self.add_obj_point(obj_id, point)
+
+    def point_id(self, point: np.ndarray) -> int:
+        point = tuple(point)
+        n_points = len(self.points)
+        p_id = self.point_ids.get(point, n_points)
+        if p_id == n_points:
+            self.add_point(point, p_id)
+
+        return p_id
+
+    def point(self, p_id: int) -> tuple:
+        return self.points[p_id]
+
+    def new_point(self, point: tuple) -> int:
+        p_id = len(self.points)
+        self.add_point(point, p_id)
+        return p_id
+
+    def add_obj_point(self, obj_id: int, point: tuple) -> None:
+        p_id = self.new_point(point)
+        self.cat_faces[obj_id][p_id] = []
+
+    def add_point(self, point: tuple, p_id: int) -> None:
+        self.points[p_id] = point
+        self.point_ids[point] = p_id
+
+    def add_cat_face(self, obj_id: int, face: list[int]) -> None:
+        self.cat_cells[obj_id].append(face)
+
+    def set_cat_face(self, point: TetPoint, face: list[int]) -> None:
+        self.cat_faces[point.obj_id][point.p_id].append(face)
+
+    def add_cat_faces(self, obj_id: int, faces: list[list[int]]) -> None:
+        for face in faces:
+            self.add_cat_face(obj_id, face)
+
+    def set_cat_faces(self, point: TetPoint, faces: list[list[int]]) -> None:
+        for face in faces:
+            self.set_cat_face(point, face)
+
+    def get_face(self, face: list[int]) -> list[np.ndarray]:
+        return [np.array(self.point(p_id)) for p_id in face]
+
+    def save(self, filename: str):
+        with open(filename, "wb") as file:
+            pickle.dump(self, file)
+
+    @staticmethod
+    def load(filename: str) -> "CatData":
+        with open(filename, "rb") as file:
+            return pickle.load(file)
+
+
+def extract_points_of_interest(data: CatData, obj_id: int, translation: np.ndarray):
+    point_ids = set(np.concat(data.cat_faces[obj_id]))
+    points = {p_id: data.points[p_id] - translation for p_id in point_ids}
+    return points
+
+
+def cat_mesh_from_data(cat_data: CatData, k: int) -> pv.PolyData:
+    cat_points, poly_faces = face_coord_to_points_and_faces(cat_data, k)
+    return pv.PolyData(cat_points, poly_faces)
+
+
+def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
     """Create the faces of a tetrahedron with 3 different objects.
 
     Args:
@@ -98,27 +186,36 @@ def create_faces_3(cat_faces, occ, tet_points: list[TetPoint]):
     assert len(most) == 2
     assert len(least) == 2
 
-    # find center point of 2 triangles
-    triangles: list[Triangle] = []
-    for pa in most:
-        triangles.append(Triangle([pa.vertex, least[0].vertex, least[1].vertex], [], [pa.obj_id, least[0].obj_id]))
+    abc_point = data.point_id((most[0].vertex + least[0].vertex + least[1].vertex) / 3)
+    bcd_point = data.point_id((most[1].vertex + least[0].vertex + least[1].vertex) / 3)
 
-    bc_face = [least[0].center(least[1]), triangles[0].center(), triangles[1].center()]
-    aab_face = [least[0].center(most[1]), least[0].center(most[0]), triangles[0].center(), triangles[1].center()]
-    aac_face = [least[1].center(most[0]), least[1].center(most[1]), triangles[0].center(), triangles[1].center()]
+    ab_point = data.point_id((most[0].vertex + least[0].vertex) / 2)
+    ac_point = data.point_id((most[0].vertex + least[1].vertex) / 2)
+    bc_point = data.point_id((least[0].vertex + least[1].vertex) / 2)
+    bd_point = data.point_id((most[1].vertex + least[0].vertex) / 2)
+    cd_point = data.point_id((most[1].vertex + least[1].vertex) / 2)
 
-    # Add face to each object cat cell
-    cat_faces[most[0].obj_id].append(aab_face)
-    cat_faces[most[0].obj_id].append(aac_face)
+    most_face_b = [abc_point, ab_point, bcd_point, bd_point]
+    most_face_c = [abc_point, ac_point, bcd_point, cd_point]
+    least_face = [bc_point, abc_point, bcd_point]
 
-    cat_faces[least[0].obj_id].append(bc_face)
-    cat_faces[least[0].obj_id].append(aab_face)
+    data.add_cat_face(most[0].obj_id, most_face_b)
+    data.add_cat_face(most[0].obj_id, most_face_c)
+    data.set_cat_face(most[0], most_face_b)
+    data.set_cat_face(most[1], most_face_c)
 
-    cat_faces[least[1].obj_id].append(bc_face)
-    cat_faces[least[1].obj_id].append(aac_face)
+    data.add_cat_face(least[0].obj_id, most_face_b)
+    data.add_cat_face(least[0].obj_id, least_face)
+    data.set_cat_face(least[0], most_face_b)
+    data.set_cat_face(least[0], least_face)
+
+    data.add_cat_face(least[1].obj_id, most_face_c)
+    data.add_cat_face(least[1].obj_id, least_face)
+    data.set_cat_face(least[1], most_face_c)
+    data.set_cat_face(least[1], least_face)
 
 
-def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
+def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
     """Create the faces of a tetrahedron with 2 different objects.
     This function serves both for the case of 2 and 2 points for object a and b resp., as for 3 and 1 points for object a and b resp.
 
@@ -132,90 +229,41 @@ def create_faces_2(cat_faces, occ, tet_points: list[TetPoint]):
     most = [p for p in tet_points if p.obj_id == occ[0][0]]
     least = [p for p in tet_points if p.obj_id == occ[1][0]]
 
-    face: list[np.ndarray] = []
-    for pa in least:
-        face += [pa.center(pb) for pb in most]
+    if len(most) == 2:
+        ab_point = data.point_id((most[0].vertex + least[0].vertex) / 2)
+        ac_point = data.point_id((most[0].vertex + least[1].vertex) / 2)
+        bd_point = data.point_id((most[1].vertex + least[0].vertex) / 2)
+        cd_point = data.point_id((most[1].vertex + least[1].vertex) / 2)
 
-        # Add face to each object cat cell
-    if len(np.shape(face)) > 2:
-        raise ValueError(f"face {face} has more than 2 dimensions")
+        face = [ab_point, ac_point, cd_point, bd_point]
 
-    for k, f in occ:
-        cat_faces[k].append(face)
+        data.add_cat_face(most[0].obj_id, face)
+        data.set_cat_face(most[0], face)
+        data.set_cat_face(most[1], face)
 
+        data.add_cat_face(least[0].obj_id, face)
+        data.set_cat_face(least[0], face)
+        data.set_cat_face(least[1], face)
 
-def single_point_4faces(tet_point: TetPoint, others: list[TetPoint], tet_center: np.ndarray):
-    """Create the faces of one of the points for a tetrahedron with 4 different objects
+    if len(most) == 3:
+        ab_point = data.point_id((least[0].vertex + most[0].vertex) / 2)
+        ac_point = data.point_id((least[0].vertex + most[1].vertex) / 2)
+        ad_point = data.point_id((least[0].vertex + most[2].vertex) / 2)
 
-    Args:
-        - tet_point: the point to compute the faces for
-        - others: the other 3 points in the tetrahedron
-        - tet_center: the center of the tetrahedron
+        face = [ab_point, ac_point, ad_point]
 
-    Returns:
-        - list of faces, each face is a list of points
-    """
-    # this should result in 6 faces
-    # first 6 points: center bc, center bca, center ba, center bca, center bd, center bcd
-    if len(tet_point.triangles) != 3:
-        raise ValueError(f"tet_point {tet_point} must have 3 triangles")
-    if len(others) != 3:
-        raise ValueError(f"others {others} should have len 3")
+        data.add_cat_face(least[0].obj_id, face)
+        data.set_cat_face(least[0], face)
 
-    v0 = tet_point.vertex
-    points: list[np.ndarray] = []
-
-    for triangle in tet_point.triangles:
-        points.append(triangle.center())
-
-    for other in others:
-        midpoint = (v0 + other.vertex) / 2
-        points.append(midpoint)
-
-    sorted_points = sort_points_clockwise(points, v0, tet_center)
-    cat_faces = []
-    for i in range(len(sorted_points)):
-        cat_faces.append([tet_center, sorted_points[i], sorted_points[(i + 1) % len(sorted_points)]])
-
-    return cat_faces
+        data.add_cat_face(most[0].obj_id, face)
+        data.set_cat_face(most[0], face)
+        data.set_cat_face(most[0], face)
+        data.set_cat_face(most[0], face)
 
 
-def create_faces_4(cat_faces, tet_points: list[TetPoint]):
-    """Create the faces of the CAT mesh for the case of 4 objects in the tetrahedron.
-    adds to the cat_faces dictionary the faces of the CAT mesh for each object.
-
-    Args:
-        - tet_points (list[TetPoint]): list of the 4 points of the tetrahedron
-        - cat_faces (dict): dictionary of the faces of the CAT mesh for each object
-    """
-    # tet points are the 4 points of the tetrahedron
-    # for each comination of 3 points create a triangle
-    # and add it to the list of faces of each object
-    triangles = []
-    for point in tet_points:
-        point.triangles = []
-    i = 0
-    combinations = [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)]
-    for i, j, k in combinations:
-        triangle = Triangle(
-            [tet_points[i].vertex, tet_points[j].vertex, tet_points[k].vertex],
-            [],
-            [tet_points[i].obj_id, tet_points[j].obj_id, tet_points[k].obj_id],
-        )
-        triangles.append(triangle)
-        # might come from another place where this triangle var is not cleared.
-        tet_points[i].add_triangle(triangle)
-        tet_points[j].add_triangle(triangle)
-        tet_points[k].add_triangle(triangle)
-
-    tet_center = sum([point.vertex for point in tet_points]) / 4
-    for point in tet_points:
-        others = [other for other in tet_points if not (other == point).all()]
-        cat = single_point_4faces(point, others, tet_center)
-        cat_faces[point.obj_id] += cat
-
-
-def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np.ndarray):
+def compute_cat_cells(
+    object_points_list: list[np.ndarray], container_points: np.ndarray, obj_coords: list[np.ndarray]
+):
     """Compute the CAT cells of the objects in the list and the container.
     First a Tetrahedral mesh is created from the pointcloud of all the objects points and the container points.
     Then, for each tetrahedron that has points from at least 2 different objects, the faces of the CAT mesh are computed.
@@ -236,12 +284,73 @@ def compute_cat_cells(object_points_list: list[np.ndarray], container_points: np
     obj_point_sets = [set(map(tuple, obj)) for obj in object_points_list] + [set(map(tuple, container_points))]
 
     # Each cat cell is a list of faces, each face is a list of points
-    cat_cells = compute_cat_faces(tetmesh, obj_point_sets)
+    cat_cells = compute_cat_faces(tetmesh, obj_point_sets, obj_coords)
 
     return cat_cells
 
 
-def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
+def create_faces_4(data: CatData, tet_points: list[TetPoint]):
+    center_point = data.point_id(sum([point.vertex for point in tet_points]) / 4)
+    ab_point = data.point_id((tet_points[0].vertex + tet_points[1].vertex) / 2)
+    ac_point = data.point_id((tet_points[0].vertex + tet_points[2].vertex) / 2)
+    ad_point = data.point_id((tet_points[0].vertex + tet_points[3].vertex) / 2)
+    bc_point = data.point_id((tet_points[1].vertex + tet_points[2].vertex) / 2)
+    cd_point = data.point_id((tet_points[2].vertex + tet_points[3].vertex) / 2)
+    bd_point = data.point_id((tet_points[1].vertex + tet_points[3].vertex) / 2)
+
+    abc_point = data.point_id((tet_points[0].vertex + tet_points[1].vertex + tet_points[2].vertex) / 3)
+    abd_point = data.point_id((tet_points[0].vertex + tet_points[1].vertex + tet_points[3].vertex) / 3)
+    acd_point = data.point_id((tet_points[0].vertex + tet_points[2].vertex + tet_points[3].vertex) / 3)
+    bcd_point = data.point_id((tet_points[1].vertex + tet_points[2].vertex + tet_points[3].vertex) / 3)
+
+    faces_a = [
+        [center_point, ab_point, abc_point],
+        [center_point, abc_point, ac_point],
+        [center_point, ac_point, acd_point],
+        [center_point, acd_point, ad_point],
+        [center_point, ad_point, abd_point],
+        [center_point, abd_point, ab_point],
+    ]
+
+    faces_b = [
+        [center_point, ab_point, abc_point],
+        [center_point, abc_point, bc_point],
+        [center_point, bc_point, bcd_point],
+        [center_point, bcd_point, bd_point],
+        [center_point, bd_point, abd_point],
+        [center_point, abd_point, ab_point],
+    ]
+
+    faces_c = [
+        [center_point, ac_point, abc_point],
+        [center_point, abc_point, bc_point],
+        [center_point, bc_point, bcd_point],
+        [center_point, bcd_point, cd_point],
+        [center_point, cd_point, acd_point],
+        [center_point, acd_point, ac_point],
+    ]
+
+    faces_d = [
+        [center_point, ad_point, acd_point],
+        [center_point, acd_point, cd_point],
+        [center_point, cd_point, bcd_point],
+        [center_point, bcd_point, bd_point],
+        [center_point, bd_point, abd_point],
+        [center_point, abd_point, ad_point],
+    ]
+
+    data.add_cat_faces(tet_points[0].obj_id, faces_a)
+    data.add_cat_faces(tet_points[1].obj_id, faces_b)
+    data.add_cat_faces(tet_points[2].obj_id, faces_c)
+    data.add_cat_faces(tet_points[3].obj_id, faces_d)
+
+    data.set_cat_faces(tet_points[0], faces_a)
+    data.set_cat_faces(tet_points[1], faces_b)
+    data.set_cat_faces(tet_points[2], faces_c)
+    data.set_cat_faces(tet_points[3], faces_d)
+
+
+def compute_cat_faces(tetmesh, point_sets: list[set[tuple]], obj_coords: list[np.ndarray]):
     """Compute the CAT faces of the tetrahedron mesh, by checking which tetrahedrons
     have points from more than one object and splitting those according to figure 2 from the main paper.
 
@@ -249,10 +358,9 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
         - tetmesh: a tetrahedron mesh of the container and objects
         - point_sets: a list of sets of points, each set contains points from a single object
     """
-    cat_faces = {}
-    for obj_id in range(len(point_sets)):
-        cat_faces[obj_id] = []
+    data = CatData(point_sets, obj_coords)
 
+    # FOR EACH TETRAHEDRON
     for cell in range(tetmesh.n_cells):
         occ = {}
         tet_points: list[TetPoint] = []
@@ -262,7 +370,9 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
                 # check if the cell has points from more than one point set
                 if tuple(cell_point) in obj:
                     occ[i] = occ.get(i, 0) + 1
-                    tet_points.append(TetPoint(cell_point, i, tet_id=cell))
+                    tet_points.append(
+                        TetPoint(cell_point, data.point_ids[tuple(cell_point)], obj_id=i, tet_id=cell)
+                    )
 
         # sort occ on value
         assert len(tet_points) == 4, f"tet_points: {tet_points}"  # lil check
@@ -273,17 +383,35 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]]):
             continue  # skip cells that have points from only one object
 
         if n_objs == 4:  # [1,1,1,1]
-            create_faces_4(cat_faces, tet_points)
+            create_faces_4(data, tet_points)
 
         if n_objs == 3:  # [2,1,1,0], [1,2,1,0], [1,1,2,0]:
-            create_faces_3(cat_faces, occ, tet_points)
+            create_faces_3(data, occ, tet_points)
 
         if n_objs == 2:  # [2,2,0,0], [1,3,0,0], [3,1,0,0]
-            create_faces_2(cat_faces, occ, tet_points)
-    return cat_faces
+            create_faces_2(data, occ, tet_points)
+
+    return data
 
 
-def face_coord_to_points_and_faces(cat_faces0):
+def convert_single_to_pyvista(data: CatData, obj_id: int):
+    """Convert the data to a pyvista.PolyData object.
+
+    args:
+        - data: the data to convert
+    """
+    points = []
+    faces = []
+
+    for face in data.cat_faces[obj_id]["all"]:
+        faces.extend([3, *face])
+
+    points = np.array(points)
+    faces = np.array(faces)
+
+
+def face_coord_to_points_and_faces(data: CatData, obj_id: int):
+    # FIXME: This function is not functional anymore. ill fix it later
     """Convert a list of triangular only faces represented by points with coordinates
     to a list of points and a list of faces represented by the number of points and point ids.
 
@@ -293,15 +421,17 @@ def face_coord_to_points_and_faces(cat_faces0):
 
 
     """
+    cat_faces = data.cat_cells[obj_id]
     cat_points = []
     poly_faces = []
     n_entries = 0
-    for face in cat_faces0:
+    for face in cat_faces:
         len_face = len(face)
         if len_face == 3:
             n_entries += 4
         if len_face == 4:
-            n_entries += 8
+            n_entries += 5
+            # n_entries += 8
 
     poly_faces = np.empty(n_entries, dtype=np.int32)
 
@@ -310,13 +440,19 @@ def face_coord_to_points_and_faces(cat_faces0):
     counter = 0
     face_len = 0
     idx = 0
-    for i, face in enumerate(cat_faces0):
+
+    new_faces = []
+
+    for i, face in enumerate(cat_faces):
         face_len = len(face)
+        new_face = np.zeros(face_len)
         for i in range(len(face)):
-            if tuple(face[i]) not in points.keys():
-                points[tuple(face[i])] = counter
-                cat_points.append(face[i])
+            if face[i] not in points.keys():
+                points[data.point(face[i])] = counter
+                cat_points.append(data.point(face[i]))
                 counter += 1
+
+            new_face[i] = points[data.point(face[i])]
 
         # For a face with 4 points, we create 2 triangles,
         # Because pyvista does not support quads correctly, while it says it does.
@@ -324,21 +460,29 @@ def face_coord_to_points_and_faces(cat_faces0):
         # but the triangles will overlap by half, like an open envelope shape.
         if face_len == 3:
             poly_faces[idx] = 3
-            poly_faces[idx + 1] = points[tuple(face[0])]
-            poly_faces[idx + 2] = points[tuple(face[1])]
-            poly_faces[idx + 3] = points[tuple(face[2])]
+            poly_faces[idx + 1] = new_face[0]
+            poly_faces[idx + 2] = new_face[1]
+            poly_faces[idx + 3] = new_face[2]
             idx += 4
 
         elif face_len == 4:  # make 2 triangles for each quad
-            poly_faces[idx] = 3
-            poly_faces[idx + 1] = points[tuple(face[0])]
-            poly_faces[idx + 2] = points[tuple(face[1])]
-            poly_faces[idx + 3] = points[tuple(face[2])]
-            poly_faces[idx + 4] = 3
-            poly_faces[idx + 5] = points[tuple(face[2])]
-            poly_faces[idx + 6] = points[tuple(face[3])]
-            poly_faces[idx + 7] = points[tuple(face[1])]
-            idx += 8
+            poly_faces[idx] = 4
+            poly_faces[idx + 1] = new_face[0]
+            poly_faces[idx + 2] = new_face[1]
+            poly_faces[idx + 3] = new_face[2]
+            poly_faces[idx + 4] = new_face[3]
+            idx += 5
+
+        # elif face_len == 4:  # make 2 triangles for each quad
+        #     poly_faces[idx] = 3
+        #     poly_faces[idx + 1] = face[0]
+        #     poly_faces[idx + 2] = face[1]
+        #     poly_faces[idx + 3] = face[2]
+        #     poly_faces[idx + 4] = 3
+        #     poly_faces[idx + 5] = face[2]
+        #     poly_faces[idx + 6] = face[3]
+        #     poly_faces[idx + 7] = face[1]
+        #     idx += 8
 
     return cat_points, poly_faces
 
@@ -393,13 +537,13 @@ def main():
 
     pc = pv.PolyData(np.concatenate([cat_points, container.points]))
     tetmesh = pc.delaunay_3d()
-    cat_faces = compute_cat_cells([cat_points], container.points)
+    data = compute_cat_cells([cat_points], container.points, [0, 0, 0])
 
     # cat_4_faces = [face for face in cat_faces[0] if len(face) == 4]
 
-    cat_points, poly_faces = face_coord_to_points_and_faces(cat_faces[0])
-    polydata = pv.PolyData(cat_points, poly_faces)
+    poly_points, poly_faces = face_coord_to_points_and_faces(data, 0)
 
+    polydata = pv.PolyData(poly_points, poly_faces)
     # plotter = pv.Plotter()
     # plotter.add_mesh(polydata.explode(), color="y", show_edges=True, edge_color="black")
     # plotter.add_mesh(tetmesh.explode(), opacity=0.3, show_edges=True, edge_color="b")

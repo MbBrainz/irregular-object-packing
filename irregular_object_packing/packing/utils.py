@@ -1,21 +1,7 @@
 # %%
 import math
-
 import numpy as np
 import pyvista as pv
-
-
-def angle_between(point, line_start, line_end):
-    """DEPRECATED"""
-    line_vector = (line_end[0] - line_start[0], line_end[1] - line_start[1], line_end[2] - line_start[2])
-
-    point_vector = (point[0] - line_start[0], point[1] - line_start[1], point[2] - line_start[2])
-    dot_product = (
-        point_vector[0] * line_vector[0] + point_vector[1] * line_vector[1] + point_vector[2] * line_vector[2]
-    )
-    point_magnitude = math.sqrt(point_vector[0] ** 2 + point_vector[1] ** 2 + point_vector[2] ** 2)
-    line_magnitude = math.sqrt(line_vector[0] ** 2 + line_vector[1] ** 2 + line_vector[2] ** 2)
-    return math.acos(dot_product / (point_magnitude * line_magnitude))
 
 
 def sort_points_clockwise(points, start, end):
