@@ -17,7 +17,6 @@ from scipy.optimize import minimize
 from tqdm.auto import tqdm
 import trimesh
 import pyvista as pv
-from pyvistaqt import BackgroundPlotter
 from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
 from irregular_object_packing.mesh.utils import print_mesh_info
 from irregular_object_packing.tools.profile import pprofile
@@ -168,10 +167,6 @@ class Optimizer(OptimizerData):
 
         self.update_data(-1, -1)
         self.setup_pbars()
-
-        if self.settings.plot_intermediate:
-            self.plotter = BackgroundPlotter()
-            self.plotter.set_background("white")
 
     def setup_pbars(self):
         self.pbar1 = tqdm(range(self.settings.n_scaling_steps), desc="scaling \t", position=0)
