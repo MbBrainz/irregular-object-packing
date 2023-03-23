@@ -36,6 +36,7 @@ def plot_full_comparison(
     meshes_before,
     meshes_after,
     cat_cell_meshes,
+    container,
     plotter=None,
     title_left="Initial Placement",
     title_right="Improved Placement",
@@ -48,19 +49,23 @@ def plot_full_comparison(
     colors = generate_tinted_colors(len(meshes_before))
     plotter.subplot(0)
     plotter.add_title(title_left)
+    plotter.add_mesh(container, opacity=0.3)
     for i, mesh in enumerate(meshes_before):
-        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.8)
+        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.9)
 
     for i, cat_mesh in enumerate(cat_cell_meshes):
-        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.4)
+        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.5)
+        open_edges = cat_mesh.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False)
+        plotter.add_mesh(open_edges, color="black", line_width=1)
 
     plotter.subplot(1)
     plotter.add_title(title_right)
+    plotter.add_mesh(container, opacity=0.3)
     for i, mesh in enumerate(meshes_after):
-        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.8)
+        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.9)
 
     for i, cat_mesh in enumerate(cat_cell_meshes):
-        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.4)
+        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.5)
     plotter.show()
 
     return plotter

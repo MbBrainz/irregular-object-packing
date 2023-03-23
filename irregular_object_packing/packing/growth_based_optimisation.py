@@ -231,7 +231,7 @@ class Optimizer(OptimizerData):
         return self.settings.sample_rate  # currently simple
 
     def container_sample_rate(self):
-        return self.settings.sample_rate * 5 * self.n_objs
+        return self.settings.sample_rate * 2 * self.n_objs
 
     def resample_meshes(self):
         self.log("resampling meshes", LOG_LVL_DEBUG)
@@ -299,7 +299,9 @@ class Optimizer(OptimizerData):
         """Perform a single iteration of the optimisation"""
         # DOWN SAMPLE MESHES
         container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
+        container_points = self.container.to_mesh().vertices
         sample_points = trimesh.sample.sample_surface_even(self.shape, self.mesh_sample_rate())[0]
+        sample_points = self.shape.vertices
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
         obj_points = [
@@ -382,12 +384,12 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./data/mesh/"
 
-        mesh_volume = 0.6
+        mesh_volume = 1.0
         container_volume = 10
 
-        loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
-        # loaded_mesh = s
-        container = trimesh.primitives.Cylinder(radius=1, height=2)
+        # loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
+        loaded_mesh = trimesh.primitives.Box().to_mesh()
+        container = trimesh.primitives.Box()
 
         # Scale the mesh and container to the desired volume
         container = scale_to_volume(container, container_volume)
@@ -397,7 +399,7 @@ class Optimizer(OptimizerData):
             itn_max=1,
             n_scaling_steps=1,
             final_scale=0.4,
-            sample_rate=50,
+            sample_rate=10,
             log_lvl=0,
             # plot_intermediate=True,
         )
@@ -430,6 +432,14 @@ plots.plot_full_comparison(
     # optimizer.final_meshes_before(optimizer.pv_shape),
     optimizer.final_meshes_after(optimizer.pv_shape),
     optimizer.final_cat_meshes(),
+    optimizer.container.to_mesh(),
     plotter,
 )
+# %%
+
+plots.plot_step_comparison(
+    optimizer.mesh_before(0, 0, optimizer.pv_shape), optimizer.mesh_after(0, 0, optimizer.pv_shape),
+    optimizer.cat_mesh(0, 0),
+)
+
 # %%

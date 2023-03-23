@@ -1,4 +1,5 @@
 from copy import copy
+from pandas import DataFrame
 from pyvista import PolyData
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
 from irregular_object_packing.packing.chordal_axis_transform import face_coord_to_points_and_faces, CatData
@@ -97,3 +98,12 @@ class OptimizerData:
             self.meshes_after(iteration, mesh),
             self.cat_meshes(iteration),
         )
+
+    def _report(self, iteration=None):
+        if iteration == None:
+            iteration = self.idx
+        df = DataFrame(
+            data=[self._tf_arrays(i) for i in range(self.idx)],
+            columns=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"],
+        )
+        return df
