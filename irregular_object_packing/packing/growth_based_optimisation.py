@@ -299,9 +299,9 @@ class Optimizer(OptimizerData):
         """Perform a single iteration of the optimisation"""
         # DOWN SAMPLE MESHES
         container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
-        container_points = self.container.to_mesh().vertices
+        # container_points = self.container.to_mesh().vertices
         sample_points = trimesh.sample.sample_surface_even(self.shape, self.mesh_sample_rate())[0]
-        sample_points = self.shape.vertices
+        # sample_points = self.shape.vertices
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
         obj_points = [
@@ -322,7 +322,6 @@ class Optimizer(OptimizerData):
             self.update_plot()
 
     def local_optimisation(self, obj_id, cat_data, transform_data_i, max_scale):
-        # self.prev_tf_arrs[obj_id] = transform_data_i.copy()
         tf_arr = optimal_transform(
             obj_id,
             cat_data,
@@ -384,22 +383,23 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./data/mesh/"
 
-        mesh_volume = 1.0
+        mesh_volume = 0.2
         container_volume = 10
 
-        # loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
-        loaded_mesh = trimesh.primitives.Box().to_mesh()
-        container = trimesh.primitives.Box()
+        loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
+        # loaded_mesh = trimesh.primitives.Box().to_mesh()
+        # container = trimesh.primitives.Box()
+        container = trimesh.primitives.Cylinder()
 
         # Scale the mesh and container to the desired volume
         container = scale_to_volume(container, container_volume)
         original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
 
         settings = SimSettings(
-            itn_max=1,
+            itn_max=2,
             n_scaling_steps=1,
             final_scale=0.4,
-            sample_rate=10,
+            sample_rate=40,
             log_lvl=0,
             # plot_intermediate=True,
         )
@@ -438,7 +438,8 @@ plots.plot_full_comparison(
 # %%
 
 plots.plot_step_comparison(
-    optimizer.mesh_before(0, 0, optimizer.pv_shape), optimizer.mesh_after(0, 0, optimizer.pv_shape),
+    optimizer.mesh_before(0, 0, optimizer.pv_shape),
+    optimizer.mesh_after(0, 0, optimizer.pv_shape),
     optimizer.cat_mesh(0, 0),
 )
 
