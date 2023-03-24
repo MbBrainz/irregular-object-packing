@@ -28,6 +28,7 @@ LOG_LVL_SEVERE = 3
 LOG_LVL_WARNING = 2
 LOG_LVL_INFO = 1
 LOG_LVL_DEBUG = 0
+LOG_PREFIX = ["[DEBUG]", "[INFO]", "[WARNING]", "[SEVERE]"]
 
 from irregular_object_packing.packing import (
     initialize as init,
@@ -109,7 +110,7 @@ def compute_cat_violations(p_meshes, cat_meshes):
 #
 
 
-def optimal_transform(k, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None):
+def optimal_transform(k, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None, margin=None):
     r_bound = (-max_angle, max_angle)
     t_bound = (0, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
@@ -121,6 +122,7 @@ def optimal_transform(k, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * n
         "args": (
             k,
             cat_data,
+            margin,
         ),
     }
     res = minimize(nlc.objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
@@ -178,6 +180,7 @@ class Optimizer(OptimizerData):
         self.data_index = -1
         self.objects = None
         self.pbar1 = self.pbar2 = None
+        self.margin = None
 
     # ----------------------------------------------------------------------------------------------
     # SETUP functions
@@ -204,6 +207,7 @@ class Optimizer(OptimizerData):
 
         self.update_data(-1, -1)
         self.setup_pbars()
+        self.margin = self.pv_shape.volume ** (1 / 3) / self.settings.sample_rate * (1 / 10)
 
     def setup_pbars(self):
         self.pbar1 = tqdm(range(self.settings.n_scaling_steps), desc="scaling \t", position=0)
@@ -220,6 +224,7 @@ class Optimizer(OptimizerData):
         if log_lvl < self.settings.log_lvl:
             return
 
+        msg = LOG_PREFIX[log_lvl] + msg
         if self.pbar1 is None:
             print(msg)
         else:
@@ -327,12 +332,17 @@ class Optimizer(OptimizerData):
         tf_arr = optimal_transform(
             obj_id,
             cat_data,
-            scale_bound=(self.settings.init_f, max_scale),
+            scale_bound=(self.settings.init_f, None),
             max_angle=self.settings.max_a,
             max_t=self.settings.max_t,
+            margin=self.margin,
         )
         new_tf = transform_data_i + tf_arr
-        new_tf[0] = tf_arr[0]  # * transform_data_i[0]
+        new_scale = new_tf[0]
+        if new_scale > max_scale:
+            new_scale = max_scale
+
+        new_tf[0] = new_scale
         self.tf_arrs[obj_id] = new_tf
         self.object_coords[obj_id] = new_tf[4:]
 
@@ -351,7 +361,7 @@ class Optimizer(OptimizerData):
         ]
         for i, cell in enumerate(cat_cells):
             if not cell.is_manifold:
-                self.log(f"CAT cell of object {i} is not manifold", log_lvl=LOG_LVL_SEVERE)
+                self.log(f"CAT cell of object {i} is not manifold", log_lvl=LOG_LVL_WARNING)
 
     def check_object_overlap(self):
         self.log("checking for collisions", LOG_LVL_DEBUG)
@@ -385,7 +395,8 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./data/mesh/"
 
-        mesh_volume = 0.2
+        # mesh_volume = 0.2
+        mesh_volume = 0.3
         container_volume = 10
 
         loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
@@ -398,12 +409,13 @@ class Optimizer(OptimizerData):
         original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
 
         settings = SimSettings(
-            itn_max=1,
-            n_scaling_steps=1,
-            final_scale=0.2,
-            sample_rate=100,
+            itn_max=2,
+            n_scaling_steps=5,
+            r=0.1,
+            final_scale=0.5,
+            sample_rate=30,
             log_lvl=1,
-            # plot_intermediate=True,
+            init_f=0.05,  # NOTE: Smaller than paper
         )
         optimizer = Optimizer(original_mesh, container, settings)
         return optimizer
@@ -433,11 +445,11 @@ plots.plot_full_comparison(
     plotter,
 )
 # %%
-
+obj_i = 0
 plots.plot_step_comparison(
-    optimizer.mesh_before(0, 0, optimizer.pv_shape),
-    optimizer.mesh_after(0, 0, optimizer.pv_shape),
-    optimizer.cat_mesh(0, 0),
+    optimizer.mesh_before(0, obj_i, optimizer.pv_shape),
+    optimizer.mesh_after(0, obj_i, optimizer.pv_shape),
+    optimizer.cat_mesh(0, obj_i),
 )
 
 
@@ -448,3 +460,5 @@ def profile_optimizer():
 
 
 # profile_optimizer()
+
+# %%

@@ -371,8 +371,6 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     This function is used to convert the data so that it can be used by the pyvista.PolyData class.
 
     Note: Currently this function assumes that the indices of the points are not global with respect to other meshes.
-
-
     """
     cat_faces = data.cat_cells[obj_id]
     cat_points = []
