@@ -84,9 +84,10 @@ def compute_container_violations(p_meshes, container):
 
     for i, mesh in enumerate(p_meshes):
         violation = compute_boundary_violation(mesh, container)
-        violations.append(i)
-        viol_meshes.append(violation[0])
-        n += 1
+        if violation[1] > 0:
+            violations.append(i)
+            viol_meshes.append(violation[0])
+            n += 1
     return n, violations, viol_meshes
 
 
@@ -95,9 +96,10 @@ def compute_cat_violations(p_meshes, cat_meshes):
 
     for i, (mesh, cat_mesh) in enumerate(zip(p_meshes, cat_meshes)):
         violation = compute_boundary_violation(mesh, cat_mesh)
-        violations.append(i)
-        viol_meshes.append(violation[0])
-        n += 1
+        if violation[1] > 0:
+            violations.append(i)
+            viol_meshes.append(violation[0])
+            n += 1
     return n, violations, viol_meshes
 
 
@@ -398,8 +400,8 @@ class Optimizer(OptimizerData):
         settings = SimSettings(
             itn_max=1,
             n_scaling_steps=1,
-            final_scale=0.3,
-            sample_rate=50,
+            final_scale=0.2,
+            sample_rate=100,
             log_lvl=1,
             # plot_intermediate=True,
         )

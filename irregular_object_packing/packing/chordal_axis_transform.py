@@ -179,7 +179,6 @@ def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
 
     data.add_cat_faces_to_cell(least[1].obj_id, [least_face] + most_faces_d)
     data.add_cat_faces_to_point(least[1], [least_face] + most_faces_d)
-    print("")
 
 
 def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
@@ -300,12 +299,12 @@ def create_faces_4(data: CatData, tet_points: list[TetPoint]):
     ]
 
     faces_d = [
-        [center_point, ad_point, acd_point],
-        [center_point, acd_point, cd_point],
-        [center_point, cd_point, bcd_point],
-        [center_point, bcd_point, bd_point],
-        [center_point, bd_point, abd_point],
-        [center_point, abd_point, ad_point],
+        [center_point, ad_point, abd_point],
+        [center_point, abd_point, bd_point],
+        [center_point, bd_point, bcd_point],
+        [center_point, bcd_point, cd_point],
+        [center_point, cd_point, acd_point],
+        [center_point, acd_point, ad_point],
     ]
 
     # Adds the faces the list of each ovbject
@@ -364,22 +363,6 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]], obj_coords: list[np
     return data
 
 
-def convert_single_to_pyvista(data: CatData, obj_id: int):
-    """Convert the data to a pyvista.PolyData object.
-
-    args:
-        - data: the data to convert
-    """
-    points = []
-    faces = []
-
-    for face in data.cat_faces[obj_id]["all"]:
-        faces.extend([3, *face])
-
-    points = np.array(points)
-    faces = np.array(faces)
-
-
 def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     # FIXME: This function is not functional anymore. ill fix it later
     """Convert a list of triangular only faces represented by points with coordinates
@@ -397,6 +380,7 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     n_entries = 0
     for face in cat_faces:
         len_face = len(face)
+        assert len_face == 3, f"len_face: {len_face}"
         if len_face == 3:
             n_entries += 4
         if len_face == 4:
