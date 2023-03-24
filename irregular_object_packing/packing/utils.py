@@ -1,4 +1,5 @@
 # %%
+import itertools
 import math
 import numpy as np
 import pyvista as pv
@@ -125,3 +126,29 @@ def plot_shapes(shape1, shape2, shape3, shape4):
 
 def translation_matrix(x0, x1):
     return np.array([[1, 0, 0, x1[0] - x0[0]], [0, 1, 0, x1[1] - x0[1]], [0, 0, 1, x1[2] - x0[2]], [0, 0, 0, 1]])
+
+
+def distance_squared(p1, p2):
+    return np.sum((np.array(p1) - np.array(p2)) ** 2)
+
+
+def split_quadrilateral_to_triangles(points):
+    if len(points) != 4:
+        raise ValueError("Expected a list of 4 points")
+
+    # Compute distances between all pairs of points
+    distances = [(p1, p2, distance_squared(p1, p2)) for p1, p2 in itertools.combinations(points, 2)]
+
+    # Find the pair of points with the longest distance
+    diagonal = max(distances, key=lambda x: x[2])
+
+    # Get the two remaining points
+    remaining_points = [p for p in points if p not in diagonal[:2]]
+
+    # Form two triangles by connecting the endpoints of the diagonal with the remaining points
+    triangle1 = [diagonal[0], diagonal[1], remaining_points[0]]
+    triangle2 = [diagonal[0], diagonal[1], remaining_points[1]]
+
+    return [triangle1, triangle2]
+
+

@@ -396,11 +396,11 @@ class Optimizer(OptimizerData):
         original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
 
         settings = SimSettings(
-            itn_max=2,
+            itn_max=1,
             n_scaling_steps=1,
-            final_scale=0.4,
-            sample_rate=40,
-            log_lvl=0,
+            final_scale=0.3,
+            sample_rate=50,
+            log_lvl=1,
             # plot_intermediate=True,
         )
         optimizer = Optimizer(original_mesh, container, settings)
@@ -410,21 +410,16 @@ class Optimizer(OptimizerData):
 # %%
 from importlib import reload
 
-reload(plots)
 
 optimizer = Optimizer.default_setup()
 optimizer.run()
 
 
 # %%
-@pprofile
-def profile_optimizer():
-    optimizer.run()
 
-
-# profile_optimizer()
 
 # %%
+reload(plots)
 plotter = pv.Plotter()
 # enumerate
 plots.plot_full_comparison(
@@ -443,4 +438,11 @@ plots.plot_step_comparison(
     optimizer.cat_mesh(0, 0),
 )
 
+
 # %%
+@pprofile
+def profile_optimizer():
+    optimizer.run()
+
+
+# profile_optimizer()
