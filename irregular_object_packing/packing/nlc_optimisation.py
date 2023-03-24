@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 import irregular_object_packing.packing.chordal_axis_transform as cat
 from irregular_object_packing.packing.chordal_axis_transform import CatData
+from irregular_object_packing.packing.utils import compute_face_normal
 
 from importlib import reload
 
@@ -13,40 +14,6 @@ from importlib import reload
 def objective(x):
     f, theta, t = x[0], x[1:4], x[4:]
     return -f  # maximize f
-
-
-def compute_face_normal(points, v_i):
-    """Compute the normal vector of a face.
-
-    The normal vector is the cross product of two vectors of the face with
-    the centroid of the face as the origin.
-
-    Parameters
-    ----------
-    points : list of tuple of float
-        The points of the face.
-    v_i : tuple of float
-        A point on the plane of the face.
-
-    Returns
-    -------
-    normal : tuple of float
-        The normal vector of the face.
-
-    Examples
-    --------
-    >>> compute_face_normal([(0, 0, 0), (0, 0, 1)], (0, 1, 2))
-    (0.0, 1.0, 0.0)
-    """
-    n_points = len(points)
-    assert 3 <= n_points <= 4, "The number of points should be either 3 or 4."
-
-    v0 = points[1] - points[0]
-    v1 = points[2] - points[0]
-    normal = np.cross(v0, v1)
-    if np.dot(normal, v_i - points[0]) < 0:
-        normal *= -1
-    return normal
 
 
 def rotation_matrix(rx, ry, rz):
@@ -194,7 +161,7 @@ def constraint_single_point_margin(
     transformed_v_i = transform_v(v_i, transform_matrix)  # transform v_i
 
     values = []
-    for facet_p_ids in facets:
+    for facet_p_ids, _n_face in facets:
         facet = [np.array(points[p_id]) - obj_coord for p_id in facet_p_ids]
 
         n_j = compute_face_normal(facet, v_i)
@@ -221,7 +188,7 @@ def constraint_single_point_margin(
 
 
 def constraint_single_point_normal(
-    v_i, transform_matrix, facets, normals, points: dict, obj_coord=np.zeros(3), margin=None
+    v_i, transform_matrix, facets, points: dict, obj_coord=np.zeros(3), margin=None
 ):
     """Compute conditions for a single point.
 
@@ -248,28 +215,11 @@ def constraint_single_point_normal(
     transformed_v_i = transform_v(v_i, transform_matrix)  # transform v_i
 
     values = []
-    for i, facet_p_ids in enumerate(facets):
-        facet = [np.array(points[p_id]) - obj_coord for p_id in facet_p_ids]
-
-        n_j = normals[i]
-
-        # normals = facet[1:]  # remaining points in facet are normals
-        # for q_j in facet[:1]:
-        q_j = facet[0]
-        condition = np.dot(transformed_v_i - q_j, n_j) / np.linalg.norm(n_j)
-        if margin is None:
-            values.append(condition)
-
-        else:
-            dist = abs(condition) - margin
-            if dist < 0:
-                dist = 0
-
-            # Return negative value if point is inside surface plus margin, positive value otherwise
-            if condition < 0:
-                values.append(-dist)
-            else:
-                values.append(dist)
+    for i, (facet_p_ids, n_face) in enumerate(facets):
+        facet_coords = [np.array(points[p_id]) - obj_coord for p_id in facet_p_ids]
+        q_j = facet_coords[0]
+        condition = np.dot(transformed_v_i - q_j, n_face) / np.linalg.norm(n_face)
+        values.append(condition)
 
     return values
 
@@ -303,10 +253,14 @@ def constraint_multiple_points(
         List of conditions for all the points.
     """
     transform_matrix = construct_transform_matrix(tf_arr)
+    constraint_single_point = constraint_single_point_margin
+
+    if margin is None:
+        constraint_single_point = constraint_single_point_normal
 
     constraints = []  # list of constraints
     for i, v_i in enumerate(v):
-        constraints += constraint_single_point_margin(
+        constraints += constraint_single_point(
             v_i, transform_matrix, facets_sets[i], points, obj_coords, margin=margin
         )
 
@@ -348,17 +302,17 @@ def test_nlcp():
 
     # Define facets
     facets = [
-        np.array([1, 2, 3, 4]),
-        np.array([5, 6, 7, 8]),
-        np.array([1, 2, 6, 5]),
-        np.array([2, 3, 7, 6]),
-        np.array([3, 4, 8, 7]),
-        np.array([4, 1, 5, 8]),
+        (np.array([1, 2, 3, 4]), np.array([0, 0, 1])),
+        (np.array([5, 6, 7, 8]), np.array([0, 0, -1])),
+        (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
+        (np.array([2, 3, 7, 6]), np.array([-1, 0, 0])),
+        (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
+        (np.array([4, 1, 5, 8]), np.array([1, 0, 0])),
     ]
 
     # quick
     def get_face_coords(facet, points):
-        return [points[p_id] for p_id in facet]
+        return [points[p_id] for p_id in facet[0]]
 
     x0 = np.array([0.9, 0.01, 0.01, 0.01, 0, 0, 0])
 
@@ -377,7 +331,7 @@ def test_nlcp():
             facets_sets,
             points,
             np.array([0, 0, 0]),
-            0.1,
+            None,
         ),
     }
 
@@ -433,5 +387,5 @@ def test_nlcp():
     plt.show()
 
 
-# test_nlcp()
+test_nlcp()
 # %%

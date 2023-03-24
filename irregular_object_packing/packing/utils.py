@@ -152,3 +152,35 @@ def split_quadrilateral_to_triangles(points):
     return [triangle1, triangle2]
 
 
+def compute_face_normal(points, v_i):
+    """Compute the normal vector of a face.
+
+    The normal vector is the cross product of two vectors of the face with
+    the centroid of the face as the origin.
+
+    Parameters
+    ----------
+    points : list of tuple of float
+        The points of the face.
+    v_i : tuple of float
+        A point on the plane of the face.
+
+    Returns
+    -------
+    normal : tuple of float
+        The normal vector of the face.
+
+    Examples
+    --------
+    >>> compute_face_normal([(0, 0, 0), (0, 0, 1)], (0, 1, 2))
+    (0.0, 1.0, 0.0)
+    """
+    n_points = len(points)
+    assert 3 <= n_points <= 4, "The number of points should be either 3 or 4."
+
+    v0 = points[1] - points[0]
+    v1 = points[2] - points[0]
+    normal = np.cross(v0, v1)
+    if np.dot(normal, v_i - points[0]) > 0:
+        normal *= -1
+    return normal
