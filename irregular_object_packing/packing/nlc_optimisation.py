@@ -300,21 +300,21 @@ def test_nlcp():
         11: np.array([0.9, 0.0, 0.0]),
     }
 
-    # Define facets
+    # Define facets (face, normal)
     facets = [
-        (np.array([1, 2, 3, 4]), np.array([0, 0, 1])),
-        (np.array([5, 6, 7, 8]), np.array([0, 0, -1])),
+        (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
+        (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
         (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
         (np.array([2, 3, 7, 6]), np.array([-1, 0, 0])),
         (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
-        (np.array([4, 1, 5, 8]), np.array([1, 0, 0])),
+        (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
     ]
 
     # quick
     def get_face_coords(facet, points):
         return [points[p_id] for p_id in facet[0]]
 
-    x0 = np.array([0.9, 0.01, 0.01, 0.01, 0, 0, 0])
+    x0 = np.array([1, 0.01, 0.01, 0.01, 0, 0, 0])
 
     v = [9, 10, 11]
     facets_sets = [facets, facets, facets]
@@ -387,5 +387,5 @@ def test_nlcp():
     plt.show()
 
 
-test_nlcp()
 # %%
+# test_nlcp()
