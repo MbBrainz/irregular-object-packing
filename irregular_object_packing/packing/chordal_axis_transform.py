@@ -60,7 +60,9 @@ class CatData:
     points: dict
     point_ids: dict
     cat_faces: dict
+    """shape: {[obj_id]: {[point_id]: list[face]} } A dictionary of the faces of the CAT. The keys are the object ids and the values are dictionaries with the keys being point ids and the values being a list of all faces relevant to that point."""
     cat_cells: dict
+    """shape: {[obj_id]: list[face]} A dictionary of the cells of the CAT. The keys are the object ids and the values are a list of all faces of the cat cell belonging to that object."""
     object_coords: np.ndarray
 
     def __init__(self, point_sets: list[set[tuple]], object_coords: np.ndarray):

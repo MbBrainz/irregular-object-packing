@@ -273,18 +273,38 @@ class TestCreateCatFaces(unittest.TestCase):
         expected_faces = {
             0: {
                 0: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
+                    (face, compute_face_normal(self.data.get_face(face), self.a.vertex))
+                    for face in [
+                        *split_quadrilateral_to_triangles(
+                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                        ),
+                    ]
                 ],
                 1: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
+                    (face, compute_face_normal(self.data.get_face(face), self.b.vertex))
+                    for face in [
+                        *split_quadrilateral_to_triangles(
+                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                        ),
+                    ]
                 ],
             },
             1: {
                 2: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
+                    (face, compute_face_normal(self.data.get_face(face), self.c.vertex))
+                    for face in [
+                        *split_quadrilateral_to_triangles(
+                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                        ),
+                    ]
                 ],
                 3: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
+                    (face, compute_face_normal(self.data.get_face(face), self.d.vertex))
+                    for face in [
+                        *split_quadrilateral_to_triangles(
+                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                        ),
+                    ]
                 ],
             },
         }
@@ -315,33 +335,6 @@ class TestCreateCatFaces(unittest.TestCase):
                 2: [
                     (face, compute_face_normal(self.data.get_face(face), self.d.vertex))
                     for face in [[self.middle_ad, self.middle_bd, self.middle_cd]]
-                ],
-            },
-        }
-
-        create_faces_2(self.data, occ, self.points)
-        self.compare_results(self.data, expected_faces)
-
-    def test_create_faces_2_aabb_wide(self):
-        self.set_object_ids([0, 0, 1, 1])
-
-        occ = [(0, 2), (1, 2)]
-
-        expected_faces = {
-            0: {
-                0: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
-                ],
-                1: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
-                ],
-            },
-            1: {
-                2: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
-                ],
-                3: [
-                    [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd],
                 ],
             },
         }

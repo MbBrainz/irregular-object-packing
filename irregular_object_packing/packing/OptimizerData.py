@@ -71,6 +71,8 @@ class OptimizerData:
 
     def cat_meshes(self, iteration: int) -> list[PolyData]:
         """Get the meshes of all cat cells that correspond to the objects from the given iteration"""
+        if self._cat_data(iteration) is None:
+            raise ValueError("No cat data stored yet for iteration " + str(iteration))
         return [
             PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
             for obj_id in range(len(self._tf_arrays(iteration)))

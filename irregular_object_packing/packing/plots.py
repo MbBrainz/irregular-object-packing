@@ -55,7 +55,9 @@ def plot_full_comparison(
 
     for i, cat_mesh in enumerate(cat_cell_meshes):
         plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.5)
-        open_edges = cat_mesh.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False)
+        open_edges = cat_mesh.extract_feature_edges(
+            boundary_edges=False, feature_edges=False, manifold_edges=False
+        )
         if open_edges.n_points > 0:
             plotter.add_mesh(open_edges, color="black", line_width=1)
 
@@ -92,7 +94,9 @@ def plot_step_comparison(
     plotter.subplot(0)
     plotter.add_title(title_left)
     plotter.add_mesh(mesh_before, color="red", opacity=0.8)
-    open_edges = cat_cell_mesh_1.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False)
+    open_edges = cat_cell_mesh_1.extract_feature_edges(
+        boundary_edges=True, feature_edges=False, manifold_edges=False
+    )
     plotter.add_mesh(open_edges, color="black", line_width=1, opacity=0.8)
     plotter.add_mesh(cat_cell_mesh_1, color="yellow", opacity=0.4)
 

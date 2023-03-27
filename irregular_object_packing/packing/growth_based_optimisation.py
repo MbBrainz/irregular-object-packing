@@ -2,6 +2,7 @@
 import sys
 
 sys.path.append("../irregular_object_packing/")
+sys.path.append("../irregular_object_packing/irregular_object_packing/")
 
 
 # %%
@@ -28,6 +29,7 @@ LOG_LVL_SEVERE = 3
 LOG_LVL_WARNING = 2
 LOG_LVL_INFO = 1
 LOG_LVL_DEBUG = 0
+LOG_LVL_NO_LOG = -1
 LOG_PREFIX = ["[DEBUG]", "[INFO]", "[WARNING]", "[SEVERE]"]
 
 from irregular_object_packing.packing import (
@@ -110,7 +112,13 @@ def compute_cat_violations(p_meshes, cat_meshes):
 #
 
 
-def optimal_transform(k, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None, margin=None):
+def optimal_local_transform(
+    obj_id, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None, margin=None
+):
+    """Computes the optimal local transform for a given object id. This will return the transformation parameters that
+    maximises scale with respect to a local coordinate system of the object. This is possible due to the `obj_coords`.
+    """
+
     r_bound = (-max_angle, max_angle)
     t_bound = (0, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
@@ -118,9 +126,9 @@ def optimal_transform(k, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * n
 
     constraint_dict = {
         "type": "ineq",
-        "fun": nlc.constraints_from_dict,
+        "fun": nlc.local_constraints_from_cat,
         "args": (
-            k,
+            obj_id,
             cat_data,
             margin,
         ),
@@ -150,7 +158,7 @@ class SimSettings:
     """The coverage rate"""
     plot_intermediate: bool = False
     """Whether to plot intermediate results"""
-    log_lvl: int = 3
+    log_lvl: int = -1
     """The log level maximum level is 3"""
 
 
@@ -165,7 +173,7 @@ class Optimizer(OptimizerData):
     object_coords: np.ndarray
     prev_tf_arrs: np.ndarray[np.ndarray]
 
-    def __init__(self, shape: trimesh.Trimesh, container: trimesh.Trimesh, settings: SimSettings):
+    def __init__(self, shape: trimesh.Trimesh, container: trimesh.Trimesh, settings: SimSettings, plotter=None):
         self.shape0 = shape
         self.shape = shape
         self.container0 = container
@@ -176,7 +184,7 @@ class Optimizer(OptimizerData):
         self.tf_arrs = np.empty(0)
         self.object_coords = np.empty(0)
         self.prev_tf_arrs = np.empty(0)
-        self.plotter = None
+        self.plotter: pv.Plotter = plotter
         self.data_index = -1
         self.objects = None
         self.pbar1 = self.pbar2 = None
@@ -208,6 +216,8 @@ class Optimizer(OptimizerData):
         self.update_data(-1, -1)
         self.setup_pbars()
         self.margin = self.pv_shape.volume ** (1 / 3) / self.settings.sample_rate * (1 / 10)
+        if self.plotter is not None:
+            self.plotter.show(interactive=True, interactive_update=True)
 
     def setup_pbars(self):
         self.pbar1 = tqdm(range(self.settings.n_scaling_steps), desc="scaling \t", position=0)
@@ -221,7 +231,7 @@ class Optimizer(OptimizerData):
         self.add(self.tf_arrs, self.cat_data, (i_b, i))
 
     def log(self, msg, log_lvl=0):
-        if log_lvl < self.settings.log_lvl:
+        if log_lvl > self.settings.log_lvl:
             return
 
         msg = LOG_PREFIX[log_lvl] + msg
@@ -266,15 +276,19 @@ class Optimizer(OptimizerData):
             return
 
         self.plotter.clear_actors()
-        self.plotter.add_mesh(self.container.to_mesh(), color="grey", opacity=0.2)
+        self.plotter.add_mesh(self.container.to_mesh(), color="white", opacity=0.2)
         colors = plots.generate_tinted_colors(self.n_objs)
         for i, mesh in enumerate(self.final_meshes_after(self.pv_shape)):
-            self.plotter.add_mesh(mesh, color=colors[1][i])
+            self.plotter.add_mesh(mesh, color=colors[1][i], opacity=0.7)
 
-        for i, mesh in enumerate(self.final_cat_meshes()):
-            self.plotter.add_mesh(mesh, color=colors[0][i])
+        cat_meshes = [
+            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id)) for obj_id in range(self.n_objs)
+        ]
 
-        self.plotter.render()
+        for i, mesh in enumerate(cat_meshes):
+            self.plotter.add_mesh(mesh, color=colors[0][i], opacity=0.5)
+
+        self.plotter.update()
 
     def run(self):
         self.setup()
@@ -323,20 +337,23 @@ class Optimizer(OptimizerData):
         self.update_plot()
 
         # GROWTH-BASED OPTIMISATION
-        for obj_i, transform_data_i in enumerate(self.tf_arrs):
-            self.pbar2.set_postfix(obj_id=obj_i)
-            self.local_optimisation(obj_i, self.cat_data, transform_data_i, scale_bound)
-            self.update_plot()
+        for obj_id, transform_data_i in enumerate(self.tf_arrs):
+            self.pbar2.set_postfix(obj_id=obj_id)
+            self.local_optimisation(obj_id, transform_data_i, scale_bound)
 
-    def local_optimisation(self, obj_id, cat_data, transform_data_i, max_scale):
-        tf_arr = optimal_transform(
+        self.update_plot()
+
+    def local_optimisation(self, obj_id, transform_data_i, max_scale):
+        tf_arr = optimal_local_transform(
             obj_id,
-            cat_data,
+            self.cat_data,
             scale_bound=(self.settings.init_f, None),
             max_angle=self.settings.max_a,
             max_t=self.settings.max_t,
             margin=self.margin,
         )
+
+        # final guess... #FIXME
         new_tf = transform_data_i + tf_arr
         new_scale = new_tf[0]
         if new_scale > max_scale:
@@ -409,15 +426,17 @@ class Optimizer(OptimizerData):
         original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
 
         settings = SimSettings(
-            itn_max=2,
-            n_scaling_steps=5,
-            r=0.1,
-            final_scale=0.5,
-            sample_rate=30,
-            log_lvl=1,
+            itn_max=1,
+            n_scaling_steps=1,
+            r=0.3,
+            final_scale=0.1,
+            sample_rate=100,
+            log_lvl=3,
             init_f=0.05,  # NOTE: Smaller than paper
         )
-        optimizer = Optimizer(original_mesh, container, settings)
+        plotter = None
+        # plotter = pv.Plotter()
+        optimizer = Optimizer(original_mesh, container, settings, plotter)
         return optimizer
 
 
