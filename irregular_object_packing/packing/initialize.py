@@ -22,7 +22,7 @@ def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
 
 
 def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
-    """gets the bounding mesh of mesh that has the smallest volume
+    """Selects one of 'Box', 'Sphere' or 'Cylinder' bounding mesh of mesh that has the smallest volume
 
     Args:
         mesh (trimesh.Trimesh): original mesh
@@ -41,6 +41,7 @@ def init_coordinates(
     mesh: trimesh.Trimesh,
     coverage_rate: float = 0.3,
     c_scale: float = 1.0,
+    f_init: float = 0.1,
 ) -> np.ndarray:
     """Places the objects inside the container at initial location.
 
@@ -54,18 +55,18 @@ def init_coordinates(
     else:
         scaled_container = container
 
-    # container_bound = get_min_bounding_mesh(container.apply_scale(0.8))
     max_volume = container.volume * coverage_rate
     acc_vol = 0
     skipped = 0
     objects_coords = []
+    max_dim_mesh = max(mesh.extents)
+
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(scaled_container.bounds)
         if scaled_container.contains([coord]):
-            distance_arr = [np.linalg.norm(coord - i) > mesh.volume ** (1 / 3) for i in objects_coords]
+            distance_arr = [np.linalg.norm(coord - i) > f_init * max_dim_mesh for i in objects_coords]
             distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
-
-            distance_arr.append(distance_to_container > 1 / 5 * mesh.volume ** (1 / 3))
+            distance_arr.append(distance_to_container > 1 / 2 * f_init * max_dim_mesh)
 
             if np.alltrue(distance_arr):
                 objects_coords.append(coord)
