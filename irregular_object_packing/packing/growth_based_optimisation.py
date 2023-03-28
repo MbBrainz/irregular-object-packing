@@ -1,11 +1,11 @@
 # %%
+import contextlib
 import sys
 from time import sleep
 
 
 sys.path.append("../irregular_object_packing/")
 sys.path.append("../irregular_object_packing/irregular_object_packing/")
-
 
 
 from irregular_object_packing.packing.utils import get_max_bounds
@@ -163,6 +163,10 @@ class SimSettings:
     """Whether to plot intermediate results"""
     log_lvl: int = -1
     """The log level maximum level is 3"""
+    decimate: bool = True
+    """Whether to decimate the object mesh"""
+    sample_rate_ratio: float = 2.0
+    """The ratio between the sample rate of the object and the container"""
 
 
 class Optimizer(OptimizerData):
@@ -181,7 +185,10 @@ class Optimizer(OptimizerData):
         self.shape = shape
         self.container0 = container
         self.container = container
-        self.pv_shape = trimesh_to_pyvista(shape).decimate(target_reduction=0.01, volume_preservation=True)
+        if settings.decimate:
+            self.pv_shape = trimesh_to_pyvista(shape).decimate(target_reduction=0.01, volume_preservation=True)
+        else:
+            self.pv_shape = trimesh_to_pyvista(shape)
         self.settings = settings
         self.cat_data = None
         self.tf_arrs = np.empty(0)
@@ -259,7 +266,7 @@ class Optimizer(OptimizerData):
         return self.settings.sample_rate  # currently simple
 
     def container_sample_rate(self):
-        return self.settings.sample_rate * 2 * self.n_objs
+        return self.settings.sample_rate * self.n_objs * self.settings.sample_rate_ratio
 
     def resample_meshes(self):
         self.log("resampling meshes", LOG_LVL_DEBUG)
@@ -273,7 +280,7 @@ class Optimizer(OptimizerData):
     def n_objs(self):
         return len(self.object_coords)
 
-    def add_to_plot(self, coll_meshes):
+    def add_meshes_to_plot(self, coll_meshes, obj_id=None):
         if self.plotter is None:
             return
 
@@ -282,11 +289,14 @@ class Optimizer(OptimizerData):
 
         self.plotter.render()
 
+    def add_mesh_to_plot(self, obj_id):
+        pass
+
     def update_plot(self):
         if self.plotter is None:
             return
 
-        self.plotter.clear_actors()
+        self.plotter.clear()
         self.plotter.add_mesh(self.container.to_mesh(), color="white", opacity=0.2)
         colors = plots.generate_tinted_colors(self.n_objs)
         for i, mesh in enumerate(self.final_meshes_after(self.pv_shape)):
@@ -303,7 +313,7 @@ class Optimizer(OptimizerData):
         sleep(5)
 
     def run(self):
-        self.setup()
+        # self.setup()
         self.setup_pbars()
 
         for i_b in range(0, self.settings.n_scaling_steps):
@@ -318,6 +328,13 @@ class Optimizer(OptimizerData):
                 self.update_data(i_b, i)
                 self.check_validity()
                 self.pbar2.update()
+
+                if np.alltrue([arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrs]):
+                    self.log(
+                        f"All objects have reached the scaling barrier {self.scaling_barrier_list[i_b]}",
+                        LOG_LVL_INFO,
+                    )
+                    break
             self.pbar1.update()
 
     # ----------------------------------------------------------------------------------------------
@@ -326,21 +343,7 @@ class Optimizer(OptimizerData):
     def iteration(self, scale_bound):
         """Perform a single iteration of the optimisation"""
         # DOWN SAMPLE MESHES
-        container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
-        # container_points = self.container.to_mesh().vertices
-        sample_points = trimesh.sample.sample_surface_even(self.shape, self.mesh_sample_rate())[0]
-        # sample_points = self.shape.vertices
-
-        # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATIONpdating data for
-        obj_points = [
-            trimesh.transform_points(sample_points.copy(), nlc.construct_transform_matrix(transform_data))
-            for transform_data in self.tf_arrs
-        ]
-
-        # COMPUTE CAT CELLS
-        self.log("Computing CAT cells")
-        self.cat_data = cat.compute_cat_cells(obj_points, container_points, self.object_coords)
-        # self.check_closed_cells()
+        self.compute_cat_cells()
         self.update_plot()
 
         # GROWTH-BASED OPTIMISATION
@@ -371,6 +374,20 @@ class Optimizer(OptimizerData):
         self.object_coords[obj_id] = new_tf[4:]
         self.pbar3.update()
 
+    def compute_cat_cells(self):
+        self.log("Computing CAT cells")
+        container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
+        sample_points = trimesh.sample.sample_surface_even(self.shape, self.mesh_sample_rate())[0]
+
+        # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATIONpdating data for
+        obj_points = [
+            trimesh.transform_points(sample_points.copy(), nlc.construct_transform_matrix(transform_data))
+            for transform_data in self.tf_arrs
+        ]
+
+        # COMPUTE CAT CELLS
+        self.cat_data = cat.compute_cat_cells(obj_points, container_points, self.object_coords)
+
     # ----------------------------------------------------------------------------------------------
     # VALIDITY CHECKS
     # ----------------------------------------------------------------------------------------------
@@ -398,7 +415,7 @@ class Optimizer(OptimizerData):
 
         if n > 0:
             self.log(f"! collision found for {n} objects with total of {colls} contacts", LOG_LVL_SEVERE)
-            return self.add_to_plot(coll_meshes)
+            return self.add_meshes_to_plot(coll_meshes)
         return n > 0
 
     def check_cat_boundaries(self):
@@ -409,7 +426,7 @@ class Optimizer(OptimizerData):
 
         if n > 0:
             self.log(f"! cat boundary violation for objects {violations}", LOG_LVL_SEVERE)
-            self.add_to_plot(meshes)
+            self.add_meshes_to_plot(meshes)
 
     def has_container_violations(self):
         self.log("checking for container violations", LOG_LVL_DEBUG)
@@ -418,20 +435,17 @@ class Optimizer(OptimizerData):
 
         if n > 0:
             self.log(f"! container violation for objects {violations}", LOG_LVL_SEVERE)
-            self.add_to_plot(meshes)
+            self.add_meshes_to_plot(meshes)
         return n > 0
 
     @staticmethod
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./data/mesh/"
 
-        # mesh_volume = 0.2
-        mesh_volume = 0.5
+        mesh_volume = 0.1
         container_volume = 10
 
         loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
-        # loaded_mesh = trimesh.primitives.Box().to_mesh()
-        # container = trimesh.primitives.Box()
         container = trimesh.primitives.Cylinder()
 
         # Scale the mesh and container to the desired volume
@@ -440,16 +454,43 @@ class Optimizer(OptimizerData):
         print_mesh_info(original_mesh, "original mesh")
 
         settings = SimSettings(
+            itn_max=10,
+            n_scaling_steps=10,
+            r=0.3,
+            final_scale=0.5,
+            sample_rate=300,
+            log_lvl=0,
+            init_f=0.1,  # NOTE: Smaller than paper
+        )
+        plotter = None
+        plotter = pv.Plotter(off_screen=True)
+        optimizer = Optimizer(original_mesh, container, settings, plotter)
+        return optimizer
+
+    @staticmethod
+    def simple_shapes_setup() -> "Optimizer":
+        mesh_volume = 4
+        container_volume = 10
+
+        loaded_mesh = trimesh.primitives.Sphere().to_mesh()
+        container = trimesh.primitives.Box()
+
+        # Scale the mesh and container to the desired volume
+        container = scale_to_volume(container, container_volume)
+        original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
+
+        settings = SimSettings(
             itn_max=1,
             n_scaling_steps=1,
             r=0.3,
             final_scale=0.2,
             sample_rate=100,
             log_lvl=0,
+            decimate=False,
             init_f=0.1,  # NOTE: Smaller than paper
+            
         )
         plotter = None
-        # plotter = pv.Plotter()
         optimizer = Optimizer(original_mesh, container, settings, plotter)
         return optimizer
 
@@ -457,13 +498,14 @@ class Optimizer(OptimizerData):
 # %%
 from importlib import reload
 
-
-optimizer = Optimizer.default_setup()
+optimizer = Optimizer.simple_shapes_setup()
 optimizer.setup()
-optimizer.run()
 
 
 # %%
+optimizer.run()
+
+#%%
 reload(plots)
 plotter = pv.Plotter()
 # enumerate
@@ -476,11 +518,11 @@ plots.plot_full_comparison(
     plotter,
 )
 # %%
-obj_i = 9
+obj_i = 6
 plots.plot_step_comparison(
     optimizer.mesh_before(0, obj_i, optimizer.pv_shape),
     optimizer.mesh_after(0, obj_i, optimizer.pv_shape),
-    optimizer.cat_mesh(0, obj_i),
+    optimizer.cat_mesh(1, obj_i),
 )
 
 
@@ -488,8 +530,3 @@ plots.plot_step_comparison(
 @pprofile
 def profile_optimizer():
     optimizer.run()
-
-
-# profile_optimizer()
-
-# %%

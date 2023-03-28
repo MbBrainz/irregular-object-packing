@@ -96,7 +96,7 @@ class OptimizerData:
 
     def final_cat_meshes(self):
         """Get the meshes of all cat cells that correspond to the objects from the final iteration"""
-        if self._index < 1:
+        if self._index <= 0:
             ValueError("No cat data stored yet")
         return self.cat_meshes(self.idx)
 

@@ -62,7 +62,6 @@ def init_coordinates(
     objects_coords = []
     # object is centered at tue origin
     max_dim_mesh = max(np.abs(mesh.bounds.flatten())) * 2
-    print(f"Max dim mesh: {max_dim_mesh}")
 
     min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
 
