@@ -5,7 +5,9 @@ from tqdm import tqdm
 
 import irregular_object_packing.packing.chordal_axis_transform as cat
 from irregular_object_packing.packing.chordal_axis_transform import CatData
-from irregular_object_packing.packing.utils import compute_face_normal
+from irregular_object_packing.packing.utils import compute_face_normal, print_transform_array
+from mpl_toolkits.mplot3d import proj3d
+
 
 from importlib import reload
 
@@ -321,13 +323,13 @@ def test_nlcp():
     def get_face_coords(facet, points):
         return [points[p_id] for p_id in facet[0]]
 
-    x0 = np.array([1, 0.01, 0.01, 0.01, 0, 0, 0])
+    x0 = np.array([1, 0.01, 0.01, 0.01, 0.1, 0.1, 0.1])
 
     v = [9, 10, 11]
     facets_sets = [facets, facets, facets]
 
     r_bound = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-    t_bound = (0, 0)
+    t_bound = (0, None)
     bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
     # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
     constraint_dict = {
@@ -347,14 +349,12 @@ def test_nlcp():
     ## %%
     # Print the results
     print("Optimal solution:")
-    print(res.x)
-    print("Maximum scaling factor:")
-    print(-res.fun)
-    print("resulting vectors:")
+    print_transform_array(res.x)
+    # print("resulting vectors:")
 
-    print(transform_v(points[9], T))
-    print(transform_v(points[10], T))
-    print(transform_v(points[11], T))
+    # print(transform_v(points[9], T))
+    # print(transform_v(points[10], T))
+    # print(transform_v(points[11], T))
 
     ## %%
     # Create a 3D plot
@@ -391,6 +391,7 @@ def test_nlcp():
     ax.set_zlabel("Z")
 
     # Show the plot
+    # plt.tight_layout()
     plt.show()
 
 

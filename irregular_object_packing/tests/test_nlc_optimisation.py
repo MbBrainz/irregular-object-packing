@@ -299,7 +299,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0] * self.tf0[0]
+        new_tf[0] = opt_tf[0]
         T = construct_transform_matrix(new_tf)
 
         resulting_points = []
@@ -308,7 +308,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
 
             resulting_points.append(res_v)
             test_point_within_box(self, res_v, self.box_coords)
-   
+
     def test_nlcp_not_scalable(self):
         x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
         v = [12, 13, 14]
@@ -330,7 +330,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0] * self.tf0[0]
+        new_tf[0] = opt_tf[0]
         T = construct_transform_matrix(new_tf)
 
         resulting_points = []
@@ -339,4 +339,158 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
 
             resulting_points.append(res_v)
             test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
-   
+
+    def test_nlcp_no_translation(self):
+        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
+        v = [9, 10, 11]
+        facets_sets = [self.facets, self.facets, self.facets]
+        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
+        t_bounds = (0, 0)
+        f_bounds = (0, None)
+
+        T_local, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+        )
+
+        # Check if the local system is correct
+        local_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T_local)
+            local_points.append(res_v)
+            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+
+        # This part is based on Optimizer.local_optimisation()
+        new_tf = self.tf0 + opt_tf
+        new_tf[0] = opt_tf[0]
+        T = construct_transform_matrix(new_tf)
+
+        resulting_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T)
+
+            resulting_points.append(res_v)
+            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+
+    def test_nlcp_no_rotation(self):
+        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
+        v = [9, 10, 11]
+        facets_sets = [self.facets, self.facets, self.facets]
+        r_bounds = (0, 0)
+        t_bounds = (0, None)
+        f_bounds = (0, None)
+
+        T_local, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+        )
+
+        # Check if the local system is correct
+        local_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T_local)
+            local_points.append(res_v)
+            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+
+        # This part is based on Optimizer.local_optimisation()
+        new_tf = self.tf0 + opt_tf
+        new_tf[0] = opt_tf[0]
+        T = construct_transform_matrix(new_tf)
+
+        resulting_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T)
+
+            resulting_points.append(res_v)
+            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+
+    def test_nlcp_no_scaling(self):
+        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
+        v = [9, 10, 11]
+        facets_sets = [self.facets, self.facets, self.facets]
+        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
+        t_bounds = (0, None)
+        f_bounds = (1, 1)
+
+        T_local, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+        )
+
+        # Check if the local system is correct
+        local_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T_local)
+            local_points.append(res_v)
+            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+
+        # This part is based on Optimizer.local_optimisation()
+        new_tf = self.tf0 + opt_tf
+        new_tf[0] = opt_tf[0]
+        T = construct_transform_matrix(new_tf)
+
+        resulting_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T)
+
+            resulting_points.append(res_v)
+            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+
+    def test_nlcp_no_scaling_no_translation(self):
+        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
+        v = [9, 10, 11]
+        facets_sets = [self.facets, self.facets, self.facets]
+        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
+        t_bounds = (0, 0)
+        f_bounds = (1, 1)
+
+        T_local, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+        )
+
+        # Check if the local system is correct
+        local_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T_local)
+            local_points.append(res_v)
+            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+
+        # This part is based on Optimizer.local_optimisation()
+        new_tf = self.tf0 + opt_tf
+        new_tf[0] = opt_tf[0]
+        T = construct_transform_matrix(new_tf)
+
+        resulting_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T)
+
+            resulting_points.append(res_v)
+            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+
+    def test_nlcp_no_scaling_no_translation_no_rotation(self):
+        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
+        v = [9, 10, 11]
+        facets_sets = [self.facets, self.facets, self.facets]
+        r_bounds = (0, 0)
+        t_bounds = (0, 0)
+        f_bounds = (1, 1)
+
+        T_local, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+        )
+
+        # Check if the local system is correct
+        local_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T_local)
+            local_points.append(res_v)
+            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+
+        # This part is based on Optimizer.local_optimisation()
+        new_tf = self.tf0 + opt_tf
+        new_tf[0] = opt_tf[0]
+        T = construct_transform_matrix(new_tf)
+
+        resulting_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T)
+
+            resulting_points.append(res_v)
+            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)

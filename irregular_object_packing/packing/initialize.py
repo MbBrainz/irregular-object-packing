@@ -3,6 +3,7 @@ Initialization phase of the packing algorithm.
 
 """
 # %%
+import math
 import random
 from typing import List
 from scipy.spatial import Voronoi
@@ -42,7 +43,7 @@ def init_coordinates(
     coverage_rate: float = 0.3,
     c_scale: float = 1.0,
     f_init: float = 0.1,
-) -> np.ndarray:
+) -> tuple[np.ndarray, int]:
     """Places the objects inside the container at initial location.
 
     Args:
@@ -59,14 +60,18 @@ def init_coordinates(
     acc_vol = 0
     skipped = 0
     objects_coords = []
-    max_dim_mesh = max(mesh.extents)
+    # object is centered at tue origin
+    max_dim_mesh = max(np.abs(mesh.bounds.flatten())) * 2
+    print(f"Max dim mesh: {max_dim_mesh}")
+
+    min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
 
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(scaled_container.bounds)
         if scaled_container.contains([coord]):
-            distance_arr = [np.linalg.norm(coord - i) > f_init * max_dim_mesh for i in objects_coords]
+            distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in objects_coords]
             distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
-            distance_arr.append(distance_to_container > 1 / 2 * f_init * max_dim_mesh)
+            distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
             if np.alltrue(distance_arr):
                 objects_coords.append(coord)
@@ -74,8 +79,7 @@ def init_coordinates(
             else:
                 skipped += 1
 
-    print(f"Skipped {skipped} points for total of {len(objects_coords)} points")
-    return objects_coords
+    return objects_coords, skipped
 
 
 # NOT IN USE CURRENTLY

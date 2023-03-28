@@ -63,6 +63,8 @@ class OptimizerData:
 
     def meshes_before(self, iteration: int, mesh: PolyData):
         """Get the meshes of all objects at the given iteration, before the optimisation."""
+        if iteration < 0:
+            return ValueError("No meshes before iteration 0")
         return self._get_meshes(iteration - 1, mesh)
 
     def meshes_after(self, iteration: int, mesh: PolyData):
@@ -79,8 +81,11 @@ class OptimizerData:
         ]
 
     def final_meshes_after(self, mesh: PolyData):
-        """Get the meshes of all objects at the final iteration, after the optimisation."""
-        if self.idx == -1:
+        """Get the meshes of all objects with the most recent transformation."""
+        if self._index < 0:
+            ValueError("No data stored yet")
+
+        if self._index == 0:
             return self._get_meshes(-1, mesh)
 
         return self._get_meshes(self.idx, mesh)
@@ -91,6 +96,8 @@ class OptimizerData:
 
     def final_cat_meshes(self):
         """Get the meshes of all cat cells that correspond to the objects from the final iteration"""
+        if self._index < 1:
+            ValueError("No cat data stored yet")
         return self.cat_meshes(self.idx)
 
     def before_and_after_meshes(self, iteration: int, mesh: PolyData):

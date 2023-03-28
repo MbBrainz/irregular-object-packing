@@ -132,6 +132,11 @@ def distance_squared(p1, p2):
     return np.sum((np.array(p1) - np.array(p2)) ** 2)
 
 
+def get_max_bounds(bounds):
+    x_size, y_size, z_size = [bounds[i + 1] - bounds[i] for i in range(0, 6, 2)]
+    return max(x_size, y_size, z_size)
+
+
 def split_quadrilateral_to_triangles(points):
     if len(points) != 4:
         raise ValueError("Expected a list of 4 points")
@@ -184,3 +189,11 @@ def compute_face_normal(points, v_i):
     if np.dot(normal, v_i - points[0]) > 0:
         normal *= -1
     return normal
+
+
+def print_transform_array(array):
+    symbols = ["f", "θ_x", "θ_y", "θ_z", "t_x", "t_y", "t_z"]
+    header = " ".join([f"{symbol+':':<8}" for symbol in symbols])
+    row = " ".join([f"{value:<8.3f}" for value in array])
+    print(header)
+    print(row + "\n")
