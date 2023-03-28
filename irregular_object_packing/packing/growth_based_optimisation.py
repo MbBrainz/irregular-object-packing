@@ -10,6 +10,7 @@ sys.path.append("../irregular_object_packing/irregular_object_packing/")
 
 from irregular_object_packing.packing.utils import get_max_bounds
 
+
 from collections import namedtuple
 from copy import copy
 import pandas as pd
@@ -21,8 +22,9 @@ from scipy.optimize import minimize
 from tqdm.auto import tqdm
 import trimesh
 import pyvista as pv
+from pyvista import PolyData
 from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
-from irregular_object_packing.mesh.utils import print_mesh_info
+from irregular_object_packing.mesh.utils import print_mesh_info, resample_pyvista_mesh
 from irregular_object_packing.tools.profile import pprofile
 import irregular_object_packing.packing.plots as plots
 from irregular_object_packing.packing.OptimizerData import OptimizerData
@@ -170,25 +172,21 @@ class SimSettings:
 
 
 class Optimizer(OptimizerData):
-    shape0: trimesh.Trimesh
-    shape: trimesh.Trimesh
-    container0: trimesh.Trimesh
-    container: trimesh.Trimesh
+    shape0: PolyData
+    shape: PolyData
+    container0: PolyData
+    container: PolyData
     settings: SimSettings
     cat_data: cat.CatData
     tf_arrs: np.ndarray[np.ndarray]
     object_coords: np.ndarray
     prev_tf_arrs: np.ndarray[np.ndarray]
 
-    def __init__(self, shape: trimesh.Trimesh, container: trimesh.Trimesh, settings: SimSettings, plotter=None):
+    def __init__(self, shape: PolyData, container: PolyData, settings: SimSettings, plotter=None):
         self.shape0 = shape
         self.shape = shape
         self.container0 = container
         self.container = container
-        if settings.decimate:
-            self.pv_shape = trimesh_to_pyvista(shape).decimate(target_reduction=0.01, volume_preservation=True)
-        else:
-            self.pv_shape = trimesh_to_pyvista(shape)
         self.settings = settings
         self.cat_data = None
         self.tf_arrs = np.empty(0)
@@ -212,7 +210,6 @@ class Optimizer(OptimizerData):
             self.container,
             self.shape,
             coverage_rate=self.settings.r,
-            c_scale=1,
             f_init=self.settings.init_f,
         )
         self.log(f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG)
@@ -266,15 +263,12 @@ class Optimizer(OptimizerData):
         return self.settings.sample_rate  # currently simple
 
     def container_sample_rate(self):
-        return self.settings.sample_rate * self.n_objs * self.settings.sample_rate_ratio
+        return self.settings.sample_rate * self.settings.sample_rate_ratio
 
     def resample_meshes(self):
         self.log("resampling meshes", LOG_LVL_DEBUG)
-        self.container = self.container0
-        self.shape = self.shape0
-        # currently doing nothing
-        # self.container = downsample_mesh(self.container0.to_mesh(), self.container_sample_rate())
-        # self.shape = downsample_mesh(self.shape0, self.mesh_sample_rate(0))
+        self.container = resample_pyvista_mesh(self.container0, self.container_sample_rate())
+        self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
 
     @property
     def n_objs(self):
@@ -376,17 +370,15 @@ class Optimizer(OptimizerData):
 
     def compute_cat_cells(self):
         self.log("Computing CAT cells")
-        container_points = trimesh.sample.sample_surface_even(self.container, self.container_sample_rate())[0]
-        sample_points = trimesh.sample.sample_surface_even(self.shape, self.mesh_sample_rate())[0]
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATIONpdating data for
         obj_points = [
-            trimesh.transform_points(sample_points.copy(), nlc.construct_transform_matrix(transform_data))
+            trimesh.transform_points(self.shape.points.copy(), nlc.construct_transform_matrix(transform_data))
             for transform_data in self.tf_arrs
         ]
 
         # COMPUTE CAT CELLS
-        self.cat_data = cat.compute_cat_cells(obj_points, container_points, self.object_coords)
+        self.cat_data = cat.compute_cat_cells(obj_points, self.container.points, self.object_coords)
 
     # ----------------------------------------------------------------------------------------------
     # VALIDITY CHECKS
@@ -445,8 +437,10 @@ class Optimizer(OptimizerData):
         mesh_volume = 0.1
         container_volume = 10
 
-        loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
-        container = trimesh.primitives.Cylinder()
+        # loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
+        loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
+        # container = trimesh.primitives.Cylinder()
+        container = pv.Cylinder().extract_surface()
 
         # Scale the mesh and container to the desired volume
         container = scale_to_volume(container, container_volume)
@@ -472,23 +466,25 @@ class Optimizer(OptimizerData):
         mesh_volume = 4
         container_volume = 10
 
-        loaded_mesh = trimesh.primitives.Sphere().to_mesh()
-        container = trimesh.primitives.Box()
+        # loaded_mesh = trimesh.primitives.Sphere().to_mesh()
+        loaded_mesh = pv.Sphere().extract_surface()
+        # container = trimesh.primitives.Sphere().to_mesh()
+        container = pv.Sphere().extract_surface()
 
         # Scale the mesh and container to the desired volume
         container = scale_to_volume(container, container_volume)
         original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
 
         settings = SimSettings(
-            itn_max=1,
-            n_scaling_steps=1,
+            itn_max=10,
+            n_scaling_steps=10,
             r=0.3,
-            final_scale=0.2,
+            final_scale=1,
             sample_rate=100,
             log_lvl=0,
             decimate=False,
             init_f=0.1,  # NOTE: Smaller than paper
-            
+            sample_rate_ratio=1,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -501,11 +497,10 @@ from importlib import reload
 optimizer = Optimizer.simple_shapes_setup()
 optimizer.setup()
 
-
 # %%
 optimizer.run()
 
-#%%
+# %%
 reload(plots)
 plotter = pv.Plotter()
 # enumerate
@@ -513,12 +508,13 @@ plots.plot_full_comparison(
     optimizer.meshes_before(0, optimizer.pv_shape),
     # optimizer.final_meshes_before(optimizer.pv_shape),
     optimizer.final_meshes_after(optimizer.pv_shape),
-    optimizer.final_cat_meshes(),
+    # optimizer.final_cat_meshes(),
+    optimizer.cat_meshes(0),
     optimizer.container.to_mesh(),
     plotter,
 )
 # %%
-obj_i = 6
+obj_i = 1
 plots.plot_step_comparison(
     optimizer.mesh_before(0, obj_i, optimizer.pv_shape),
     optimizer.mesh_after(0, obj_i, optimizer.pv_shape),
