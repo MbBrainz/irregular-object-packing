@@ -113,7 +113,7 @@ class OptimizerData:
         )
 
     def _report(self, iteration=None):
-        if iteration == None:
+        if iteration is None:
             iteration = self.idx
         df = DataFrame(
             data=[self._tf_arrays(i) for i in range(self.idx)],

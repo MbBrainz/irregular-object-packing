@@ -1,12 +1,7 @@
-import contextlib
-import io
-import re
-import warnings
 
 import numpy as np
 import pyvista as pv
 import trimesh
-import vtk
 
 import irregular_object_packing.packing.nlc_optimisation as nlc
 from irregular_object_packing.packing.growth_based_optimisation import \

@@ -3,13 +3,10 @@ Initialization phase of the packing algorithm.
 
 """
 # %%
-import math
-import random
 from typing import List
 
 import numpy as np
 import plotly.graph_objs as go
-import trimesh
 from pyvista import PolyData
 from scipy.spatial import Voronoi
 

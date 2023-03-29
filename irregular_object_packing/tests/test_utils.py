@@ -1,6 +1,5 @@
 import unittest
 
-import numpy as np
 
 from irregular_object_packing.packing.utils import *
 

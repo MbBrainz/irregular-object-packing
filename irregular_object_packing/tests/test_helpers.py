@@ -1,4 +1,3 @@
-import numpy as np
 
 
 def sort_surfaces(point_surfaces):

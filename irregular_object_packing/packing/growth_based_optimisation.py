@@ -1,5 +1,4 @@
 # %%
-import contextlib
 import sys
 from time import sleep
 
@@ -7,8 +6,6 @@ sys.path.append("../irregular_object_packing/")
 sys.path.append("../irregular_object_packing/irregular_object_packing/")
 
 
-from collections import namedtuple
-from copy import copy
 from dataclasses import dataclass
 from itertools import combinations
 
@@ -433,10 +430,7 @@ class Optimizer(OptimizerData):
         mesh_volume = 0.1
         container_volume = 10
 
-        # loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
-        # container = trimesh.primitives.Cylinder()
-        # container = pv.Cylinder().extract_surface()
         container = pv.Sphere()
 
         # Scale the mesh and container to the desired volume
@@ -463,12 +457,9 @@ class Optimizer(OptimizerData):
         mesh_volume = 4
         container_volume = 10
 
-        # loaded_mesh = trimesh.primitives.Sphere().to_mesh()
         loaded_mesh = pv.Sphere().extract_surface()
-        # container = trimesh.primitives.Sphere().to_mesh()
         container = pv.Sphere().extract_surface()
 
-        # Scale the mesh and container to the desired volume
         container = scale_to_volume(container, container_volume)
         original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
 

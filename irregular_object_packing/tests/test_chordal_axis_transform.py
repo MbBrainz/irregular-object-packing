@@ -6,9 +6,8 @@ from irregular_object_packing.packing.chordal_axis_transform import (
     CatData, TetPoint, create_faces_2, create_faces_3, create_faces_4,
     face_coord_to_points_and_faces)
 from irregular_object_packing.packing.utils import (
-    compute_face_normal, sort_faces_dict, split_quadrilateral_to_triangles)
-from irregular_object_packing.tests.test_helpers import (sort_points_in_dict,
-                                                         sort_surfaces)
+    compute_face_normal, split_quadrilateral_to_triangles)
+from irregular_object_packing.tests.test_helpers import (sort_surfaces)
 
 
 class TestCreateCatFaces(unittest.TestCase):
@@ -395,7 +394,7 @@ class TestCreateCatFaces(unittest.TestCase):
 
     @unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_faces_with_3_and_4_points(self):
-        face_coords = [
+        [
             [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, 1, 1]), np.array([0, 0, 2])],
             [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, -1, 1])],
             [np.array([1, -1, -1]), np.array([1, 4, 1]), np.array([-1, 1, 1]), np.array([0, 0, 2])],

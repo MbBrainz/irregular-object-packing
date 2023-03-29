@@ -2,11 +2,7 @@ import pyvista as pv
 import trimesh
 from numpy import ndarray
 from pyvista import PolyData
-from trimesh import Trimesh
 
-from irregular_object_packing.packing import nlc_optimisation
-from irregular_object_packing.packing.chordal_axis_transform import \
-    face_coord_to_points_and_faces
 
 # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 

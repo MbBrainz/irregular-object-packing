@@ -6,15 +6,13 @@
 """
 import pickle
 # %%
-from dataclasses import dataclass
 
 import numpy as np
 import pyvista as pv
 
 # from utils import angle_between, sort_points_clockwise
 from irregular_object_packing.packing.utils import (
-    compute_face_normal, sort_points_clockwise,
-    split_quadrilateral_to_triangles)
+    compute_face_normal, split_quadrilateral_to_triangles)
 
 
 class TetPoint:
@@ -417,7 +415,6 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     face_len = 0
     idx = 0
 
-    new_faces = []
 
     for i, (face, _n_face) in enumerate(cat_faces):
         face_len = len(face)
@@ -513,7 +510,7 @@ def main():
     box4 = pv.Cube(center=(-1, 1, 0), x_length=1, y_length=1, z_length=1)
     boxes = [box1, box2, box3, box4]
 
-    obj_shape = pv.PolyData(box1.points).delaunay_3d()
+    pv.PolyData(box1.points).delaunay_3d()
     container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=3)
     # container = pv.Pyramid([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0], [1, 1, 1]])
 

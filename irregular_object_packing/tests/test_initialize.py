@@ -3,12 +3,11 @@ from itertools import combinations
 
 import numpy as np
 import pyvista as pv
-from pyvista import PolyData
 
 from irregular_object_packing.mesh.transform import (scale_and_center_mesh,
                                                      scale_to_volume)
 from irregular_object_packing.packing.initialize import (
-    get_min_bounding_mesh, init_coordinates, random_coordinate_within_bounds)
+    init_coordinates, random_coordinate_within_bounds)
 
 
 class TestInitialize(unittest.TestCase):
