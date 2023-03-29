@@ -442,7 +442,8 @@ class Optimizer(OptimizerData):
         # loaded_mesh = trimesh.load_mesh(DATA_FOLDER + "RBC_normal.stl")
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
         # container = trimesh.primitives.Cylinder()
-        container = pv.Cylinder().extract_surface()
+        # container = pv.Cylinder().extract_surface()
+        container = pv.Sphere()
 
         # Scale the mesh and container to the desired volume
         container = scale_to_volume(container, container_volume)
@@ -494,37 +495,36 @@ class Optimizer(OptimizerData):
 
 
 # %%
-from importlib import reload
 
-optimizer = Optimizer.simple_shapes_setup()
-optimizer.setup()
+# optimizer = Optimizer.simple_shapes_setup()
+# optimizer.setup()
 
-# %%
-optimizer.run()
+# # %%
+# optimizer.run()
 
-# %%
-reload(plots)
-plotter = pv.Plotter()
-# enumerate
-plots.plot_full_comparison(
-    optimizer.meshes_before(0, optimizer.shape),
-    # optimizer.final_meshes_before(optimizer.shape),
-    optimizer.final_meshes_after(optimizer.shape),
-    # optimizer.final_cat_meshes(),
-    optimizer.cat_meshes(0),
-    optimizer.container,
-    plotter,
-)
-# %%
-obj_i = 0
-plots.plot_step_comparison(
-    optimizer.mesh_before(0, obj_i, optimizer.shape),
-    optimizer.mesh_after(0, obj_i, optimizer.shape),
-    optimizer.cat_mesh(0, obj_i),
-)
+# # %%
+# reload(plots)
+# plotter = pv.Plotter()
+# # enumerate
+# plots.plot_full_comparison(
+#     optimizer.meshes_before(0, optimizer.shape),
+#     # optimizer.final_meshes_before(optimizer.shape),
+#     optimizer.final_meshes_after(optimizer.shape),
+#     # optimizer.final_cat_meshes(),
+#     optimizer.cat_meshes(0),
+#     optimizer.container,
+#     plotter,
+# )
+# # %%
+# obj_i = 0
+# plots.plot_step_comparison(
+#     optimizer.mesh_before(0, obj_i, optimizer.shape),
+#     optimizer.mesh_after(0, obj_i, optimizer.shape),
+#     optimizer.cat_mesh(0, obj_i),
+# )
 
 
-# %%
-@pprofile
-def profile_optimizer():
-    optimizer.run()
+# # %%
+# @pprofile
+# def profile_optimizer():
+#     optimizer.run()
