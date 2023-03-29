@@ -1,14 +1,14 @@
-from itertools import combinations
 import unittest
+from itertools import combinations
+
 import numpy as np
-from pyvista import PolyData
 import pyvista as pv
-from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
+from pyvista import PolyData
+
+from irregular_object_packing.mesh.transform import (scale_and_center_mesh,
+                                                     scale_to_volume)
 from irregular_object_packing.packing.initialize import (
-    random_coordinate_within_bounds,
-    get_min_bounding_mesh,
-    init_coordinates,
-)
+    get_min_bounding_mesh, init_coordinates, random_coordinate_within_bounds)
 
 
 class TestInitialize(unittest.TestCase):

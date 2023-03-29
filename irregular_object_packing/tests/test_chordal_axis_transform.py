@@ -1,20 +1,14 @@
-import numpy as np
 import unittest
 
+import numpy as np
+
 from irregular_object_packing.packing.chordal_axis_transform import (
-    TetPoint,
-    CatData,
-    create_faces_2,
-    create_faces_3,
-    create_faces_4,
-    face_coord_to_points_and_faces,
-)
+    CatData, TetPoint, create_faces_2, create_faces_3, create_faces_4,
+    face_coord_to_points_and_faces)
 from irregular_object_packing.packing.utils import (
-    sort_faces_dict,
-    compute_face_normal,
-    split_quadrilateral_to_triangles,
-)
-from irregular_object_packing.tests.test_helpers import sort_points_in_dict, sort_surfaces
+    compute_face_normal, sort_faces_dict, split_quadrilateral_to_triangles)
+from irregular_object_packing.tests.test_helpers import (sort_points_in_dict,
+                                                         sort_surfaces)
 
 
 class TestCreateCatFaces(unittest.TestCase):

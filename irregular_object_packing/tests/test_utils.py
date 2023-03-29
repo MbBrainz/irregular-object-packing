@@ -1,6 +1,8 @@
 import unittest
-from irregular_object_packing.packing.utils import *
+
 import numpy as np
+
+from irregular_object_packing.packing.utils import *
 
 
 class TestSplitQuadrilateralToTriangles(unittest.TestCase):

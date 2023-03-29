@@ -1,15 +1,15 @@
 # %%
+from importlib import reload
+
 import numpy as np
+from mpl_toolkits.mplot3d import proj3d
 from scipy.optimize import minimize
 from tqdm import tqdm
 
 import irregular_object_packing.packing.chordal_axis_transform as cat
 from irregular_object_packing.packing.chordal_axis_transform import CatData
-from irregular_object_packing.packing.utils import compute_face_normal, print_transform_array
-from mpl_toolkits.mplot3d import proj3d
-
-
-from importlib import reload
+from irregular_object_packing.packing.utils import (compute_face_normal,
+                                                    print_transform_array)
 
 
 # Define the objective function to be maximized

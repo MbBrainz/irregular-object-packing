@@ -1,7 +1,9 @@
-from irregular_object_packing.packing.nlc_optimisation import *
+import unittest
+
 import numpy as np
 from scipy.optimize import minimize
-import unittest
+
+from irregular_object_packing.packing.nlc_optimisation import *
 
 
 class TestNLCConstraintOptimisationLocal(unittest.TestCase):
@@ -54,7 +56,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_already_at_boundary(self):
         x0 = np.array([1, 0, 0, 0, 0, 0, 0])
@@ -87,7 +89,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_no_rotation(self):
         x0 = np.array([0.9, 0.0, 0.0, 0.0, 0, 0, 0])
@@ -104,7 +106,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_no_scale(self):
         x0 = np.array([1.0, 0.01, 0.01, 0.01, 0, 0, 0])
@@ -120,7 +122,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_no_scale_no_rotation(self):
         x0 = np.array([1.0, 0.0, 0.0, 0.0, 0, 0, 0])
@@ -137,7 +139,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_no_scale_no_translation(self):
         x0 = np.array([1.0, 0.01, 0.01, 0.01, 0, 0, 0])
@@ -154,7 +156,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_no_translation_no_rotation(self):
         x0 = np.array([1.0, 0.0, 0.0, 0.0, 0, 0, 0])
@@ -172,7 +174,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_no_scale_no_translation_no_rotation(self):
         x0 = np.array([1.0, 0.0, 0.0, 0.0, 0, 0, 0])
@@ -190,7 +192,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     # ----------------------------------------------------------------
     # Helper functions
@@ -226,7 +228,7 @@ def is_point_within_box(point, box_coords, tolerance=1e-9):
     return np.all(min_coords <= point) and np.all(point <= max_coords)
 
 
-def test_point_within_box(test_case: unittest.TestCase, point, box_coords, tolerance=1e-9):
+def assert_point_within_box(test_case: unittest.TestCase, point, box_coords, tolerance=1e-9):
     is_inside = is_point_within_box(point, box_coords, tolerance=tolerance)
     test_case.assertTrue(is_inside, f"Point {point} is not inside the box defined by {box_coords}")
 
@@ -295,7 +297,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            test_point_within_box(self, res_v, self.local_box_coords)
+            assert_point_within_box(self, res_v, self.local_box_coords)
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
@@ -307,7 +309,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords)
 
     def test_nlcp_not_scalable(self):
         x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
@@ -326,7 +328,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
@@ -338,7 +340,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
 
     def test_nlcp_no_translation(self):
         x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
@@ -357,7 +359,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
@@ -369,7 +371,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
 
     def test_nlcp_no_rotation(self):
         x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
@@ -388,7 +390,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
@@ -400,7 +402,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
 
     def test_nlcp_no_scaling(self):
         x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
@@ -419,7 +421,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
@@ -431,7 +433,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
 
     def test_nlcp_no_scaling_no_translation(self):
         x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
@@ -450,7 +452,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
@@ -462,7 +464,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
 
     def test_nlcp_no_scaling_no_translation_no_rotation(self):
         x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
@@ -481,7 +483,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            test_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
 
         # This part is based on Optimizer.local_optimisation()
         new_tf = self.tf0 + opt_tf
@@ -493,4 +495,4 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            test_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)

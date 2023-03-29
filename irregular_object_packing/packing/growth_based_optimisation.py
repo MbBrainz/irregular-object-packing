@@ -3,31 +3,31 @@ import contextlib
 import sys
 from time import sleep
 
-
 sys.path.append("../irregular_object_packing/")
 sys.path.append("../irregular_object_packing/irregular_object_packing/")
 
 
-from irregular_object_packing.packing.utils import get_max_bounds
-
-
 from collections import namedtuple
 from copy import copy
-import pandas as pd
 from dataclasses import dataclass
 from itertools import combinations
+
 import numpy as np
+import pandas as pd
+import pyvista as pv
+import trimesh
 from pyvista import PolyData
 from scipy.optimize import minimize
 from tqdm.auto import tqdm
-import trimesh
-import pyvista as pv
-from pyvista import PolyData
-from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
-from irregular_object_packing.mesh.utils import print_mesh_info, resample_pyvista_mesh
-from irregular_object_packing.tools.profile import pprofile
+
 import irregular_object_packing.packing.plots as plots
+from irregular_object_packing.mesh.transform import (scale_and_center_mesh,
+                                                     scale_to_volume)
+from irregular_object_packing.mesh.utils import (print_mesh_info,
+                                                 resample_pyvista_mesh)
 from irregular_object_packing.packing.OptimizerData import OptimizerData
+from irregular_object_packing.packing.utils import get_max_bounds
+from irregular_object_packing.tools.profile import pprofile
 
 # pv.set_jupyter_backend("panel")
 LOG_LVL_SEVERE = 0
@@ -37,11 +37,9 @@ LOG_LVL_DEBUG = 3
 LOG_LVL_NO_LOG = -1
 LOG_PREFIX = ["[ERROR]: ", "[WARNING]: ", "[INFO]: ", "[DEBUG]: "]
 
-from irregular_object_packing.packing import (
-    initialize as init,
-    nlc_optimisation as nlc,
-    chordal_axis_transform as cat,
-)
+from irregular_object_packing.packing import chordal_axis_transform as cat
+from irregular_object_packing.packing import initialize as init
+from irregular_object_packing.packing import nlc_optimisation as nlc
 
 
 def pyvista_to_trimesh(mesh: PolyData):

@@ -1,17 +1,16 @@
-import warnings
-import re
-import numpy as np
-import trimesh
-import pyvista as pv
-import io
 import contextlib
+import io
 import re
-import vtk
+import warnings
 
 import numpy as np
-import irregular_object_packing.packing.nlc_optimisation as nlc
-from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 import pyvista as pv
+import trimesh
+import vtk
+
+import irregular_object_packing.packing.nlc_optimisation as nlc
+from irregular_object_packing.packing.growth_based_optimisation import \
+    Optimizer
 
 
 def count_degenerate_tetrahedra(tetmesh, threshold=1e-5):
@@ -59,9 +58,9 @@ def get_degenerate_triangles(optimizer, container_sample_rate, mesh_sample_rate)
 
 # %%
 def main():
+    import matplotlib.pyplot as plt
     import numpy as np
     import seaborn as sns
-    import matplotlib.pyplot as plt
 
     print("WARNING: This may take around 10 minutes to run. Adjust the sample rates to reduce the runtime.")
 

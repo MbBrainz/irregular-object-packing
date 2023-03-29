@@ -4,20 +4,17 @@
 3. Compute the chordal axis of each tetrahedron.
 4. Compute the chordal axis of the whole object by taking the union of all the chordal axis of the tetrahedrons.
 """
+import pickle
 # %%
 from dataclasses import dataclass
-
-import pickle
 
 import numpy as np
 import pyvista as pv
 
 # from utils import angle_between, sort_points_clockwise
 from irregular_object_packing.packing.utils import (
-    sort_points_clockwise,
-    split_quadrilateral_to_triangles,
-    compute_face_normal,
-)
+    compute_face_normal, sort_points_clockwise,
+    split_quadrilateral_to_triangles)
 
 
 class TetPoint:

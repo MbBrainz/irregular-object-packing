@@ -1,6 +1,6 @@
 import numpy as np
-import trimesh
 import pyvista as pv
+import trimesh
 
 
 def translation_matrix(x0, x1) -> np.ndarray:

@@ -6,12 +6,12 @@ Initialization phase of the packing algorithm.
 import math
 import random
 from typing import List
-from pyvista import PolyData
-from scipy.spatial import Voronoi
 
 import numpy as np
 import plotly.graph_objs as go
 import trimesh
+from pyvista import PolyData
+from scipy.spatial import Voronoi
 
 
 def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:

@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 def sort_surfaces(point_surfaces):
     point_surfaces = [tuple(sorted(surface)) for surface in point_surfaces]
     return sorted(point_surfaces)
