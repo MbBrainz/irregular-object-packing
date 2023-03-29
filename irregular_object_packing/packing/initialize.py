@@ -14,13 +14,22 @@ import plotly.graph_objs as go
 import trimesh
 
 
-def random_coordinate_within_bounds(bounding_box: np.ndarray, N=1000) -> np.ndarray:
+def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
     """generates a random coordinate within the bounds of the bounding box"""
-    x = np.random.uniform(bounding_box[0][0], bounding_box[1][0], N)
-    y = np.random.uniform(bounding_box[0][1], bounding_box[1][1], N)
-    z = np.random.uniform(bounding_box[0][2], bounding_box[1][2], N)
-    random_positions = np.array((x, y, z)).reshape(N, 3)
+    x = np.random.uniform(bounding_box[0][0], bounding_box[1][0])
+    y = np.random.uniform(bounding_box[0][1], bounding_box[1][1])
+    z = np.random.uniform(bounding_box[0][2], bounding_box[1][2])
+    random_positions = np.array((x, y, z))
     return random_positions
+
+
+# def random_coordinate_within_bounds(bounding_box: np.ndarray, N=1000) -> np.ndarray:
+#     """generates a random coordinate within the bounds of the bounding box"""
+#     x = np.random.uniform(bounding_box[0][0], bounding_box[1][0], N)
+#     y = np.random.uniform(bounding_box[0][1], bounding_box[1][1], N)
+#     z = np.random.uniform(bounding_box[0][2], bounding_box[1][2], N)
+#     random_positions = np.array((x, y, z)).reshape(N, 3)
+#     return random_positions
 
 
 def get_min_bounding_mesh(mesh: PolyData) -> PolyData:
@@ -52,15 +61,53 @@ def init_coordinates(
         coverage_rate (float): percentage of the container volume that should be filled
     """
 
+    # TODO: Make sure the container is a closed surface mesh
     max_dim_mesh = max(np.abs(mesh.bounds)) * 2
     min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
+    max_volume = container.volume * coverage_rate
 
-    coords = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
-    skipped, objects_coords = filter_coords(
-        container, mesh.volume, coverage_rate, min_distance_between_meshes, coords
-    )
+    objects_coords = []
+    acc_vol, skipped = 0, 0
+    while acc_vol < max_volume:
+        coord = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
+
+        is_inside = PolyData([coord]).select_enclosed_points(container)["SelectedPoints"][0]
+        if is_inside == 1:
+            distance_arr = [abs(np.linalg.norm(coord - i)) > min_distance_between_meshes for i in objects_coords]
+            # distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
+            point = container.find_closest_point(coord)
+            distance_to_container = abs(np.linalg.norm(coord - container.points[point]))
+            distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
+
+            if np.alltrue(distance_arr):
+                objects_coords.append(coord)
+                acc_vol += mesh.volume
+            else:
+                skipped += 1
 
     return objects_coords, skipped
+
+    # coords = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
+    # skipped, objects_coords = filter_coords(
+    #     container, mesh.volume, coverage_rate, min_distance_between_meshes, coords
+    # )
+
+    # return objects_coords, skipped
+
+    # while acc_vol < max_volume:
+    #     coord = random_coordinate_within_bounds(scaled_container.bounds)
+    #     if scaled_container.contains([coord]):
+    #         distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in objects_coords]
+    #         distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
+    #         distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
+
+    #         if np.alltrue(distance_arr):
+    #             objects_coords.append(coord)
+    #             acc_vol += mesh.volume
+    #         else:
+    #             skipped += 1
+
+    # return objects_coords, skipped
 
 
 def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance, coords):
@@ -72,16 +119,16 @@ def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance,
 
     points_inside = PolyData(coords).select_enclosed_points(container)
 
-    i = 0
+    i = -1
     while acc_vol < max_volume:
+        i += 1
         coord = points_inside.points[i]
-        distance_arr = [np.linalg.norm(coord - i) > min_distance for i in objects_coords]
-        distance_arr.append(distance_to_container > min_distance / 2)
+        distance_arr = [True] + [np.linalg.norm(coord - i) > min_distance for i in objects_coords]
 
         if np.alltrue(distance_arr):
             point = container.find_closest_point(coord)
             distance_to_container = np.linalg.norm(coord - point)
-            if distance_to_container < min_distance / 2:
+            if distance_to_container > min_distance / 2:
                 objects_coords.append(coord)
                 acc_vol += mesh_volume
                 continue

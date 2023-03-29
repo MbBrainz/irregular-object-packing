@@ -127,7 +127,7 @@ def optimal_local_transform(
     r_bound = (-max_angle, max_angle)
     t_bound = (0, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
-    x0 = np.array([scale_bound[0], 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+    x0 = np.array([scale_bound[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     constraint_dict = {
         "type": "ineq",
@@ -291,9 +291,9 @@ class Optimizer(OptimizerData):
             return
 
         self.plotter.clear()
-        self.plotter.add_mesh(self.container.to_mesh(), color="white", opacity=0.2)
+        self.plotter.add_mesh(self.container, color="white", opacity=0.2)
         colors = plots.generate_tinted_colors(self.n_objs)
-        for i, mesh in enumerate(self.final_meshes_after(self.pv_shape)):
+        for i, mesh in enumerate(self.final_meshes_after(self.shape)):
             self.plotter.add_mesh(mesh, color=colors[1][i], opacity=0.7)
 
         cat_meshes = [
@@ -399,7 +399,7 @@ class Optimizer(OptimizerData):
 
     def has_object_overlap(self):
         self.log("checking for collisions", LOG_LVL_DEBUG)
-        p_meshes = self.final_meshes_after(self.pv_shape)
+        p_meshes = self.final_meshes_after(self.shape)
 
         extents = np.array([(get_max_bounds(mesh.bounds), mesh.volume) for mesh in p_meshes])
         self.log(f"all mesh bounds, volumes: {extents}", LOG_LVL_DEBUG)
@@ -412,7 +412,7 @@ class Optimizer(OptimizerData):
 
     def check_cat_boundaries(self):
         self.log("checking for cat boundary violations", LOG_LVL_DEBUG)
-        p_meshes = self.final_meshes_after(self.pv_shape)
+        p_meshes = self.final_meshes_after(self.shape)
         cat_meshes = self.final_cat_meshes()
         n, violations, meshes = compute_cat_violations(p_meshes, cat_meshes)
 
@@ -422,8 +422,8 @@ class Optimizer(OptimizerData):
 
     def has_container_violations(self):
         self.log("checking for container violations", LOG_LVL_DEBUG)
-        p_meshes = self.final_meshes_after(self.pv_shape)
-        n, violations, meshes = compute_container_violations(p_meshes, pv.wrap(self.container.to_mesh()))
+        p_meshes = self.final_meshes_after(self.shape)
+        n, violations, meshes = compute_container_violations(p_meshes, self.container)
 
         if n > 0:
             self.log(f"! container violation for objects {violations}", LOG_LVL_SEVERE)
@@ -476,8 +476,8 @@ class Optimizer(OptimizerData):
         original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
 
         settings = SimSettings(
-            itn_max=10,
-            n_scaling_steps=10,
+            itn_max=1,
+            n_scaling_steps=1,
             r=0.3,
             final_scale=1,
             sample_rate=100,
@@ -505,20 +505,20 @@ reload(plots)
 plotter = pv.Plotter()
 # enumerate
 plots.plot_full_comparison(
-    optimizer.meshes_before(0, optimizer.pv_shape),
-    # optimizer.final_meshes_before(optimizer.pv_shape),
-    optimizer.final_meshes_after(optimizer.pv_shape),
+    optimizer.meshes_before(0, optimizer.shape),
+    # optimizer.final_meshes_before(optimizer.shape),
+    optimizer.final_meshes_after(optimizer.shape),
     # optimizer.final_cat_meshes(),
     optimizer.cat_meshes(0),
-    optimizer.container.to_mesh(),
+    optimizer.container,
     plotter,
 )
 # %%
-obj_i = 1
+obj_i = 0
 plots.plot_step_comparison(
-    optimizer.mesh_before(0, obj_i, optimizer.pv_shape),
-    optimizer.mesh_after(0, obj_i, optimizer.pv_shape),
-    optimizer.cat_mesh(1, obj_i),
+    optimizer.mesh_before(0, obj_i, optimizer.shape),
+    optimizer.mesh_after(0, obj_i, optimizer.shape),
+    optimizer.cat_mesh(0, obj_i),
 )
 
 
