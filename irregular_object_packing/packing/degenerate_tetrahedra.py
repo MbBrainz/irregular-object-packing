@@ -58,43 +58,49 @@ def get_degenerate_triangles(optimizer, container_sample_rate, mesh_sample_rate)
 
 
 # %%
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
+def main():
+    import numpy as np
+    import seaborn as sns
+    import matplotlib.pyplot as plt
 
-optimizer = Optimizer.default_setup()
-# List of sample rates to test
-mesh_sample_rates = np.linspace(100, 1000, 10, dtype=int)  # Adjust these values as needed
-container_sample_rates = np.linspace(100, 1000, 10, dtype=int)  # Adjust these values as needed
+    print("WARNING: This may take around 10 minutes to run. Adjust the sample rates to reduce the runtime.")
 
-# Initialize an empty array to store the number of degenerate triangles
-degenerate_triangle_counts = np.zeros((len(mesh_sample_rates), len(container_sample_rates)))
+    optimizer = Optimizer.default_setup()
+    # List of sample rates to test
+    mesh_sample_rates = np.linspace(100, 1000, 10, dtype=int)  # Adjust these values as needed
+    container_sample_rates = np.linspace(100, 1000, 10, dtype=int)  # Adjust these values as needed
 
-# Iterate over all combinations of mesh_sample_rate and container_sample_rate
-for i, mesh_sample_rate in enumerate(mesh_sample_rates):
-    for j, container_sample_rate in enumerate(container_sample_rates):
-        degenerate_triangles = get_degenerate_triangles(optimizer, container_sample_rate, mesh_sample_rate)
-        degenerate_triangle_counts[i, j] = degenerate_triangles
+    # Initialize an empty array to store the number of degenerate triangles
+    degenerate_triangle_counts = np.zeros((len(mesh_sample_rates), len(container_sample_rates)))
 
-# Find the indices of the minimum value in the degenerate_triangle_counts array
-min_indices = np.unravel_index(np.argmin(degenerate_triangle_counts, axis=None), degenerate_triangle_counts.shape)
-min_mesh_sample_rate = mesh_sample_rates[min_indices[0]]
-min_container_sample_rate = container_sample_rates[min_indices[1]]
-print(
-    f"Minimum degenerate triangles found for mesh_sample_rate: {min_mesh_sample_rate}, container_sample_rate: {min_container_sample_rate}"
-)
+    # Iterate over all combinations of mesh_sample_rate and container_sample_rate
+    for i, mesh_sample_rate in enumerate(mesh_sample_rates):
+        for j, container_sample_rate in enumerate(container_sample_rates):
+            degenerate_triangles = get_degenerate_triangles(optimizer, container_sample_rate, mesh_sample_rate)
+            degenerate_triangle_counts[i, j] = degenerate_triangles
 
-# Create a heatmap of the number of degenerate triangles
-sns.set()
-ax = sns.heatmap(
-    degenerate_triangle_counts,
-    annot=True,
-    fmt=".0f",
-    xticklabels=container_sample_rates,
-    yticklabels=mesh_sample_rates,
-)
-ax.set_xlabel("Container Sample Rate")
-ax.set_ylabel("Mesh Sample Rate")
-plt.show()
+    # Find the indices of the minimum value in the degenerate_triangle_counts array
+    min_indices = np.unravel_index(
+        np.argmin(degenerate_triangle_counts, axis=None), degenerate_triangle_counts.shape
+    )
+    min_mesh_sample_rate = mesh_sample_rates[min_indices[0]]
+    min_container_sample_rate = container_sample_rates[min_indices[1]]
+    print(
+        f"Minimum degenerate triangles found for mesh_sample_rate: {min_mesh_sample_rate}, container_sample_rate: {min_container_sample_rate}"
+    )
 
-# %%
+    # Create a heatmap of the number of degenerate triangles
+    sns.set()
+    ax = sns.heatmap(
+        degenerate_triangle_counts,
+        annot=True,
+        fmt=".0f",
+        xticklabels=container_sample_rates,
+        yticklabels=mesh_sample_rates,
+    )
+    ax.set_xlabel("Container Sample Rate")
+    ax.set_ylabel("Mesh Sample Rate")
+    plt.show()
+
+if __name__ == "__main__":
+    main()

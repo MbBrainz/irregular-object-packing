@@ -53,9 +53,6 @@ def test_sort_points_clockwise():
     print(expected_points)
 
 
-# test_sort_points_clockwise()
-
-
 def sort_face_points_by_length(expected_faces):
     sorted_faces = []
     for face in expected_faces:

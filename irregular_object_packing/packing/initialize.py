@@ -47,6 +47,20 @@ def get_min_bounding_mesh(mesh: PolyData) -> PolyData:
     return bounding_mesh
 
 
+def get_max_radius(mesh: PolyData) -> float:
+    """Returns the maximum distence from the center of mass to the mesh points
+
+    Args:
+        mesh (PolyData): original mesh
+
+    Returns:
+        float: maximum dimension
+    """
+    distances = np.linalg.norm(mesh.points - mesh.center_of_mass(), axis=1)
+    max_distance = np.max(distances)
+    return max_distance
+
+
 def init_coordinates(
     container: PolyData,
     mesh: PolyData,
@@ -60,9 +74,10 @@ def init_coordinates(
         mesh (PolyData): mesh of the objects
         coverage_rate (float): percentage of the container volume that should be filled
     """
-
     # TODO: Make sure the container is a closed surface mesh
-    max_dim_mesh = max(np.abs(mesh.bounds)) * 2
+    # max_dim_mesh = max(np.abs(mesh.bounds)) * 2 # for sphere this is the same, but quicker. for other shapes might be different
+    max_dim_mesh = get_max_radius(mesh) * 2
+
     min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
     max_volume = container.volume * coverage_rate
 

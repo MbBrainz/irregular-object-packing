@@ -395,7 +395,7 @@ def test_nlcp():
     plt.show()
 
 
-# %%
-# test_nlcp()
+if __name__ == "__main__":
+    test_nlcp()
 
 # %%

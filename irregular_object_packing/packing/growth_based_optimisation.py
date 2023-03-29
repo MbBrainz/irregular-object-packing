@@ -227,7 +227,9 @@ class Optimizer(OptimizerData):
             self.tf_arrs[i] = tf_arr_i
 
         self.update_data(-1, -1)
-        if self.has_object_overlap() or self.has_container_violations():
+        has_overlap = self.has_object_overlap()
+        has_c_violations = self.has_container_violations()
+        if has_overlap or has_c_violations:
             raise ValueError("Initial object placement is invalid")
 
         if self.plotter is not None:

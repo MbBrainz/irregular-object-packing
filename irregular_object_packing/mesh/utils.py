@@ -6,11 +6,6 @@ from time import sleep
 import pyvista as pv
 from sklearn.cluster import KMeans
 
-# %%
-
-
-sys.path.append("../irregular_object_packing/")
-
 
 def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True):
     with np.printoptions(precision=4, suppress=suppress_scientific):
@@ -44,9 +39,6 @@ def resample_pyvista_mesh_kmeans(mesh, target_vertices):
     new_mesh = new_mesh.smooth(n_iter=10)
 
     return new_mesh
-
-
-# %%
 
 
 def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
