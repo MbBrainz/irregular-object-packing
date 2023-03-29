@@ -21,13 +21,10 @@ from scipy.optimize import minimize
 from tqdm.auto import tqdm
 
 import irregular_object_packing.packing.plots as plots
-from irregular_object_packing.mesh.transform import (scale_and_center_mesh,
-                                                     scale_to_volume)
-from irregular_object_packing.mesh.utils import (print_mesh_info,
-                                                 resample_pyvista_mesh)
+from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
+from irregular_object_packing.mesh.utils import print_mesh_info, resample_pyvista_mesh
 from irregular_object_packing.packing.OptimizerData import OptimizerData
 from irregular_object_packing.packing.utils import get_max_bounds
-from irregular_object_packing.tools.profile import pprofile
 
 # pv.set_jupyter_backend("panel")
 LOG_LVL_SEVERE = 0
@@ -357,7 +354,6 @@ class Optimizer(OptimizerData):
             margin=self.margin,
         )
 
-        # final guess... #FIXME
         new_tf = transform_data_i + tf_arr
         new_scale = new_tf[0]
         if new_scale > max_scale:
@@ -371,7 +367,7 @@ class Optimizer(OptimizerData):
     def compute_cat_cells(self):
         self.log("Computing CAT cells")
 
-        # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATIONpdating data for
+        # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
         obj_points = [
             trimesh.transform_points(self.shape.points.copy(), nlc.construct_transform_matrix(transform_data))
             for transform_data in self.tf_arrs
