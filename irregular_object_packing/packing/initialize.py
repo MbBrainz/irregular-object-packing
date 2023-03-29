@@ -3,32 +3,40 @@ Initialization phase of the packing algorithm.
 
 """
 # %%
-import random
 from typing import List
-from scipy.spatial import Voronoi
 
 import numpy as np
 import plotly.graph_objs as go
-import trimesh
+from pyvista import PolyData
+from scipy.spatial import Voronoi
 
 
 def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
     """generates a random coordinate within the bounds of the bounding box"""
-    x = random.uniform(bounding_box[0][0], bounding_box[1][0])
-    y = random.uniform(bounding_box[0][1], bounding_box[1][1])
-    z = random.uniform(bounding_box[0][2], bounding_box[1][2])
-    random_position = np.array((x, y, z))
-    return random_position
+    x = np.random.uniform(bounding_box[0][0], bounding_box[1][0])
+    y = np.random.uniform(bounding_box[0][1], bounding_box[1][1])
+    z = np.random.uniform(bounding_box[0][2], bounding_box[1][2])
+    random_positions = np.array((x, y, z))
+    return random_positions
 
 
-def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
-    """gets the bounding mesh of mesh that has the smallest volume
+# def random_coordinate_within_bounds(bounding_box: np.ndarray, N=1000) -> np.ndarray:
+#     """generates a random coordinate within the bounds of the bounding box"""
+#     x = np.random.uniform(bounding_box[0][0], bounding_box[1][0], N)
+#     y = np.random.uniform(bounding_box[0][1], bounding_box[1][1], N)
+#     z = np.random.uniform(bounding_box[0][2], bounding_box[1][2], N)
+#     random_positions = np.array((x, y, z)).reshape(N, 3)
+#     return random_positions
+
+
+def get_min_bounding_mesh(mesh: PolyData) -> PolyData:
+    """Selects one of 'Box', 'Sphere' or 'Cylinder' bounding mesh of mesh that has the smallest volume
 
     Args:
-        mesh (trimesh.Trimesh): original mesh
+        mesh (PolyData): original mesh
 
     Returns:
-        trimesh.Trimesh: bounding mesh
+        PolyData: bounding mesh
     """
     options = [mesh.bounding_box_oriented, mesh.bounding_sphere, mesh.bounding_cylinder]
     volume_min = np.argmin([i.volume for i in options])
@@ -36,36 +44,52 @@ def get_min_bounding_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     return bounding_mesh
 
 
+def get_max_radius(mesh: PolyData) -> float:
+    """Returns the maximum distence from the center of mass to the mesh points
+
+    Args:
+        mesh (PolyData): original mesh
+
+    Returns:
+        float: maximum dimension
+    """
+    distances = np.linalg.norm(mesh.points - mesh.center_of_mass(), axis=1)
+    max_distance = np.max(distances)
+    return max_distance
+
+
 def init_coordinates(
-    container: trimesh.Trimesh,
-    mesh: trimesh.Trimesh,
+    container: PolyData,
+    mesh: PolyData,
     coverage_rate: float = 0.3,
-    c_scale: float = 1.0,
-) -> np.ndarray:
+    f_init: float = 0.1,
+) -> tuple[np.ndarray, int]:
     """Places the objects inside the container at initial location.
 
     Args:
-        container (trimesh.Trimesh): container mesh
-        mesh (trimesh.Trimesh): mesh of the objects
+        container (PolyData): container mesh
+        mesh (PolyData): mesh of the objects
         coverage_rate (float): percentage of the container volume that should be filled
     """
-    if c_scale != 1.0:
-        scaled_container = container.copy().apply_scale(c_scale)
-    else:
-        scaled_container = container
+    # TODO: Make sure the container is a closed surface mesh
+    # max_dim_mesh = max(np.abs(mesh.bounds)) * 2 # for sphere this is the same, but quicker. for other shapes might be different
+    max_dim_mesh = get_max_radius(mesh) * 2
 
-    # container_bound = get_min_bounding_mesh(container.apply_scale(0.8))
+    min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
     max_volume = container.volume * coverage_rate
-    acc_vol = 0
-    skipped = 0
-    objects_coords = []
-    while acc_vol < max_volume:
-        coord = random_coordinate_within_bounds(scaled_container.bounds)
-        if scaled_container.contains([coord]):
-            distance_arr = [np.linalg.norm(coord - i) > mesh.volume ** (1 / 3) for i in objects_coords]
-            distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
 
-            distance_arr.append(distance_to_container > 1 / 5 * mesh.volume ** (1 / 3))
+    objects_coords = []
+    acc_vol, skipped = 0, 0
+    while acc_vol < max_volume:
+        coord = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
+
+        is_inside = PolyData([coord]).select_enclosed_points(container)["SelectedPoints"][0]
+        if is_inside == 1:
+            distance_arr = [abs(np.linalg.norm(coord - i)) > min_distance_between_meshes for i in objects_coords]
+            # distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
+            point = container.find_closest_point(coord)
+            distance_to_container = abs(np.linalg.norm(coord - container.points[point]))
+            distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
             if np.alltrue(distance_arr):
                 objects_coords.append(coord)
@@ -73,8 +97,56 @@ def init_coordinates(
             else:
                 skipped += 1
 
-    print(f"Skipped {skipped} points for total of {len(objects_coords)} points")
-    return objects_coords
+    return objects_coords, skipped
+
+    # coords = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
+    # skipped, objects_coords = filter_coords(
+    #     container, mesh.volume, coverage_rate, min_distance_between_meshes, coords
+    # )
+
+    # return objects_coords, skipped
+
+    # while acc_vol < max_volume:
+    #     coord = random_coordinate_within_bounds(scaled_container.bounds)
+    #     if scaled_container.contains([coord]):
+    #         distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in objects_coords]
+    #         distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
+    #         distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
+
+    #         if np.alltrue(distance_arr):
+    #             objects_coords.append(coord)
+    #             acc_vol += mesh.volume
+    #         else:
+    #             skipped += 1
+
+    # return objects_coords, skipped
+
+
+def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance, coords):
+    max_volume = container.volume * coverage_rate
+    acc_vol = 0
+    skipped = 0
+    objects_coords = []
+    # object is centered at the origin
+
+    points_inside = PolyData(coords).select_enclosed_points(container)
+
+    i = -1
+    while acc_vol < max_volume:
+        i += 1
+        coord = points_inside.points[i]
+        distance_arr = [True] + [np.linalg.norm(coord - i) > min_distance for i in objects_coords]
+
+        if np.alltrue(distance_arr):
+            point = container.find_closest_point(coord)
+            distance_to_container = np.linalg.norm(coord - point)
+            if distance_to_container > min_distance / 2:
+                objects_coords.append(coord)
+                acc_vol += mesh_volume
+                continue
+
+            skipped += 1
+    return skipped, objects_coords
 
 
 # NOT IN USE CURRENTLY
@@ -110,13 +182,13 @@ def dynamic_plot(points: np.ndarray, power_cells: List[np.ndarray]):
 # NOT IN USE CURRENTLY
 class PartitionBuilder:
     vor: Voronoi
-    container: trimesh.Trimesh
+    container: PolyData
     points: np.ndarray
     seed_points: np.ndarray = []
     threshold: float = 0.01
     power_cells: List[np.ndarray] = []
 
-    def __init__(self, container: trimesh.Trimesh, points: np.ndarray):
+    def __init__(self, container: PolyData, points: np.ndarray):
         self.container = container
         self.points = points
         self.seed_points = np.random.rand(len(points), 3) * 4
@@ -128,7 +200,7 @@ class PartitionBuilder:
             region = self.vor.regions[self.vor.point_region[i]]
             if len(region) > 0:
                 vertices = self.vor.vertices[region]
-                # power_cell = trimesh.Trimesh(vertices=vertices, faces=self.vor.ridge_vertices)
+                # power_cell = PolyData(vertices=vertices, faces=self.vor.ridge_vertices)
                 # power_cell = power_cell.intersection(self.container)
                 power_cell = vertices
                 self.power_cells.append(power_cell)

@@ -1,8 +1,13 @@
 from copy import copy
-from pyvista import PolyData
-from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
-from irregular_object_packing.packing.chordal_axis_transform import face_coord_to_points_and_faces, CatData
+
 from numpy import ndarray
+from pandas import DataFrame
+from pyvista import PolyData
+
+from irregular_object_packing.packing.chordal_axis_transform import (
+    CatData, face_coord_to_points_and_faces)
+from irregular_object_packing.packing.nlc_optimisation import \
+    construct_transform_matrix
 
 
 class OptimizerData:
@@ -62,6 +67,8 @@ class OptimizerData:
 
     def meshes_before(self, iteration: int, mesh: PolyData):
         """Get the meshes of all objects at the given iteration, before the optimisation."""
+        if iteration < 0:
+            return ValueError("No meshes before iteration 0")
         return self._get_meshes(iteration - 1, mesh)
 
     def meshes_after(self, iteration: int, mesh: PolyData):
@@ -70,14 +77,19 @@ class OptimizerData:
 
     def cat_meshes(self, iteration: int) -> list[PolyData]:
         """Get the meshes of all cat cells that correspond to the objects from the given iteration"""
+        if self._cat_data(iteration) is None:
+            raise ValueError("No cat data stored yet for iteration " + str(iteration))
         return [
             PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
             for obj_id in range(len(self._tf_arrays(iteration)))
         ]
 
     def final_meshes_after(self, mesh: PolyData):
-        """Get the meshes of all objects at the final iteration, after the optimisation."""
-        if self.idx == -1:
+        """Get the meshes of all objects with the most recent transformation."""
+        if self._index < 0:
+            ValueError("No data stored yet")
+
+        if self._index == 0:
             return self._get_meshes(-1, mesh)
 
         return self._get_meshes(self.idx, mesh)
@@ -88,6 +100,8 @@ class OptimizerData:
 
     def final_cat_meshes(self):
         """Get the meshes of all cat cells that correspond to the objects from the final iteration"""
+        if self._index <= 0:
+            ValueError("No cat data stored yet")
         return self.cat_meshes(self.idx)
 
     def before_and_after_meshes(self, iteration: int, mesh: PolyData):
@@ -97,3 +111,12 @@ class OptimizerData:
             self.meshes_after(iteration, mesh),
             self.cat_meshes(iteration),
         )
+
+    def _report(self, iteration=None):
+        if iteration is None:
+            iteration = self.idx
+        df = DataFrame(
+            data=[self._tf_arrays(i) for i in range(self.idx)],
+            columns=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"],
+        )
+        return df

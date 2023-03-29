@@ -1,9 +1,8 @@
-from numpy import ndarray
 import pyvista as pv
-from trimesh import Trimesh
 import trimesh
-from irregular_object_packing.packing import nlc_optimisation
-from irregular_object_packing.packing.chordal_axis_transform import face_coord_to_points_and_faces
+from numpy import ndarray
+from pyvista import PolyData
+
 
 # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
@@ -36,6 +35,7 @@ def plot_full_comparison(
     meshes_before,
     meshes_after,
     cat_cell_meshes,
+    container,
     plotter=None,
     title_left="Initial Placement",
     title_right="Improved Placement",
@@ -48,19 +48,26 @@ def plot_full_comparison(
     colors = generate_tinted_colors(len(meshes_before))
     plotter.subplot(0)
     plotter.add_title(title_left)
+    plotter.add_mesh(container, opacity=0.3)
     for i, mesh in enumerate(meshes_before):
-        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.8)
+        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.9)
 
     for i, cat_mesh in enumerate(cat_cell_meshes):
-        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.4)
+        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.5)
+        open_edges = cat_mesh.extract_feature_edges(
+            boundary_edges=False, feature_edges=False, manifold_edges=False
+        )
+        if open_edges.n_points > 0:
+            plotter.add_mesh(open_edges, color="black", line_width=1)
 
     plotter.subplot(1)
     plotter.add_title(title_right)
+    plotter.add_mesh(container, opacity=0.3)
     for i, mesh in enumerate(meshes_after):
-        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.8)
+        plotter.add_mesh(mesh, color=colors[1][i], opacity=0.9)
 
     for i, cat_mesh in enumerate(cat_cell_meshes):
-        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.4)
+        plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.5)
     plotter.show()
 
     return plotter
@@ -86,6 +93,10 @@ def plot_step_comparison(
     plotter.subplot(0)
     plotter.add_title(title_left)
     plotter.add_mesh(mesh_before, color="red", opacity=0.8)
+    open_edges = cat_cell_mesh_1.extract_feature_edges(
+        boundary_edges=True, feature_edges=False, manifold_edges=False
+    )
+    plotter.add_mesh(open_edges, color="black", line_width=1, opacity=0.8)
     plotter.add_mesh(cat_cell_mesh_1, color="yellow", opacity=0.4)
 
     # create the second plot
@@ -130,34 +141,36 @@ def generate_tinted_colors(num_tints, base_color_1="FFFF00", base_color_2="FF000
 
 
 def create_packed_scene(
-    container: trimesh.Trimesh,
+    container: PolyData,
     objects_coords: list[ndarray],
-    mesh: trimesh.Trimesh,
+    mesh: PolyData,
     mesh_scale: float = 1,
     rotate: bool = False,
 ):
-    """make a trimesh scene with the container and the objects inside.
+    """make a pyvista plotter with the container and the objects inside.
 
     Args:
-        container (trimesh.Trimesh): container mesh
+        container (PolyData): container mesh
         objects_coords (List[np.ndarray]): list of coordinates of the objects
-        mesh (trimesh.Trimesh): mesh of the objects
+        mesh (PolyData): mesh of the objects
         mesh_scale (float, optional): scale of the objects. Defaults to 1.
     """
     objects = []
+    colors = []
     for coord in objects_coords:
         new_mesh = mesh.copy()
         if rotate:
-            new_mesh = new_mesh.apply_transform(trimesh.transformations.random_rotation_matrix())
+            new_mesh = new_mesh.transform(trimesh.transformations.random_rotation_matrix())
 
-        new_mesh.apply_scale(mesh_scale).apply_translation(coord)
+        new_mesh = new_mesh.scale(mesh_scale)
+        new_mesh = new_mesh.translate(coord)
 
-        new_mesh.visual.vertex_colors = trimesh.visual.random_color()
+        colors.append(trimesh.visual.random_color())
         objects.append(new_mesh)
 
-    container.visual.vertex_colors = [250, 255, 255, 100]
+    plotter = pv.Plotter()
+    plotter.add_mesh(container, color="white", opacity=0.3)
+    for i, object in enumerate(objects):
+        plotter.add_mesh(object, color=colors[i], opacity=0.9)
 
-    objects.append(container)
-    scene = trimesh.Scene(objects)
-
-    return scene
+    return plotter

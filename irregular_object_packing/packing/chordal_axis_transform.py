@@ -4,46 +4,15 @@
 3. Compute the chordal axis of each tetrahedron.
 4. Compute the chordal axis of the whole object by taking the union of all the chordal axis of the tetrahedrons.
 """
-# %%
-from dataclasses import dataclass
-
 import pickle
+# %%
 
 import numpy as np
 import pyvista as pv
 
 # from utils import angle_between, sort_points_clockwise
-from irregular_object_packing.packing.utils import sort_points_clockwise
-
-
-@dataclass
-class CatFace:
-    vertices: list[np.ndarray]
-    v_ids: list[int]
-    related_objects: list[int]
-
-
-@dataclass
-class Triangle(CatFace):
-    """A triangle face in the CAT. Used to keep track of objects of vertices"""
-
-    def __init__(self, face, v_ids, related_objects):
-        if len(face) != 3:
-            raise ValueError(f"Triangle must have 3 points, got {len(face)}")
-        super().__init__(face, v_ids, related_objects)
-
-    def center(self) -> np.ndarray:
-        center = self.vertices[0] + self.vertices[1] + self.vertices[2]
-        return center / 3
-
-    @property
-    def area(self):
-        a, b, c = self.vertices
-        return 0.5 * np.linalg.norm(np.cross(b - a, c - a))
-
-    def midpoints(self) -> list[np.ndarray]:
-        (a, b, c) = self.vertices
-        return [(a + b) / 2, (b + c) / 2, (c + a) / 2]
+from irregular_object_packing.packing.utils import (
+    compute_face_normal, split_quadrilateral_to_triangles)
 
 
 class TetPoint:
@@ -79,11 +48,6 @@ class TetPoint:
     def center(self, other: "TetPoint") -> np.ndarray:
         return (self.vertex + other.vertex) / 2
 
-    def add_triangle(self, triangle: Triangle):
-        if len(self.triangles) >= 3:
-            raise ValueError(f"TetPoint {self} already has 3 triangles")
-        self.triangles.append(triangle)
-
 
 class CatData:
     """A class to hold the data for the CAT algorithm."""
@@ -91,7 +55,9 @@ class CatData:
     points: dict
     point_ids: dict
     cat_faces: dict
+    """shape: {[obj_id]: {[point_id]: list[face]} } A dictionary of the faces of the CAT. The keys are the object ids and the values are dictionaries with the keys being point ids and the values being a list of all faces relevant to that point."""
     cat_cells: dict
+    """shape: {[obj_id]: list[face]} A dictionary of the cells of the CAT. The keys are the object ids and the values are a list of all faces of the cat cell belonging to that object."""
     object_coords: np.ndarray
 
     def __init__(self, point_sets: list[set[tuple]], object_coords: np.ndarray):
@@ -133,19 +99,22 @@ class CatData:
         self.points[p_id] = point
         self.point_ids[point] = p_id
 
-    def add_cat_face(self, obj_id: int, face: list[int]) -> None:
+    def add_cat_face_to_cell(self, obj_id: int, face: list[int]) -> None:
         self.cat_cells[obj_id].append(face)
 
-    def set_cat_face(self, point: TetPoint, face: list[int]) -> None:
+    def add_cat_face_to_point(self, point: TetPoint, face: list[int]) -> None:
         self.cat_faces[point.obj_id][point.p_id].append(face)
 
-    def add_cat_faces(self, obj_id: int, faces: list[list[int]]) -> None:
+    def add_cat_faces_to_cell(self, obj_id: int, faces: list[list[int]]) -> None:
         for face in faces:
-            self.add_cat_face(obj_id, face)
+            assert isinstance(face, tuple), f"face is not a tuple: {face}"
+            self.add_cat_face_to_cell(obj_id, face)
 
-    def set_cat_faces(self, point: TetPoint, faces: list[list[int]]) -> None:
+    def add_cat_faces_to_point(self, point: TetPoint, faces: list[tuple[list[int], np.ndarray]]) -> None:
         for face in faces:
-            self.set_cat_face(point, face)
+            assert isinstance(face, tuple), f"face is not a tuple: {face}"
+
+            self.add_cat_face_to_point(point, face)
 
     def get_face(self, face: list[int]) -> list[np.ndarray]:
         return [np.array(self.point(p_id)) for p_id in face]
@@ -186,33 +155,41 @@ def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
     assert len(most) == 2
     assert len(least) == 2
 
-    abc_point = data.point_id((most[0].vertex + least[0].vertex + least[1].vertex) / 3)
+    # The naming assumes that point a and b are most[0] and most[1] respectively
+    # and point c and d are least[0] and least[1] respectively
+    acd_point = data.point_id((most[0].vertex + least[0].vertex + least[1].vertex) / 3)
     bcd_point = data.point_id((most[1].vertex + least[0].vertex + least[1].vertex) / 3)
 
-    ab_point = data.point_id((most[0].vertex + least[0].vertex) / 2)
-    ac_point = data.point_id((most[0].vertex + least[1].vertex) / 2)
-    bc_point = data.point_id((least[0].vertex + least[1].vertex) / 2)
-    bd_point = data.point_id((most[1].vertex + least[0].vertex) / 2)
-    cd_point = data.point_id((most[1].vertex + least[1].vertex) / 2)
+    ac_point = data.point_id((most[0].vertex + least[0].vertex) / 2)
+    ad_point = data.point_id((most[0].vertex + least[1].vertex) / 2)
+    cd_point = data.point_id((least[0].vertex + least[1].vertex) / 2)
+    bc_point = data.point_id((most[1].vertex + least[0].vertex) / 2)
+    bd_point = data.point_id((most[1].vertex + least[1].vertex) / 2)
 
-    most_face_b = [abc_point, ab_point, bcd_point, bd_point]
-    most_face_c = [abc_point, ac_point, bcd_point, cd_point]
-    least_face = [bc_point, abc_point, bcd_point]
+    most_face_c = [acd_point, ac_point, bcd_point, bc_point]
+    most_face_d = [acd_point, ad_point, bcd_point, bd_point]
+    n_mfc = compute_face_normal(data.get_face(most_face_c), most[0].vertex)  # can be both most[0] and most[1]
+    n_mfd = compute_face_normal(data.get_face(most_face_d), most[0].vertex)
+    mfc_1, mfc_2 = split_quadrilateral_to_triangles(most_face_c)
+    mfd_1, mfd_2 = split_quadrilateral_to_triangles(most_face_d)
+    most_faces = [(mfc_1, n_mfc), (mfc_2, n_mfc), (mfd_1, n_mfd), (mfd_2, n_mfd)]
 
-    data.add_cat_face(most[0].obj_id, most_face_b)
-    data.add_cat_face(most[0].obj_id, most_face_c)
-    data.set_cat_face(most[0], most_face_b)
-    data.set_cat_face(most[1], most_face_c)
+    l_face = [cd_point, acd_point, bcd_point]
+    n_l0_face = compute_face_normal(data.get_face(l_face), least[0].vertex)
+    n_l1_face = n_l0_face * -1
+    l0_faces = [(l_face, n_l0_face), (mfc_1, n_mfc * -1), (mfc_2, n_mfc * -1)]
+    l1_faces = [(l_face, n_l1_face), (mfd_1, n_mfd * -1), (mfd_2, n_mfd * -1)]
 
-    data.add_cat_face(least[0].obj_id, most_face_b)
-    data.add_cat_face(least[0].obj_id, least_face)
-    data.set_cat_face(least[0], most_face_b)
-    data.set_cat_face(least[0], least_face)
+    # Add faces to cells and to BOTH the points of max
+    data.add_cat_faces_to_cell(most[0].obj_id, most_faces)
+    data.add_cat_faces_to_point(most[0], most_faces)
+    data.add_cat_faces_to_point(most[1], most_faces)
 
-    data.add_cat_face(least[1].obj_id, most_face_c)
-    data.add_cat_face(least[1].obj_id, least_face)
-    data.set_cat_face(least[1], most_face_c)
-    data.set_cat_face(least[1], least_face)
+    data.add_cat_faces_to_cell(least[0].obj_id, l0_faces)
+    data.add_cat_faces_to_point(least[0], l0_faces)
+
+    data.add_cat_faces_to_cell(least[1].obj_id, l1_faces)
+    data.add_cat_faces_to_point(least[1], l1_faces)
 
 
 def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
@@ -236,14 +213,20 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
         cd_point = data.point_id((most[1].vertex + least[1].vertex) / 2)
 
         face = [ab_point, ac_point, cd_point, bd_point]
+        n_mface = compute_face_normal(data.get_face(face), most[0].vertex)
+        n_lface = n_mface * -1
+        face_0, face_1 = split_quadrilateral_to_triangles(face)
+        # faces = [[ab_point, ac_point, cd_point], [cd_point, bd_point, ab_point]]
+        m_faces = [(face_0, n_mface), (face_1, n_mface)]
+        l_faces = [(face_0, n_lface), (face_1, n_lface)]
 
-        data.add_cat_face(most[0].obj_id, face)
-        data.set_cat_face(most[0], face)
-        data.set_cat_face(most[1], face)
+        data.add_cat_faces_to_cell(most[0].obj_id, m_faces)
+        data.add_cat_faces_to_point(most[0], m_faces)
+        data.add_cat_faces_to_point(most[1], m_faces)
 
-        data.add_cat_face(least[0].obj_id, face)
-        data.set_cat_face(least[0], face)
-        data.set_cat_face(least[1], face)
+        data.add_cat_faces_to_cell(least[0].obj_id, l_faces)
+        data.add_cat_faces_to_point(least[0], l_faces)
+        data.add_cat_faces_to_point(least[1], l_faces)
 
     if len(most) == 3:
         ab_point = data.point_id((least[0].vertex + most[0].vertex) / 2)
@@ -251,14 +234,17 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
         ad_point = data.point_id((least[0].vertex + most[2].vertex) / 2)
 
         face = [ab_point, ac_point, ad_point]
+        n_mface = compute_face_normal(data.get_face(face), most[0].vertex)
+        n_lface = n_mface * -1
+        face = (face, n_mface)
 
-        data.add_cat_face(least[0].obj_id, face)
-        data.set_cat_face(least[0], face)
+        data.add_cat_face_to_cell(least[0].obj_id, face)
+        data.add_cat_face_to_point(least[0], face)
 
-        data.add_cat_face(most[0].obj_id, face)
-        data.set_cat_face(most[0], face)
-        data.set_cat_face(most[0], face)
-        data.set_cat_face(most[0], face)
+        data.add_cat_face_to_cell(most[0].obj_id, face)
+        data.add_cat_face_to_point(most[0], face)
+        data.add_cat_face_to_point(most[1], face)
+        data.add_cat_face_to_point(most[2], face)
 
 
 def compute_cat_cells(
@@ -311,6 +297,7 @@ def create_faces_4(data: CatData, tet_points: list[TetPoint]):
         [center_point, ad_point, abd_point],
         [center_point, abd_point, ab_point],
     ]
+    faces_a = [(face, compute_face_normal(data.get_face(face), tet_points[0].vertex)) for face in faces_a]
 
     faces_b = [
         [center_point, ab_point, abc_point],
@@ -320,6 +307,7 @@ def create_faces_4(data: CatData, tet_points: list[TetPoint]):
         [center_point, bd_point, abd_point],
         [center_point, abd_point, ab_point],
     ]
+    faces_b = [(face, compute_face_normal(data.get_face(face), tet_points[1].vertex)) for face in faces_b]
 
     faces_c = [
         [center_point, ac_point, abc_point],
@@ -329,25 +317,28 @@ def create_faces_4(data: CatData, tet_points: list[TetPoint]):
         [center_point, cd_point, acd_point],
         [center_point, acd_point, ac_point],
     ]
+    faces_c = [(face, compute_face_normal(data.get_face(face), tet_points[2].vertex)) for face in faces_c]
 
     faces_d = [
-        [center_point, ad_point, acd_point],
-        [center_point, acd_point, cd_point],
-        [center_point, cd_point, bcd_point],
-        [center_point, bcd_point, bd_point],
-        [center_point, bd_point, abd_point],
-        [center_point, abd_point, ad_point],
+        [center_point, ad_point, abd_point],
+        [center_point, abd_point, bd_point],
+        [center_point, bd_point, bcd_point],
+        [center_point, bcd_point, cd_point],
+        [center_point, cd_point, acd_point],
+        [center_point, acd_point, ad_point],
     ]
+    faces_d = [(face, compute_face_normal(data.get_face(face), tet_points[3].vertex)) for face in faces_d]
 
-    data.add_cat_faces(tet_points[0].obj_id, faces_a)
-    data.add_cat_faces(tet_points[1].obj_id, faces_b)
-    data.add_cat_faces(tet_points[2].obj_id, faces_c)
-    data.add_cat_faces(tet_points[3].obj_id, faces_d)
+    # Adds the faces the list of each ovbject
+    data.add_cat_faces_to_cell(tet_points[0].obj_id, faces_a)
+    data.add_cat_faces_to_cell(tet_points[1].obj_id, faces_b)
+    data.add_cat_faces_to_cell(tet_points[2].obj_id, faces_c)
+    data.add_cat_faces_to_cell(tet_points[3].obj_id, faces_d)
 
-    data.set_cat_faces(tet_points[0], faces_a)
-    data.set_cat_faces(tet_points[1], faces_b)
-    data.set_cat_faces(tet_points[2], faces_c)
-    data.set_cat_faces(tet_points[3], faces_d)
+    data.add_cat_faces_to_point(tet_points[0], faces_a)
+    data.add_cat_faces_to_point(tet_points[1], faces_b)
+    data.add_cat_faces_to_point(tet_points[2], faces_c)
+    data.add_cat_faces_to_point(tet_points[3], faces_d)
 
 
 def compute_cat_faces(tetmesh, point_sets: list[set[tuple]], obj_coords: list[np.ndarray]):
@@ -394,22 +385,6 @@ def compute_cat_faces(tetmesh, point_sets: list[set[tuple]], obj_coords: list[np
     return data
 
 
-def convert_single_to_pyvista(data: CatData, obj_id: int):
-    """Convert the data to a pyvista.PolyData object.
-
-    args:
-        - data: the data to convert
-    """
-    points = []
-    faces = []
-
-    for face in data.cat_faces[obj_id]["all"]:
-        faces.extend([3, *face])
-
-    points = np.array(points)
-    faces = np.array(faces)
-
-
 def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     # FIXME: This function is not functional anymore. ill fix it later
     """Convert a list of triangular only faces represented by points with coordinates
@@ -418,15 +393,14 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     This function is used to convert the data so that it can be used by the pyvista.PolyData class.
 
     Note: Currently this function assumes that the indices of the points are not global with respect to other meshes.
-
-
     """
     cat_faces = data.cat_cells[obj_id]
     cat_points = []
     poly_faces = []
     n_entries = 0
-    for face in cat_faces:
+    for face, _n_face in cat_faces:
         len_face = len(face)
+        assert len_face == 3, f"len_face: {len_face}"
         if len_face == 3:
             n_entries += 4
         if len_face == 4:
@@ -441,9 +415,8 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     face_len = 0
     idx = 0
 
-    new_faces = []
 
-    for i, face in enumerate(cat_faces):
+    for i, (face, _n_face) in enumerate(cat_faces):
         face_len = len(face)
         new_face = np.zeros(face_len)
         for i in range(len(face)):
@@ -465,7 +438,7 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
             poly_faces[idx + 3] = new_face[2]
             idx += 4
 
-        elif face_len == 4:  # make 2 triangles for each quad
+        elif face_len == 4:  # make a quadrillateral
             poly_faces[idx] = 4
             poly_faces[idx + 1] = new_face[0]
             poly_faces[idx + 2] = new_face[1]
@@ -490,36 +463,40 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
 # ------------------ #
 # Showcase functions
 # ------------------ #
-def plot_shapes(shape1, shape2, shape3, shape4, rotate, filename=None):
+def plot_shapes(
+    objects: list[pv.PolyData],
+    container: pv.PolyData,
+    tetrahedra: pv.PolyData,
+    cat_meshes: list[pv.PolyData],
+    rotate,
+    filename=None,
+):
     # Create a plotter object
     plotter = pv.Plotter(shape="3|1")
 
     # Add the shapes to the plotter
     plotter.subplot(0)
     plotter.add_text("object")
-    shape1_r = shape1.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
-    plotter.add_mesh(
-        shape1_r,
-        show_edges=True,
-        color="r",
-    )
+    for obj in objects:
+        plotter.add_mesh(obj, show_edges=True, color="r")
 
     plotter.subplot(1)
     plotter.add_text("container")
-    shape3_r = shape3.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
-    plotter.add_mesh(shape3_r, show_edges=True)
+    plotter.add_mesh(container, show_edges=True, color="b")
 
     plotter.subplot(2)
     plotter.add_text("delaunay tetrahedra")
-    shape2_r = shape2.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
-    plotter.add_mesh(shape2_r, show_edges=True, opacity=0.7)
+    plotter.add_mesh(tetrahedra, show_edges=True, color="g", opacity=0.5)
 
     plotter.subplot(3)
     plotter.add_text("CAT faces")
-    shape4_r = shape4.copy().rotate_x(rotate[0]).rotate_y(rotate[1]).rotate_z(rotate[2])
-    plotter.add_mesh(shape1_r, color="r", opacity=0.9, show_edges=True, edge_color="r")
-    plotter.add_mesh(shape4_r, color="y")
-    plotter.add_mesh(shape2_r, opacity=0.3, show_edges=True, edge_color="b")
+    for mesh in cat_meshes:
+        plotter.add_mesh(mesh, show_edges=True, color="y", opacity=0.8)
+
+    for obj in objects:
+        plotter.add_mesh(obj, show_edges=True, color="r", opacity=0.5)
+
+    plotter.add_mesh(container, show_edges=True, color="gray", opacity=0.1)
 
     plotter.show()
     if filename:
@@ -527,30 +504,36 @@ def plot_shapes(shape1, shape2, shape3, shape4, rotate, filename=None):
 
 
 def main():
-    cat_points = np.array(
-        [[-1, 0, 0], [0, -1, 0], [1, 0, 0], [0, 1, 0], [-1, 0, 2], [0, -1, 2], [1, 0, 2], [0, 1, 2]],
-        dtype=float,
-    )  # . rotates_cube_points
-    obj_shape = pv.PolyData(cat_points).delaunay_3d()
-    container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=4)
+    box1 = pv.Cube(center=(-1, -1, 0), x_length=1, y_length=1, z_length=1)
+    box2 = pv.Cube(center=(1, 1, 0), x_length=1, y_length=1, z_length=1)
+    box3 = pv.Cube(center=(1, -1, 0), x_length=1, y_length=1, z_length=1)
+    box4 = pv.Cube(center=(-1, 1, 0), x_length=1, y_length=1, z_length=1)
+    boxes = [box1, box2, box3, box4]
+
+    pv.PolyData(box1.points).delaunay_3d()
+    container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=3)
     # container = pv.Pyramid([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0], [1, 1, 1]])
 
-    pc = pv.PolyData(np.concatenate([cat_points, container.points]))
+    pc = pv.PolyData(np.concatenate([box1.points, box2.points, box3.points, box4.points, container.points]))
     tetmesh = pc.delaunay_3d()
-    data = compute_cat_cells([cat_points], container.points, [0, 0, 0])
+    data = compute_cat_cells([box1.points, box2.points, box3.points, box4.points], container.points, [0, 0, 0])
 
     # cat_4_faces = [face for face in cat_faces[0] if len(face) == 4]
+    cat_box1 = pv.PolyData(*face_coord_to_points_and_faces(data, 0))
+    cat_box2 = pv.PolyData(*face_coord_to_points_and_faces(data, 1))
+    cat_box3 = pv.PolyData(*face_coord_to_points_and_faces(data, 2))
+    cat_box4 = pv.PolyData(*face_coord_to_points_and_faces(data, 3))
+    cat_boxes = [cat_box1, cat_box2, cat_box3, cat_box4]
 
-    poly_points, poly_faces = face_coord_to_points_and_faces(data, 0)
+    plotter = pv.Plotter()
 
-    polydata = pv.PolyData(poly_points, poly_faces)
-    # plotter = pv.Plotter()
-    # plotter.add_mesh(polydata.explode(), color="y", show_edges=True, edge_color="black")
-    # plotter.add_mesh(tetmesh.explode(), opacity=0.3, show_edges=True, edge_color="b")
-    # plotter.add_mesh(obj_shape.explode(), color="r")
-    # plotter.show()
+    plotter.add_mesh(cat_box1.explode(), show_edges=True, color="r", opacity=0.7)
+    plotter.add_mesh(box1, show_edges=True, color="b")
+    # plotter.add_mesh(tetmesh.explode(), show_edges=True, color="w", opacity=0.2)
+    # plotter.set_focus(box1.center)
 
-    plot_shapes(obj_shape, tetmesh.explode(), container, polydata.explode(), (0, 0, 10))
+    plotter.show()
+    plot_shapes(boxes, container, tetmesh.explode(), cat_boxes, (0, 0, 10))
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 # %%
+import itertools
 import math
+
 import numpy as np
 import pyvista as pv
 
@@ -50,9 +52,6 @@ def test_sort_points_clockwise():
     print(sorted_points)
     print("-------")
     print(expected_points)
-
-
-# test_sort_points_clockwise()
 
 
 def sort_face_points_by_length(expected_faces):
@@ -125,3 +124,74 @@ def plot_shapes(shape1, shape2, shape3, shape4):
 
 def translation_matrix(x0, x1):
     return np.array([[1, 0, 0, x1[0] - x0[0]], [0, 1, 0, x1[1] - x0[1]], [0, 0, 1, x1[2] - x0[2]], [0, 0, 0, 1]])
+
+
+def distance_squared(p1, p2):
+    return np.sum((np.array(p1) - np.array(p2)) ** 2)
+
+
+def get_max_bounds(bounds):
+    x_size, y_size, z_size = [bounds[i + 1] - bounds[i] for i in range(0, 6, 2)]
+    return max(x_size, y_size, z_size)
+
+
+def split_quadrilateral_to_triangles(points):
+    if len(points) != 4:
+        raise ValueError("Expected a list of 4 points")
+
+    # Compute distances between all pairs of points
+    distances = [(p1, p2, distance_squared(p1, p2)) for p1, p2 in itertools.combinations(points, 2)]
+
+    # Find the pair of points with the longest distance
+    diagonal = max(distances, key=lambda x: x[2])
+
+    # Get the two remaining points
+    remaining_points = [p for p in points if p not in diagonal[:2]]
+
+    # Form two triangles by connecting the endpoints of the diagonal with the remaining points
+    triangle1 = [diagonal[0], diagonal[1], remaining_points[0]]
+    triangle2 = [diagonal[0], diagonal[1], remaining_points[1]]
+
+    return [triangle1, triangle2]
+
+
+def compute_face_normal(points, v_i):
+    """Compute the normal vector of a face.
+
+    The normal vector is the cross product of two vectors of the face with
+    the centroid of the face as the origin.
+
+    Parameters
+    ----------
+    points : list of tuple of float
+        The points of the face.
+    v_i : tuple of float
+        A point on the plane of the face.
+
+    Returns
+    -------
+    normal : tuple of float
+        The normal vector of the face.
+
+    Examples
+    --------
+    >>> compute_face_normal([(0, 0, 0), (0, 0, 1)], (0, 1, 2))
+    (0.0, 1.0, 0.0)
+    """
+    n_points = len(points)
+    assert 3 <= n_points <= 4, "The number of points should be either 3 or 4."
+
+    v0 = points[1] - points[0]
+    v1 = points[2] - points[0]
+    normal = np.cross(v0, v1)
+    if np.dot(normal, v_i - points[0]) > 0:
+        normal *= -1
+    return normal
+
+
+def print_transform_array(array):
+    symbols = ["f", "θ_x", "θ_y", "θ_z", "t_x", "t_y", "t_z"]
+    header = " ".join([f"{symbol+':':<8}" for symbol in symbols])
+    row = " ".join([f"{value:<8.3f}" for value in array])
+    print(header)
+    print(row + "\n")
