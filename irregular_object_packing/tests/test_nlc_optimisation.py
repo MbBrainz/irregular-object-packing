@@ -3,7 +3,12 @@ import unittest
 import numpy as np
 from scipy.optimize import minimize
 
-from irregular_object_packing.packing.nlc_optimisation import *
+from irregular_object_packing.packing.nlc_optimisation import (
+    local_constraint_multiple_points,
+    objective,
+    transform_v,
+    construct_transform_matrix,
+)
 
 
 class TestNLCConstraintOptimisationLocal(unittest.TestCase):
