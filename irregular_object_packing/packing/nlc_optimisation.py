@@ -1,11 +1,11 @@
 # %%
-
 import numpy as np
 from scipy.optimize import minimize
+from tqdm import tqdm
 
+import irregular_object_packing.packing.chordal_axis_transform as cat
 from irregular_object_packing.packing.chordal_axis_transform import CatData
-from irregular_object_packing.packing.utils import (compute_face_normal,
-                                                    print_transform_array)
+from irregular_object_packing.packing.utils import compute_face_normal, print_transform_array
 
 
 # Define the objective function to be maximized
