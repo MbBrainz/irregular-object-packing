@@ -82,7 +82,7 @@ def sort_points_by_polar_angles(points):
 
 
 def sort_faces_dict(faces):
-    for k, v in faces.items():
+    for k, _v in faces.items():
         faces[k] = sort_face_points_by_length(faces[k])
 
     return faces
@@ -156,22 +156,23 @@ def split_quadrilateral_to_triangles(points):
 
 
 def compute_face_normal(points, v_i):
-    """Compute the normal vector of a face.
+    """
+     Compute the normal vector of a planar face defined by either 3 or 4 points in 3D space.
 
-    The normal vector is the cross product of two vectors of the face with
-    the centroid of the face as the origin.
+    This function calculates the normal vector of a planar face, ensuring that it points
+    in the direction of the reference point v_i.
 
-    Parameters
-    ----------
-    points : list of tuple of float
-        The points of the face.
-    v_i : tuple of float
-        A point on the plane of the face.
+    Parameters:
+    points (List[np.ndarray]): A list of either 3 or 4 numpy arrays representing points in 3D space,
+                               with x, y, and z coordinates.
+    v_i (np.ndarray): A numpy array representing a point in 3D space, with x, y, and z coordinates,
+                      used to determine the direction of the normal vector.
 
-    Returns
-    -------
-    normal : tuple of float
-        The normal vector of the face.
+    Returns:
+    np.ndarray: The normal vector of the planar face, pointing in the direction of v_i.
+
+    Raises:
+    AssertionError: If the number of points in the input list is not 3 or 4.
 
     Examples
     --------
@@ -184,7 +185,7 @@ def compute_face_normal(points, v_i):
     v0 = points[1] - points[0]
     v1 = points[2] - points[0]
     normal = np.cross(v0, v1)
-    if np.dot(normal, v_i - points[0]) > 0:
+    if np.dot(normal, v_i - points[0]) < 0:
         normal *= -1
     return normal
 
@@ -195,3 +196,9 @@ def print_transform_array(array):
     row = " ".join([f"{value:<8.3f}" for value in array])
     print(header)
     print(row + "\n")
+
+
+# %%
+
+# compute_face_normal(np.array([[0, 0, 0], [0, 0, 1], [1, 0, 0]]), [0, 1, 2])
+# %%

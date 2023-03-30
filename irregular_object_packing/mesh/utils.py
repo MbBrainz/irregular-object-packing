@@ -40,7 +40,7 @@ def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
     # Compute the decimation factor based on the target number of faces
     num_faces = mesh.n_faces
     if num_faces < target_faces:
-        return ValueError("Target number of faces must be less than the number of faces in the mesh.")
+        raise ValueError("Target number of faces must be less than the number of faces in the mesh.")
     decimation_factor = 1 - target_faces / num_faces
 
     # Decimate the mesh using the decimation factor

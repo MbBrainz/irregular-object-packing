@@ -1,11 +1,12 @@
 # %%
 import numpy as np
 from scipy.optimize import minimize
-from tqdm import tqdm
 
-import irregular_object_packing.packing.chordal_axis_transform as cat
 from irregular_object_packing.packing.chordal_axis_transform import CatData
-from irregular_object_packing.packing.utils import compute_face_normal, print_transform_array
+from irregular_object_packing.packing.utils import (
+    compute_face_normal,
+    print_transform_array,
+)
 
 
 # Define the objective function to be maximized
@@ -217,7 +218,7 @@ def local_constraint_single_point_normal(
     transformed_v_i = transform_v(v_i, transform_matrix)
 
     constraints = []
-    for i, (facet_p_ids, n_face) in enumerate(faces):
+    for _i, (facet_p_ids, n_face) in enumerate(faces):
         # translate the points of the facet to the local coordinate system of the object
         facet_coords = [np.array(points[p_id]) - obj_coord for p_id in facet_p_ids]
         q_j = facet_coords[0]  # first point in facet is q_j (can be any point of the facet)
@@ -287,7 +288,7 @@ def local_constraints_from_cat(tf_arr: list[float], obj_id: int, cat_data: CatDa
     )
 
 
-def test_nlcp():
+def test_nlcp_facets():
     # Define points
     points = {
         # Box of size 2x2x2 centered at the origin
@@ -392,6 +393,11 @@ def test_nlcp():
 
 
 if __name__ == "__main__":
-    test_nlcp()
+    # test_nlcp_facets()
+    pass
+
+# %%
+
+# test_nlcp_facets()
 
 # %%

@@ -70,6 +70,9 @@ def init_coordinates(
         container (PolyData): container mesh
         mesh (PolyData): mesh of the objects
         coverage_rate (float): percentage of the container volume that should be filled
+
+    returns:
+        tuple[np.ndarray, int]: coordinates of the objects and number of skipped objects
     """
     # TODO: Make sure the container is a closed surface mesh
     # max_dim_mesh = max(np.abs(mesh.bounds)) * 2 # for sphere this is the same, but quicker. for other shapes might be different
@@ -82,44 +85,39 @@ def init_coordinates(
     acc_vol, skipped = 0, 0
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
-
-        is_inside = PolyData([coord]).select_enclosed_points(container)["SelectedPoints"][0]
-        if is_inside == 1:
-            distance_arr = [abs(np.linalg.norm(coord - i)) > min_distance_between_meshes for i in objects_coords]
-            # distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
-            point = container.find_closest_point(coord)
-            distance_to_container = abs(np.linalg.norm(coord - container.points[point]))
-            distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
-
-            if np.alltrue(distance_arr):
-                objects_coords.append(coord)
-                acc_vol += mesh.volume
-            else:
-                skipped += 1
+        if coord_is_correct(coord, container, objects_coords, min_distance_between_meshes):
+            objects_coords.append(coord)
+            acc_vol += mesh.volume
+        else:
+            skipped += 1
 
     return objects_coords, skipped
 
-    # coords = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
-    # skipped, objects_coords = filter_coords(
-    #     container, mesh.volume, coverage_rate, min_distance_between_meshes, coords
-    # )
 
-    # return objects_coords, skipped
+def trimesh_variant():
+    return
+    while acc_vol < max_volume:
+        coord = random_coordinate_within_bounds(scaled_container.bounds)
+        if scaled_container.contains([coord]):
+            distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in objects_coords]
+            distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
+            distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
-    # while acc_vol < max_volume:
-    #     coord = random_coordinate_within_bounds(scaled_container.bounds)
-    #     if scaled_container.contains([coord]):
-    #         distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in objects_coords]
-    #         distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
-    #         distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
-    #         if np.alltrue(distance_arr):
-    #             objects_coords.append(coord)
-    #             acc_vol += mesh.volume
-    #         else:
-    #             skipped += 1
+def coord_is_correct(
+    coord, container: PolyData, object_coords: list[np.ndarray], min_distance_between_meshes: float
+):
+    is_inside = PolyData([coord]).select_enclosed_points(container)["SelectedPoints"][0]
+    if is_inside == 1:
+        distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in object_coords]
+        # distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
+        point = container.find_closest_point(coord)
+        distance_to_container = np.linalg.norm(coord - container.points[point])
+        distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
-    # return objects_coords, skipped
+        if np.alltrue(distance_arr):
+            return True
+    return False
 
 
 def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance, coords):
@@ -153,12 +151,12 @@ def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance,
 def dynamic_plot(points: np.ndarray, power_cells: List[np.ndarray]):
     """Create a dynamic 3D plot of the power cells and the input points."""
     polygons = []
-    for i, cell in enumerate(power_cells):
+    for _i, cell in enumerate(power_cells):
         polygons.append(
             go.Mesh3d(
-                x=list(map(lambda x: x[0], cell)),
-                y=list(map(lambda x: x[1], cell)),
-                z=list(map(lambda x: x[2], cell)),
+                x=[x[0] for x in cell],
+                y=[x[1] for x in cell],
+                z=[x[2] for x in cell],
                 #   color=plt.cm.jet(i/len(power_cells)),
                 opacity=0.5,
             )
@@ -167,14 +165,14 @@ def dynamic_plot(points: np.ndarray, power_cells: List[np.ndarray]):
     # Create the input points as a scatter plot
     if points is not None:
         scatter = go.Scatter3d(
-            x=points[:, 0], y=points[:, 1], z=points[:, 2], mode="markers", marker=dict(size=3, color="red")
+            x=points[:, 0], y=points[:, 1], z=points[:, 2], mode="markers", marker={"size": 3, "color": "red"}
         )
 
     # Combine the polygons and the scatter plot into a single figure
     fig = go.Figure(data=polygons + [scatter])
 
     # Set the axis labels and the title
-    fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"), title="Power Cells")
+    fig.update_layout(scene={"xaxis_title": "X", "yaxis_title": "Y", "zaxis_title": "Z"}, title="Power Cells")
 
     fig.show()
 
@@ -217,5 +215,5 @@ class PartitionBuilder:
         dynamic_plot(self.points, self.power_cells)
 
     def run(self):
-        for i in range(100):
+        for _i in range(100):
             self.power_cell_step()

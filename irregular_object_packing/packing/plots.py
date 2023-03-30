@@ -3,7 +3,6 @@ import trimesh
 from numpy import ndarray
 from pyvista import PolyData
 
-
 # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
 

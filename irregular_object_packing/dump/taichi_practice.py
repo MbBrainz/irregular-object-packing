@@ -162,7 +162,7 @@ canvas = window.get_canvas()
 scene = ti.ui.Scene()
 camera = ti.ui.Camera()
 while window.running:
-    for i in range(30):
+    for _i in range(30):
         step_no_slide()
     set_vertices()
     camera.position(0.5, -0.5, 2)

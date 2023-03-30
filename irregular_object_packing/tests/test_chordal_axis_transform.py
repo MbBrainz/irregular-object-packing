@@ -3,11 +3,18 @@ import unittest
 import numpy as np
 
 from irregular_object_packing.packing.chordal_axis_transform import (
-    CatData, TetPoint, create_faces_2, create_faces_3, create_faces_4,
-    face_coord_to_points_and_faces)
+    CatData,
+    TetPoint,
+    create_faces_2,
+    create_faces_3,
+    create_faces_4,
+    face_coord_to_points_and_faces,
+)
 from irregular_object_packing.packing.utils import (
-    compute_face_normal, split_quadrilateral_to_triangles)
-from irregular_object_packing.tests.test_helpers import (sort_surfaces)
+    compute_face_normal,
+    split_quadrilateral_to_triangles,
+)
+from irregular_object_packing.tests.test_helpers import sort_surfaces
 
 
 class TestCreateCatFaces(unittest.TestCase):
@@ -117,8 +124,8 @@ class TestCreateCatFaces(unittest.TestCase):
         computed_faces = data.cat_faces
         for key in computed_faces.keys():
             for key2 in computed_faces[key].keys():
-                sorted_computed_faces = sort_surfaces(map(lambda f: f[0], computed_faces[key][key2]))
-                sorted_expecte_faces = sort_surfaces(map(lambda f: f[0], expected_faces[key][key2]))
+                sorted_computed_faces = sort_surfaces((f[0] for f in computed_faces[key][key2]))
+                sorted_expecte_faces = sort_surfaces((f[0] for f in expected_faces[key][key2]))
 
                 # self.assertListEqual(
                 #     computed_faces[key][key2][1], expected_faces[key][key2][1], "normals are not equal"

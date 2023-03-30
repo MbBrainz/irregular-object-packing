@@ -5,9 +5,10 @@ from pandas import DataFrame
 from pyvista import PolyData
 
 from irregular_object_packing.packing.chordal_axis_transform import (
-    CatData, face_coord_to_points_and_faces)
-from irregular_object_packing.packing.nlc_optimisation import \
-    construct_transform_matrix
+    CatData,
+    face_coord_to_points_and_faces,
+)
+from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
 
 
 class OptimizerData:

@@ -3,7 +3,7 @@ import pyvista as pv
 
 
 def test_polydata_is_manifold():
-    """I was not sure if the pv library is able to determine if a mesh is manifold, 
+    """I was not sure if the pv library is able to determine if a mesh is manifold,
     if you create it in the way like below. It seems to work."""
     vertices = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0.5, 0.5, -1]])
 

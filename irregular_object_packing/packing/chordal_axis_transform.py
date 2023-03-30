@@ -5,14 +5,16 @@
 4. Compute the chordal axis of the whole object by taking the union of all the chordal axis of the tetrahedrons.
 """
 import pickle
-# %%
 
+# %%
 import numpy as np
 import pyvista as pv
 
 # from utils import angle_between, sort_points_clockwise
 from irregular_object_packing.packing.utils import (
-    compute_face_normal, split_quadrilateral_to_triangles)
+    compute_face_normal,
+    split_quadrilateral_to_triangles,
+)
 
 
 class TetPoint:
@@ -415,7 +417,6 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     face_len = 0
     idx = 0
 
-
     for i, (face, _n_face) in enumerate(cat_faces):
         face_len = len(face)
         new_face = np.zeros(face_len)
@@ -508,36 +509,32 @@ def main():
     box2 = pv.Cube(center=(1, 1, 0), x_length=1, y_length=1, z_length=1)
     box3 = pv.Cube(center=(1, -1, 0), x_length=1, y_length=1, z_length=1)
     box4 = pv.Cube(center=(-1, 1, 0), x_length=1, y_length=1, z_length=1)
+
+    box = pv.Cube(center=(0, 0, 0), x_length=1, y_length=1, z_length=1)
     boxes = [box1, box2, box3, box4]
+    # boxes = [box]
 
-    pv.PolyData(box1.points).delaunay_3d()
     container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=3)
-    # container = pv.Pyramid([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0], [1, 1, 1]])
 
-    pc = pv.PolyData(np.concatenate([box1.points, box2.points, box3.points, box4.points, container.points]))
+    pc = pv.PolyData(np.concatenate([box.points for box in boxes]))
     tetmesh = pc.delaunay_3d()
-    data = compute_cat_cells([box1.points, box2.points, box3.points, box4.points], container.points, [0, 0, 0])
+    data = compute_cat_cells([box.points for box in boxes], container.points, [0, 0, 0])
 
-    # cat_4_faces = [face for face in cat_faces[0] if len(face) == 4]
-    cat_box1 = pv.PolyData(*face_coord_to_points_and_faces(data, 0))
-    cat_box2 = pv.PolyData(*face_coord_to_points_and_faces(data, 1))
-    cat_box3 = pv.PolyData(*face_coord_to_points_and_faces(data, 2))
-    cat_box4 = pv.PolyData(*face_coord_to_points_and_faces(data, 3))
-    cat_boxes = [cat_box1, cat_box2, cat_box3, cat_box4]
-
+    cat_boxes = [pv.PolyData(*face_coord_to_points_and_faces(data, i)) for i in range(len(boxes))]
     plotter = pv.Plotter()
 
-    plotter.add_mesh(cat_box1.explode(), show_edges=True, color="r", opacity=0.7)
-    plotter.add_mesh(box1, show_edges=True, color="b")
-    # plotter.add_mesh(tetmesh.explode(), show_edges=True, color="w", opacity=0.2)
-    # plotter.set_focus(box1.center)
+    plotter.add_mesh(cat_boxes[2].explode(), show_edges=True, color="r", opacity=0.7)
+    for box in boxes:
+        plotter.add_mesh(box, show_edges=True, color="b")
 
     plotter.show()
     plot_shapes(boxes, container, tetmesh.explode(), cat_boxes, (0, 0, 10))
 
 
-if __name__ == "__main__":
-    print("This is an example of the CAT algorithm.")
-    main()
+# if __name__ == "__main__":
+#     print("This is an example of the CAT algorithm.")
+#     main()
+
+# %%
 
 # %%

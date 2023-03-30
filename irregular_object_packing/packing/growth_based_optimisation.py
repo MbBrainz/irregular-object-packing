@@ -18,7 +18,10 @@ from scipy.optimize import minimize
 from tqdm.auto import tqdm
 
 import irregular_object_packing.packing.plots as plots
-from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
+from irregular_object_packing.mesh.transform import (
+    scale_and_center_mesh,
+    scale_to_volume,
+)
 from irregular_object_packing.mesh.utils import print_mesh_info, resample_pyvista_mesh
 from irregular_object_packing.packing.OptimizerData import OptimizerData
 from irregular_object_packing.packing.utils import get_max_bounds
@@ -199,8 +202,8 @@ class Optimizer(OptimizerData):
     def setup(self):
         self.resample_meshes()
         self.object_coords, skipped = init.init_coordinates(
-            self.container,
-            self.shape,
+            container=self.container,
+            mesh=self.shape,
             coverage_rate=self.settings.r,
             f_init=self.settings.init_f,
         )
@@ -220,9 +223,14 @@ class Optimizer(OptimizerData):
 
         self.update_data(-1, -1)
         has_overlap = self.has_object_overlap()
+        if has_overlap:
+            raise ValueError(f"Initial object placements show overlaps for {has_overlap}")
+
         has_c_violations = self.has_container_violations()
-        if has_overlap or has_c_violations:
-            raise ValueError("Initial object placement is invalid")
+        if has_c_violations:
+            raise ValueError(
+                f"Initial object placements show container violations for {len(has_c_violations)} objects."
+            )
 
         if self.plotter is not None:
             self.plotter.show(interactive=True, interactive_update=True)
@@ -261,8 +269,11 @@ class Optimizer(OptimizerData):
 
     def resample_meshes(self):
         self.log("resampling meshes", LOG_LVL_DEBUG)
-        self.container = resample_pyvista_mesh(self.container0, self.container_sample_rate())
-        self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
+        try:
+            self.container = resample_pyvista_mesh(self.container0, self.container_sample_rate())
+            self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
+        except ValueError:
+            self.log("Could not resample meshes", LOG_LVL_WARNING)
 
     @property
     def n_objs(self):
@@ -401,7 +412,6 @@ class Optimizer(OptimizerData):
         if n > 0:
             self.log(f"! collision found for {n} objects with total of {colls} contacts", LOG_LVL_SEVERE)
             return self.add_meshes_to_plot(coll_meshes)
-        return n > 0
 
     def check_cat_boundaries(self):
         self.log("checking for cat boundary violations", LOG_LVL_DEBUG)
@@ -421,7 +431,7 @@ class Optimizer(OptimizerData):
         if n > 0:
             self.log(f"! container violation for objects {violations}", LOG_LVL_SEVERE)
             self.add_meshes_to_plot(meshes)
-        return n > 0
+            return meshes
 
     @staticmethod
     def default_setup() -> "Optimizer":
@@ -454,14 +464,15 @@ class Optimizer(OptimizerData):
 
     @staticmethod
     def simple_shapes_setup() -> "Optimizer":
-        mesh_volume = 4
+        mesh_volume = 1
+
         container_volume = 10
 
-        loaded_mesh = pv.Sphere().extract_surface()
-        container = pv.Sphere().extract_surface()
+        original_mesh = pv.Cube().extract_surface()
+        container = pv.Cube().extract_surface()
 
         container = scale_to_volume(container, container_volume)
-        original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
+        original_mesh = scale_and_center_mesh(original_mesh, mesh_volume)
 
         settings = SimSettings(
             itn_max=1,
@@ -469,9 +480,8 @@ class Optimizer(OptimizerData):
             r=0.3,
             final_scale=1,
             sample_rate=100,
-            log_lvl=0,
-            decimate=False,
-            init_f=0.1,  # NOTE: Smaller than paper
+            log_lvl=3,
+            init_f=0.1,
             sample_rate_ratio=1,
         )
         plotter = None
@@ -480,7 +490,6 @@ class Optimizer(OptimizerData):
 
 
 # %%
-
 # optimizer = Optimizer.simple_shapes_setup()
 # optimizer.setup()
 
@@ -488,7 +497,7 @@ class Optimizer(OptimizerData):
 # optimizer.run()
 
 # # %%
-# reload(plots)
+# # reload(plots)
 # plotter = pv.Plotter()
 # # enumerate
 # plots.plot_full_comparison(
@@ -501,15 +510,28 @@ class Optimizer(OptimizerData):
 #     plotter,
 # )
 # # %%
-# obj_i = 0
-# plots.plot_step_comparison(
-#     optimizer.mesh_before(0, obj_i, optimizer.shape),
-#     optimizer.mesh_after(0, obj_i, optimizer.shape),
-#     optimizer.cat_mesh(0, obj_i),
-# )
 
+# plotter = pv.Plotter()
+# pc = PolyData(optimizer.object_coords)
+# plotter.add_mesh(pc, color="red", point_size=10)
+# for obj in optimizer.final_meshes_after(optimizer.shape):
+#     plotter.add_mesh(obj, opacity=0.8)
+
+# print(optimizer.report())
+# plotter.add_mesh(optimizer.container, opacity=0.5)
+# plotter.show_grid()
+# plotter.show()
+# # obj_i = 0
+# # plots.plot_step_comparison(
+# #     optimizer.mesh_before(0, obj_i, optimizer.shape),
+# #     optimizer.mesh_after(0, obj_i, optimizer.shape),
+# #     optimizer.cat_mesh(0, obj_i),
+# # )
+
+
+# # # %%
+# # @pprofile
+# # def profile_optimizer():
+# #     optimizer.run()
 
 # # %%
-# @pprofile
-# def profile_optimizer():
-#     optimizer.run()

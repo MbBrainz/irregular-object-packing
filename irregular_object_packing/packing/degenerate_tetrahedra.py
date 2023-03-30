@@ -4,8 +4,7 @@ import pyvista as pv
 import trimesh
 
 import irregular_object_packing.packing.nlc_optimisation as nlc
-from irregular_object_packing.packing.growth_based_optimisation import \
-    Optimizer
+from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
 
 def count_degenerate_tetrahedra(tetmesh, threshold=1e-5):
