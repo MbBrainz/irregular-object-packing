@@ -85,7 +85,9 @@ def init_coordinates(
     acc_vol, skipped = 0, 0
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
-        if coord_is_correct(coord, container, objects_coords, min_distance_between_meshes):
+        if coord_is_correct(
+            coord, container, objects_coords, min_distance_between_meshes
+        ):
             objects_coords.append(coord)
             acc_vol += mesh.volume
         else:
@@ -99,17 +101,28 @@ def trimesh_variant():
     while acc_vol < max_volume:
         coord = random_coordinate_within_bounds(scaled_container.bounds)
         if scaled_container.contains([coord]):
-            distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in objects_coords]
-            distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
+            distance_arr = [
+                np.linalg.norm(coord - i) > min_distance_between_meshes
+                for i in objects_coords
+            ]
+            distance_to_container = trimesh.proximity.signed_distance(
+                scaled_container, [coord]
+            )[0]
             distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
 
 def coord_is_correct(
-    coord, container: PolyData, object_coords: list[np.ndarray], min_distance_between_meshes: float
+    coord,
+    container: PolyData,
+    object_coords: list[np.ndarray],
+    min_distance_between_meshes: float,
 ):
     is_inside = PolyData([coord]).select_enclosed_points(container)["SelectedPoints"][0]
     if is_inside == 1:
-        distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in object_coords]
+        distance_arr = [
+            np.linalg.norm(coord - i) > min_distance_between_meshes
+            for i in object_coords
+        ]
         # distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
         point = container.find_closest_point(coord)
         distance_to_container = np.linalg.norm(coord - container.points[point])
@@ -120,7 +133,9 @@ def coord_is_correct(
     return False
 
 
-def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance, coords):
+def filter_coords(
+    container: PolyData, mesh_volume, coverage_rate, min_distance, coords
+):
     max_volume = container.volume * coverage_rate
     acc_vol = 0
     skipped = 0
@@ -133,7 +148,9 @@ def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance,
     while acc_vol < max_volume:
         i += 1
         coord = points_inside.points[i]
-        distance_arr = [True] + [np.linalg.norm(coord - i) > min_distance for i in objects_coords]
+        distance_arr = [True] + [
+            np.linalg.norm(coord - i) > min_distance for i in objects_coords
+        ]
 
         if np.alltrue(distance_arr):
             point = container.find_closest_point(coord)
@@ -165,14 +182,21 @@ def dynamic_plot(points: np.ndarray, power_cells: List[np.ndarray]):
     # Create the input points as a scatter plot
     if points is not None:
         scatter = go.Scatter3d(
-            x=points[:, 0], y=points[:, 1], z=points[:, 2], mode="markers", marker={"size": 3, "color": "red"}
+            x=points[:, 0],
+            y=points[:, 1],
+            z=points[:, 2],
+            mode="markers",
+            marker={"size": 3, "color": "red"},
         )
 
     # Combine the polygons and the scatter plot into a single figure
     fig = go.Figure(data=polygons + [scatter])
 
     # Set the axis labels and the title
-    fig.update_layout(scene={"xaxis_title": "X", "yaxis_title": "Y", "zaxis_title": "Z"}, title="Power Cells")
+    fig.update_layout(
+        scene={"xaxis_title": "X", "yaxis_title": "Y", "zaxis_title": "Z"},
+        title="Power Cells",
+    )
 
     fig.show()
 

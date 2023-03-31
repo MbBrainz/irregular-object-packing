@@ -55,7 +55,9 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, None)
         f_bounds = (0, None)  # scale bound
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
         ## %%
         resulting_points = []
         for point in v:
@@ -71,9 +73,13 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, None)
         f_bounds = (0, None)  # scale bound
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
         self.assertListEqual(
-            opt_tf.tolist(), [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "transformation should be identity"
+            opt_tf.tolist(),
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            "transformation should be identity",
         )
 
     # -----------------------------------------------------------
@@ -87,9 +93,13 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, 0)
         f_bounds = (0, None)  # scale bound
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
 
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
+        self.assertListEqual(
+            opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0"
+        )
         resulting_points = []
         for point in v:
             res_v = transform_v(self.points[point], T)
@@ -104,9 +114,13 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, None)
         f_bounds = (0, None)  # scale bound
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
 
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
+        self.assertListEqual(
+            opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0"
+        )
         resulting_points = []
         for point in v:
             res_v = transform_v(self.points[point], T)
@@ -121,7 +135,9 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, None)
         f_bounds = (1, 1)
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
         self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
         resulting_points = []
         for point in v:
@@ -137,9 +153,13 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, None)
         f_bounds = (1, 1)
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
         self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
+        self.assertListEqual(
+            opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0"
+        )
         resulting_points = []
         for point in v:
             res_v = transform_v(self.points[point], T)
@@ -154,9 +174,13 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, 0)
         f_bounds = (1, 1)
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
         self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
+        self.assertListEqual(
+            opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0"
+        )
         resulting_points = []
         for point in v:
             res_v = transform_v(self.points[point], T)
@@ -171,10 +195,16 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, 0)
         f_bounds = (0.5, None)
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
         self.assertGreater(opt_tf[0], 0.5, "Scale should be greater than 0.5")
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
+        self.assertListEqual(
+            opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0"
+        )
+        self.assertListEqual(
+            opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0"
+        )
         resulting_points = []
         for point in v:
             res_v = transform_v(self.points[point], T)
@@ -189,10 +219,16 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         t_bounds = (0, 0)
         f_bounds = (1, 1)
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
+        T, opt_tf = compute_optimal_tf(
+            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds
+        )
         self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
+        self.assertListEqual(
+            opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0"
+        )
+        self.assertListEqual(
+            opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0"
+        )
         resulting_points = []
         for point in v:
             res_v = transform_v(self.points[point], T)
@@ -204,7 +240,16 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
     # ----------------------------------------------------------------
 
 
-def compute_optimal_tf(x0, v, sets_of_faces, points, f_bounds, r_bounds, t_bounds, obj_coords=np.array([0, 0, 0])):
+def compute_optimal_tf(
+    x0,
+    v,
+    sets_of_faces,
+    points,
+    f_bounds,
+    r_bounds,
+    t_bounds,
+    obj_coords=np.array([0, 0, 0]),
+):
     bounds = [f_bounds, r_bounds, r_bounds, r_bounds, t_bounds, t_bounds, t_bounds]
     # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
     constraint_dict = {
@@ -218,7 +263,9 @@ def compute_optimal_tf(x0, v, sets_of_faces, points, f_bounds, r_bounds, t_bound
             None,
         ),
     }
-    res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
+    res = minimize(
+        objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
+    )
     T = construct_transform_matrix(res.x)
     return T, res.x
 
@@ -226,16 +273,22 @@ def compute_optimal_tf(x0, v, sets_of_faces, points, f_bounds, r_bounds, t_bound
 def is_point_within_box(point, box_coords, tolerance=1e-9):
     min_coords = np.min(box_coords, axis=0)
     max_coords = np.max(box_coords, axis=0)
-    return np.all(np.isclose(min_coords, point, rtol=0, atol=tolerance) | (min_coords <= point)) and np.all(
+    return np.all(
+        np.isclose(min_coords, point, rtol=0, atol=tolerance) | (min_coords <= point)
+    ) and np.all(
         np.isclose(point, max_coords, rtol=0, atol=tolerance) | (point <= max_coords)
     )
 
     return np.all(min_coords <= point) and np.all(point <= max_coords)
 
 
-def assert_point_within_box(test_case: unittest.TestCase, point, box_coords, tolerance=1e-9):
+def assert_point_within_box(
+    test_case: unittest.TestCase, point, box_coords, tolerance=1e-9
+):
     is_inside = is_point_within_box(point, box_coords, tolerance=tolerance)
-    test_case.assertTrue(is_inside, f"Point {point} is not inside the box defined by {box_coords}")
+    test_case.assertTrue(
+        is_inside, f"Point {point} is not inside the box defined by {box_coords}"
+    )
 
 
 def get_face_coords(facet, points):
@@ -294,7 +347,14 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         f_bounds = (0, None)
 
         T_local, opt_tf = compute_optimal_tf(
-            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+            x0,
+            v,
+            facets_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
         )
 
         # Check if the local system is correct
@@ -325,7 +385,14 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         f_bounds = (0, None)
 
         T_local, opt_tf = compute_optimal_tf(
-            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+            x0,
+            v,
+            facets_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
         )
 
         # Check if the local system is correct
@@ -356,7 +423,14 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         f_bounds = (0, None)
 
         T_local, opt_tf = compute_optimal_tf(
-            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+            x0,
+            v,
+            facets_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
         )
 
         # Check if the local system is correct
@@ -387,7 +461,14 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         f_bounds = (0, None)
 
         T_local, opt_tf = compute_optimal_tf(
-            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+            x0,
+            v,
+            facets_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
         )
 
         # Check if the local system is correct
@@ -418,7 +499,14 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         f_bounds = (1, 1)
 
         T_local, opt_tf = compute_optimal_tf(
-            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+            x0,
+            v,
+            facets_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
         )
 
         # Check if the local system is correct
@@ -449,7 +537,14 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         f_bounds = (1, 1)
 
         T_local, opt_tf = compute_optimal_tf(
-            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+            x0,
+            v,
+            facets_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
         )
 
         # Check if the local system is correct
@@ -480,7 +575,14 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         f_bounds = (1, 1)
 
         T_local, opt_tf = compute_optimal_tf(
-            x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds, obj_coords=self.obj_coord
+            x0,
+            v,
+            facets_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
         )
 
         # Check if the local system is correct

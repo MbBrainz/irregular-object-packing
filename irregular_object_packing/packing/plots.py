@@ -6,7 +6,13 @@ from pyvista import PolyData
 # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
 
-def create_plot(object_locations, object_meshes: list[pv.PolyData], object_cells, container_mesh, plotter=None):
+def create_plot(
+    object_locations,
+    object_meshes: list[pv.PolyData],
+    object_cells,
+    container_mesh,
+    plotter=None,
+):
     # Create a PyVista plotter object
     if plotter is None:
         plotter = pv.Plotter()
@@ -88,7 +94,9 @@ def plot_step_comparison(
     if cat_cell_mesh_2 is None:
         cat_cell_mesh_2 = cat_cell_mesh_1
 
-    plotter = pv.Plotter(shape="1|1", notebook=True)  # replace with the filename/path of your first mesh
+    plotter = pv.Plotter(
+        shape="1|1", notebook=True
+    )  # replace with the filename/path of your first mesh
     plotter.subplot(0)
     plotter.add_title(title_left)
     plotter.add_mesh(mesh_before, color="red", opacity=0.8)
@@ -126,8 +134,12 @@ def generate_tinted_colors(num_tints, base_color_1="FFFF00", base_color_2="FF000
 
     # Generate the tinted colors
     for i in range(1, num_tints + 1):
-        tint_1_rgb = tuple(min(base_color_1_rgb[j] + i * step_size, 255) for j in range(3))
-        tint_2_rgb = tuple(min(base_color_2_rgb[j] + i * step_size, 255) for j in range(3))
+        tint_1_rgb = tuple(
+            min(base_color_1_rgb[j] + i * step_size, 255) for j in range(3)
+        )
+        tint_2_rgb = tuple(
+            min(base_color_2_rgb[j] + i * step_size, 255) for j in range(3)
+        )
 
         # Convert the tinted colors back to hex format and add them to the lists
         tinted_color_1_hex = f"#{''.join(hex(c)[2:].zfill(2) for c in tint_1_rgb)}"
@@ -159,7 +171,9 @@ def create_packed_scene(
     for coord in objects_coords:
         new_mesh = mesh.copy()
         if rotate:
-            new_mesh = new_mesh.transform(trimesh.transformations.random_rotation_matrix())
+            new_mesh = new_mesh.transform(
+                trimesh.transformations.random_rotation_matrix()
+            )
 
         new_mesh = new_mesh.scale(mesh_scale)
         new_mesh = new_mesh.translate(coord)

@@ -31,7 +31,13 @@ links = [ti.Vector(v) for v in links]
 # %% Initialisation of values in ti.Vectors
 def init_scene():
     for i, j in ti.ndrange(N, N):
-        x[i, j] = ti.Vector([i * cell_size, j * cell_size / ti.sqrt(2), (N - j) * cell_size / ti.sqrt(2)])
+        x[i, j] = ti.Vector(
+            [
+                i * cell_size,
+                j * cell_size / ti.sqrt(2),
+                (N - j) * cell_size / ti.sqrt(2),
+            ]
+        )
     ball_center[0] = ti.Vector([0.5, -0.5, -0.0])
 
 
@@ -42,7 +48,8 @@ def init_scene():
 def step_no_slide():
     """This is the main iteration of the simulation. It is basically a verlet integration,
     where the position of the particles is updated based on the velocity and the acceleration.
-    The acceleration is calculated based on the forces that are applied to the particles."""
+    The acceleration is calculated based on the forces that are applied to the particles.
+    """
     # first, update the vertical velocity based on the gravity constant
     for i in ti.grouped(x):
         v[i].y -= gravity * dt
@@ -58,7 +65,10 @@ def step_no_slide():
             original_length = cell_size * float(i - j).norm()
             if original_length != 0:
                 force += (
-                    stiffness * relative_pos.normalized() * (current_length - original_length) / original_length
+                    stiffness
+                    * relative_pos.normalized()
+                    * (current_length - original_length)
+                    / original_length
                 )
         v[i] += force * dt
 
@@ -78,7 +88,8 @@ def step_no_slide():
 def step_slide():
     """This is the main iteration of the simulation. It is basically a verlet integration,
     where the position of the particles is updated based on the velocity and the acceleration.
-    The acceleration is calculated based on the forces that are applied to the particles."""
+    The acceleration is calculated based on the forces that are applied to the particles.
+    """
     # first, update the vertical velocity based on the gravity constant
     for i in ti.grouped(x):
         v[i].y -= gravity * dt
@@ -94,7 +105,10 @@ def step_slide():
             original_length = cell_size * float(i - j).norm()
             if original_length != 0:
                 force += (
-                    stiffness * relative_pos.normalized() * (current_length - original_length) / original_length
+                    stiffness
+                    * relative_pos.normalized()
+                    * (current_length - original_length)
+                    / original_length
                 )
         v[i] += force * dt
 

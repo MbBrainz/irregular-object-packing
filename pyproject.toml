@@ -24,6 +24,7 @@ exclude = '''
 convention = "google"
 
 [tool.ruff]
+
 select = [
   "E", # pycodestyle errors
   "W", # pycodestyle warnings

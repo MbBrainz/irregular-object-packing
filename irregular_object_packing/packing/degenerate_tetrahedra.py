@@ -1,4 +1,3 @@
-
 import numpy as np
 import pyvista as pv
 import trimesh
@@ -35,11 +34,17 @@ def count_degenerate_tetrahedra(tetmesh, threshold=1e-5):
 
 
 def get_degenerate_triangles(optimizer, container_sample_rate, mesh_sample_rate):
-    container_points = trimesh.sample.sample_surface_even(optimizer.container, container_sample_rate)[0]
-    sample_points = trimesh.sample.sample_surface_even(optimizer.shape, mesh_sample_rate)[0]
+    container_points = trimesh.sample.sample_surface_even(
+        optimizer.container, container_sample_rate
+    )[0]
+    sample_points = trimesh.sample.sample_surface_even(
+        optimizer.shape, mesh_sample_rate
+    )[0]
 
     obj_points = [
-        trimesh.transform_points(sample_points.copy(), nlc.construct_transform_matrix(transform_data))
+        trimesh.transform_points(
+            sample_points.copy(), nlc.construct_transform_matrix(transform_data)
+        )
         for transform_data in optimizer.tf_arrs
     ]
 
@@ -56,25 +61,36 @@ def main():
     import numpy as np
     import seaborn as sns
 
-    print("WARNING: This may take around 10 minutes to run. Adjust the sample rates to reduce the runtime.")
+    print(
+        "WARNING: This may take around 10 minutes to run. Adjust the sample rates to reduce the runtime."
+    )
 
     optimizer = Optimizer.default_setup()
     # List of sample rates to test
-    mesh_sample_rates = np.linspace(100, 1000, 10, dtype=int)  # Adjust these values as needed
-    container_sample_rates = np.linspace(100, 1000, 10, dtype=int)  # Adjust these values as needed
+    mesh_sample_rates = np.linspace(
+        100, 1000, 10, dtype=int
+    )  # Adjust these values as needed
+    container_sample_rates = np.linspace(
+        100, 1000, 10, dtype=int
+    )  # Adjust these values as needed
 
     # Initialize an empty array to store the number of degenerate triangles
-    degenerate_triangle_counts = np.zeros((len(mesh_sample_rates), len(container_sample_rates)))
+    degenerate_triangle_counts = np.zeros(
+        (len(mesh_sample_rates), len(container_sample_rates))
+    )
 
     # Iterate over all combinations of mesh_sample_rate and container_sample_rate
     for i, mesh_sample_rate in enumerate(mesh_sample_rates):
         for j, container_sample_rate in enumerate(container_sample_rates):
-            degenerate_triangles = get_degenerate_triangles(optimizer, container_sample_rate, mesh_sample_rate)
+            degenerate_triangles = get_degenerate_triangles(
+                optimizer, container_sample_rate, mesh_sample_rate
+            )
             degenerate_triangle_counts[i, j] = degenerate_triangles
 
     # Find the indices of the minimum value in the degenerate_triangle_counts array
     min_indices = np.unravel_index(
-        np.argmin(degenerate_triangle_counts, axis=None), degenerate_triangle_counts.shape
+        np.argmin(degenerate_triangle_counts, axis=None),
+        degenerate_triangle_counts.shape,
     )
     min_mesh_sample_rate = mesh_sample_rates[min_indices[0]]
     min_container_sample_rate = container_sample_rates[min_indices[1]]
@@ -94,6 +110,7 @@ def main():
     ax.set_xlabel("Container Sample Rate")
     ax.set_ylabel("Mesh Sample Rate")
     plt.show()
+
 
 if __name__ == "__main__":
     main()

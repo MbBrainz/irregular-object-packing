@@ -15,7 +15,9 @@ def sort_points_clockwise(points, start, end):
     norm = np.linalg.norm(vector)
     n = vector / norm
 
-    p = points[0] - points[0].dot(n) * n  # take the first point to compute the first orthogonal vector
+    p = (
+        points[0] - points[0].dot(n) * n
+    )  # take the first point to compute the first orthogonal vector
     q = np.cross(n, p)
 
     angles = []
@@ -24,7 +26,9 @@ def sort_points_clockwise(points, start, end):
         u = np.dot(n, np.cross((point - start), q))
         angles.append(math.atan2(u, t))
 
-    sorted_points = [x for _, x in sorted(zip(angles, points), key=lambda pair: pair[0])]
+    sorted_points = [
+        x for _, x in sorted(zip(angles, points), key=lambda pair: pair[0])
+    ]
     return sorted_points
 
 
@@ -103,10 +107,34 @@ def plot_shapes(shape1, shape2, shape3, shape4):
     view_up4 = [0, 1, 0]
 
     # Add the shapes to the plotter
-    plotter.add_mesh(shape1, show_edges=True, cmap="cool", camera_position=camera_pos1, view_up=view_up1)
-    plotter.add_mesh(shape2, show_edges=True, cmap="hot", camera_position=camera_pos2, view_up=view_up2)
-    plotter.add_mesh(shape3, show_edges=True, cmap="inferno", camera_position=camera_pos3, view_up=view_up3)
-    plotter.add_mesh(shape4, show_edges=True, cmap="viridis", camera_position=camera_pos4, view_up=view_up4)
+    plotter.add_mesh(
+        shape1,
+        show_edges=True,
+        cmap="cool",
+        camera_position=camera_pos1,
+        view_up=view_up1,
+    )
+    plotter.add_mesh(
+        shape2,
+        show_edges=True,
+        cmap="hot",
+        camera_position=camera_pos2,
+        view_up=view_up2,
+    )
+    plotter.add_mesh(
+        shape3,
+        show_edges=True,
+        cmap="inferno",
+        camera_position=camera_pos3,
+        view_up=view_up3,
+    )
+    plotter.add_mesh(
+        shape4,
+        show_edges=True,
+        cmap="viridis",
+        camera_position=camera_pos4,
+        view_up=view_up4,
+    )
 
     # Divide the plot into 4 subplots and display each shape in its own subplot
     plotter.subplot(2, 2, 0)
@@ -123,7 +151,14 @@ def plot_shapes(shape1, shape2, shape3, shape4):
 
 
 def translation_matrix(x0, x1):
-    return np.array([[1, 0, 0, x1[0] - x0[0]], [0, 1, 0, x1[1] - x0[1]], [0, 0, 1, x1[2] - x0[2]], [0, 0, 0, 1]])
+    return np.array(
+        [
+            [1, 0, 0, x1[0] - x0[0]],
+            [0, 1, 0, x1[1] - x0[1]],
+            [0, 0, 1, x1[2] - x0[2]],
+            [0, 0, 0, 1],
+        ]
+    )
 
 
 def distance_squared(p1, p2):
@@ -140,7 +175,10 @@ def split_quadrilateral_to_triangles(points):
         raise ValueError("Expected a list of 4 points")
 
     # Compute distances between all pairs of points
-    distances = [(p1, p2, distance_squared(p1, p2)) for p1, p2 in itertools.combinations(points, 2)]
+    distances = [
+        (p1, p2, distance_squared(p1, p2))
+        for p1, p2 in itertools.combinations(points, 2)
+    ]
 
     # Find the pair of points with the longest distance
     diagonal = max(distances, key=lambda x: x[2])

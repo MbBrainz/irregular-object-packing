@@ -124,13 +124,19 @@ class TestCreateCatFaces(unittest.TestCase):
         computed_faces = data.cat_faces
         for key in computed_faces.keys():
             for key2 in computed_faces[key].keys():
-                sorted_computed_faces = sort_surfaces((f[0] for f in computed_faces[key][key2]))
-                sorted_expecte_faces = sort_surfaces((f[0] for f in expected_faces[key][key2]))
+                sorted_computed_faces = sort_surfaces(
+                    (f[0] for f in computed_faces[key][key2])
+                )
+                sorted_expecte_faces = sort_surfaces(
+                    (f[0] for f in expected_faces[key][key2])
+                )
 
                 # self.assertListEqual(
                 #     computed_faces[key][key2][1], expected_faces[key][key2][1], "normals are not equal"
                 # )
-                self.assertListEqual(sorted_computed_faces, sorted_expecte_faces, "faces are not equal")
+                self.assertListEqual(
+                    sorted_computed_faces, sorted_expecte_faces, "faces are not equal"
+                )
 
     def test_create_faces_4(self):
         self.set_object_ids([0, 1, 2, 3])
@@ -205,10 +211,20 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_normal(self.data.get_face(face), self.a.vertex))
                     for face in [
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ac, self.middle_bc, self.middle_acd, self.middle_bcd]
+                            [
+                                self.middle_ac,
+                                self.middle_bc,
+                                self.middle_acd,
+                                self.middle_bcd,
+                            ]
                         ),
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ad, self.middle_bd, self.middle_acd, self.middle_bcd]
+                            [
+                                self.middle_ad,
+                                self.middle_bd,
+                                self.middle_acd,
+                                self.middle_bcd,
+                            ]
                         ),
                     ]
                 ],
@@ -216,10 +232,20 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_normal(self.data.get_face(face), self.b.vertex))
                     for face in [
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ac, self.middle_bc, self.middle_acd, self.middle_bcd]
+                            [
+                                self.middle_ac,
+                                self.middle_bc,
+                                self.middle_acd,
+                                self.middle_bcd,
+                            ]
                         ),
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ad, self.middle_bd, self.middle_acd, self.middle_bcd]
+                            [
+                                self.middle_ad,
+                                self.middle_bd,
+                                self.middle_acd,
+                                self.middle_bcd,
+                            ]
                         ),
                     ]
                 ],
@@ -230,7 +256,12 @@ class TestCreateCatFaces(unittest.TestCase):
                     for face in [
                         [self.middle_cd, self.middle_acd, self.middle_bcd],
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ac, self.middle_bc, self.middle_acd, self.middle_bcd]
+                            [
+                                self.middle_ac,
+                                self.middle_bc,
+                                self.middle_acd,
+                                self.middle_bcd,
+                            ]
                         ),
                     ]
                 ],
@@ -241,7 +272,12 @@ class TestCreateCatFaces(unittest.TestCase):
                     for face in [
                         [self.middle_cd, self.middle_acd, self.middle_bcd],
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ad, self.middle_bd, self.middle_acd, self.middle_bcd]
+                            [
+                                self.middle_ad,
+                                self.middle_bd,
+                                self.middle_acd,
+                                self.middle_bcd,
+                            ]
                         ),
                     ]
                 ],
@@ -276,7 +312,12 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_normal(self.data.get_face(face), self.a.vertex))
                     for face in [
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                            [
+                                self.middle_ac,
+                                self.middle_bc,
+                                self.middle_ad,
+                                self.middle_bd,
+                            ]
                         ),
                     ]
                 ],
@@ -284,7 +325,12 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_normal(self.data.get_face(face), self.b.vertex))
                     for face in [
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                            [
+                                self.middle_ac,
+                                self.middle_bc,
+                                self.middle_ad,
+                                self.middle_bd,
+                            ]
                         ),
                     ]
                 ],
@@ -294,7 +340,12 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_normal(self.data.get_face(face), self.c.vertex))
                     for face in [
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                            [
+                                self.middle_ac,
+                                self.middle_bc,
+                                self.middle_ad,
+                                self.middle_bd,
+                            ]
                         ),
                     ]
                 ],
@@ -302,7 +353,12 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_normal(self.data.get_face(face), self.d.vertex))
                     for face in [
                         *split_quadrilateral_to_triangles(
-                            [self.middle_ac, self.middle_bc, self.middle_ad, self.middle_bd]
+                            [
+                                self.middle_ac,
+                                self.middle_bc,
+                                self.middle_ad,
+                                self.middle_bd,
+                            ]
                         ),
                     ]
                 ],
@@ -347,7 +403,11 @@ class TestCreateCatFaces(unittest.TestCase):
         self.set_object_ids([0, 0, 0, 0])
         self.data.add_cat_face_to_cell(0, face)
 
-        expected_points = [np.array([0, 0, 0]), np.array([9, 0, 0]), np.array([0, 0, 9])]
+        expected_points = [
+            np.array([0, 0, 0]),
+            np.array([9, 0, 0]),
+            np.array([0, 0, 9]),
+        ]
         expected_faces = [3, 0, 1, 2]
         points, faces = face_coord_to_points_and_faces(self.data, 0)
 
@@ -362,7 +422,12 @@ class TestCreateCatFaces(unittest.TestCase):
         self.set_object_ids([0, 0, 0, 0])
         self.data.add_cat_face_to_cell(0, face)
 
-        expected_points = [np.array([0, 9, 0]), np.array([0, 0, 0]), np.array([9, 0, 0]), np.array([0, 0, 9])]
+        expected_points = [
+            np.array([0, 9, 0]),
+            np.array([0, 0, 0]),
+            np.array([9, 0, 0]),
+            np.array([0, 0, 9]),
+        ]
         expected_faces = [4, 0, 1, 2, 3]
         points, faces = face_coord_to_points_and_faces(self.data, 0)
 
@@ -391,7 +456,11 @@ class TestCreateCatFaces(unittest.TestCase):
         self.set_object_ids([0, 0, 0, 0])
         face = ([0, 1, 2], [0.0, 0.0, 1.0])
         self.data.add_cat_faces_to_cell(0, [face, face])
-        expected_points = [np.array([0, 9, 0]), np.array([0, 0, 0]), np.array([9, 0, 0])]
+        expected_points = [
+            np.array([0, 9, 0]),
+            np.array([0, 0, 0]),
+            np.array([9, 0, 0]),
+        ]
         expected_faces = [3, 0, 1, 2, 3, 0, 1, 2]
         points, faces = face_coord_to_points_and_faces(self.data, 0)
 
@@ -402,9 +471,19 @@ class TestCreateCatFaces(unittest.TestCase):
     @unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_faces_with_3_and_4_points(self):
         [
-            [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, 1, 1]), np.array([0, 0, 2])],
+            [
+                np.array([1, -1, 1]),
+                np.array([1, 1, 1]),
+                np.array([-1, 1, 1]),
+                np.array([0, 0, 2]),
+            ],
             [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, -1, 1])],
-            [np.array([1, -1, -1]), np.array([1, 4, 1]), np.array([-1, 1, 1]), np.array([0, 0, 2])],
+            [
+                np.array([1, -1, -1]),
+                np.array([1, 4, 1]),
+                np.array([-1, 1, 1]),
+                np.array([0, 0, 2]),
+            ],
             [np.array([1, -1, -1]), np.array([1, 4, 1]), np.array([-1, -2, 1])],
         ]
         expected_points = [
@@ -417,7 +496,9 @@ class TestCreateCatFaces(unittest.TestCase):
             np.array([1, 4, 1]),
             np.array([-1, -2, 1]),
         ]
-        expected_faces = np.array([3, 0, 1, 2, 3, 2, 3, 1, 3, 0, 1, 4, 3, 5, 6, 2, 3, 2, 3, 6, 3, 5, 6, 7])
+        expected_faces = np.array(
+            [3, 0, 1, 2, 3, 2, 3, 1, 3, 0, 1, 4, 3, 5, 6, 2, 3, 2, 3, 6, 3, 5, 6, 7]
+        )
         points, faces = face_coord_to_points_and_faces(self.data, 0)
         print(faces)
 
