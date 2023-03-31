@@ -8,7 +8,8 @@ from sklearn.cluster import KMeans
 def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True):
     with np.printoptions(precision=4, suppress=suppress_scientific):
         print(
-            f"Mesh info {description}: {mesh}, \nvolume: {mesh.volume}, \nbounding box: {mesh.bounds} \ncenter of mass: {mesh.center_of_mass()}\n"
+            f"Mesh info {description}: {mesh}, \nvolume: {mesh.volume}, \nbounding box:"
+            f" {mesh.bounds} \ncenter of mass: {mesh.center_of_mass()}\n"
         )
 
 
@@ -40,9 +41,7 @@ def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
     # Compute the decimation factor based on the target number of faces
     num_faces = mesh.n_faces
     if num_faces < target_faces:
-        raise ValueError(
-            "Target number of faces must be less than the number of faces in the mesh."
-        )
+        raise ValueError("Target number of faces must be less than the number of faces in the mesh.")
     decimation_factor = 1 - target_faces / num_faces
 
     # Decimate the mesh using the decimation factor

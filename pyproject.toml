@@ -1,13 +1,13 @@
 [tool.black]
-line-length = 115
-include = '\.pyi?$'
+line-length = 88
+include = '\\.pyi?$'
 exclude = '''
 /(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
+    \\.git
+  | \\.hg
+  | \\.mypy_cache
+  | \\.tox
+  | \\.venv
   | _build
   | buck-out
   | build
@@ -23,7 +23,9 @@ exclude = '''
 [tool.ruff.pydocstyle]
 convention = "google"
 
+
 [tool.ruff]
+line-length = 88
 
 select = [
   "E", # pycodestyle errors

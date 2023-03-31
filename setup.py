@@ -32,18 +32,14 @@ with open(path.join(here, "README.rst"), encoding="utf-8") as readme_file:
 
 with open(path.join(here, "requirements.txt")) as requirements_file:
     # Parse requirements.txt, ignoring any commented-out lines.
-    requirements = [
-        line
-        for line in requirements_file.read().splitlines()
-        if not line.startswith("#")
-    ]
+    requirements = [line for line in requirements_file.read().splitlines() if not line.startswith("#")]
 
 
 setup(
     name="irregular-object-packing",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    description="Python package for packing irregularly shaped objects in an arbitrary 3D container",
+    description=("Python package for packing irregularly shaped objects in an arbitrary 3D" " container"),
     long_description=readme,
     author="Maurits Bos",
     author_email="maurits.bos@gmail.com",

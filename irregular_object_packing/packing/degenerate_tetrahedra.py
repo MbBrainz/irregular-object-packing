@@ -8,7 +8,8 @@ from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
 def count_degenerate_tetrahedra(tetmesh, threshold=1e-5):
     """
-    Count degenerate tetrahedra in the given tetrahedral mesh by checking the volume of each tetrahedron.
+    Count degenerate tetrahedra in the given tetrahedral mesh by checking the volume of
+    each tetrahedron.
 
     Parameters:
     -----------
@@ -37,6 +38,7 @@ def get_degenerate_triangles(optimizer, container_sample_rate, mesh_sample_rate)
     container_points = trimesh.sample.sample_surface_even(
         optimizer.container, container_sample_rate
     )[0]
+
     sample_points = trimesh.sample.sample_surface_even(
         optimizer.shape, mesh_sample_rate
     )[0]
@@ -62,7 +64,8 @@ def main():
     import seaborn as sns
 
     print(
-        "WARNING: This may take around 10 minutes to run. Adjust the sample rates to reduce the runtime."
+        "WARNING: This may take around 10 minutes to run. Adjust the sample rates to"
+        " reduce the runtime."
     )
 
     optimizer = Optimizer.default_setup()
@@ -95,7 +98,8 @@ def main():
     min_mesh_sample_rate = mesh_sample_rates[min_indices[0]]
     min_container_sample_rate = container_sample_rates[min_indices[1]]
     print(
-        f"Minimum degenerate triangles found for mesh_sample_rate: {min_mesh_sample_rate}, container_sample_rate: {min_container_sample_rate}"
+        "Minimum degenerate triangles found for mesh_sample_rate:"
+        f" {min_mesh_sample_rate}, container_sample_rate: {min_container_sample_rate}"
     )
 
     # Create a heatmap of the number of degenerate triangles

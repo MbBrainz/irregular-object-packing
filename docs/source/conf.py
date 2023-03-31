@@ -199,7 +199,7 @@ texinfo_documents = [
         "irregular-object-packing Documentation",
         author,
         "irregular-object-packing",
-        'Python package for packing irregularly shaped objects in an arbitrary 3D container"',
+        ("Python package for packing irregularly shaped objects in an arbitrary 3D" ' container"'),
         "Miscellaneous",
     ),
 ]

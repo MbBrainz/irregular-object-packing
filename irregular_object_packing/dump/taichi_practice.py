@@ -65,10 +65,7 @@ def step_no_slide():
             original_length = cell_size * float(i - j).norm()
             if original_length != 0:
                 force += (
-                    stiffness
-                    * relative_pos.normalized()
-                    * (current_length - original_length)
-                    / original_length
+                    stiffness * relative_pos.normalized() * (current_length - original_length) / original_length
                 )
         v[i] += force * dt
 
@@ -105,10 +102,7 @@ def step_slide():
             original_length = cell_size * float(i - j).norm()
             if original_length != 0:
                 force += (
-                    stiffness
-                    * relative_pos.normalized()
-                    * (current_length - original_length)
-                    / original_length
+                    stiffness * relative_pos.normalized() * (current_length - original_length) / original_length
                 )
         v[i] += force * dt
 

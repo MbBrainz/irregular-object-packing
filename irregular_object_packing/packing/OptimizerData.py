@@ -67,9 +67,7 @@ class OptimizerData:
 
     def cat_mesh(self, iteration: int, obj_id: int) -> PolyData:
         """Get the mesh of the cat cell that corresponds to the object from the given iteration"""
-        return PolyData(
-            *face_coord_to_points_and_faces(self._cat_data(iteration), obj_id)
-        )
+        return PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
 
     def meshes_before(self, iteration: int, mesh: PolyData):
         """Get the meshes of all objects at the given iteration, before the optimisation."""

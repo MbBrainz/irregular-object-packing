@@ -6,9 +6,7 @@ import pyvista as pv
 cube = pv.Cube()
 small_cube = pv.Cube().scale(0.5 ** (1 / 3))
 smallest_cube = pv.Cube().scale(0.1 ** (1 / 3))
-points = (
-    cube.points.tolist() + small_cube.points.tolist() + smallest_cube.points.tolist()
-)
+points = cube.points.tolist() + small_cube.points.tolist() + smallest_cube.points.tolist()
 pc = pv.PolyData(points)
 
 from meshpy.tet import MeshInfo, Options, build

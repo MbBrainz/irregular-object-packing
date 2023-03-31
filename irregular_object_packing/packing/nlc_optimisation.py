@@ -132,9 +132,7 @@ def transform_v(v_i, T: np.ndarray):
     return norm_v
 
 
-def constraint_single_point_margin(
-    v_i, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), margin=None
-):
+def constraint_single_point_margin(v_i, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), margin=None):
     """Compute conditions for a single point.
 
     Parameters
@@ -223,9 +221,7 @@ def local_constraint_single_point_normal(
     for _i, (facet_p_ids, n_face) in enumerate(faces):
         # translate the points of the facet to the local coordinate system of the object
         facet_coords = [np.array(points[p_id]) - obj_coord for p_id in facet_p_ids]
-        q_j = facet_coords[
-            0
-        ]  # first point in facet is q_j (can be any point of the facet)
+        q_j = facet_coords[0]  # first point in facet is q_j (can be any point of the facet)
         q_j = np.mean(facet_coords, axis=0)
         condition = np.dot(transformed_v_i - q_j, n_face) / np.linalg.norm(n_face)
         constraints.append(condition)
@@ -284,9 +280,7 @@ def local_constraints_from_dict(
     return local_constraint_multiple_points(tf_arr, v, sets_of_faces, points, obj_coord)
 
 
-def local_constraints_from_cat(
-    tf_arr: list[float], obj_id: int, cat_data: CatData, margin=None
-):
+def local_constraints_from_cat(tf_arr: list[float], obj_id: int, cat_data: CatData, margin=None):
     # item will be in the form [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
 
     items = cat_data.cat_faces[obj_id].items()
@@ -356,9 +350,7 @@ def test_nlcp_facets():
         ),
     }
 
-    res = minimize(
-        objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
-    )
+    res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
     T = construct_transform_matrix(res.x)
     ## %%
     # Print the results
@@ -382,9 +374,7 @@ def test_nlcp_facets():
     for face in facets:
         face = get_face_coords(face, points)
 
-        collection = Poly3DCollection(
-            [face], alpha=0.2, facecolor="blue", edgecolor="black"
-        )
+        collection = Poly3DCollection([face], alpha=0.2, facecolor="blue", edgecolor="black")
         ax.add_collection(collection)
     pairs = [
         [points[9], transform_v(points[9], T)],

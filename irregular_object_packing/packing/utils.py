@@ -15,9 +15,7 @@ def sort_points_clockwise(points, start, end):
     norm = np.linalg.norm(vector)
     n = vector / norm
 
-    p = (
-        points[0] - points[0].dot(n) * n
-    )  # take the first point to compute the first orthogonal vector
+    p = points[0] - points[0].dot(n) * n  # take the first point to compute the first orthogonal vector
     q = np.cross(n, p)
 
     angles = []
@@ -26,9 +24,7 @@ def sort_points_clockwise(points, start, end):
         u = np.dot(n, np.cross((point - start), q))
         angles.append(math.atan2(u, t))
 
-    sorted_points = [
-        x for _, x in sorted(zip(angles, points), key=lambda pair: pair[0])
-    ]
+    sorted_points = [x for _, x in sorted(zip(angles, points), key=lambda pair: pair[0])]
     return sorted_points
 
 
@@ -175,10 +171,7 @@ def split_quadrilateral_to_triangles(points):
         raise ValueError("Expected a list of 4 points")
 
     # Compute distances between all pairs of points
-    distances = [
-        (p1, p2, distance_squared(p1, p2))
-        for p1, p2 in itertools.combinations(points, 2)
-    ]
+    distances = [(p1, p2, distance_squared(p1, p2)) for p1, p2 in itertools.combinations(points, 2)]
 
     # Find the pair of points with the longest distance
     diagonal = max(distances, key=lambda x: x[2])

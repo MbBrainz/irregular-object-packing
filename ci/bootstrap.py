@@ -72,11 +72,7 @@ def main():
             template_path = str(template.relative_to(templates_path))
             destination = base_path / template_path
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(
-                jinja.get_template(template_path).render(
-                    tox_environments=tox_environments
-                )
-            )
+            destination.write_text(jinja.get_template(template_path).render(tox_environments=tox_environments))
             print("Wrote {}".format(template_path))
     print("DONE.")
 

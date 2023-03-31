@@ -62,13 +62,9 @@ class TestInitialize(unittest.TestCase):
         self.prepare_scale(mesh_volume, container_volume)
         f_init = 0.1
         # this computation only works for spheres
-        min_distances = [
-            get_max_radius(mesh) * 2 * f_init ** (1 / 3) for mesh in self.shapes
-        ]
+        min_distances = [get_max_radius(mesh) * 2 * f_init ** (1 / 3) for mesh in self.shapes]
 
-        coords, skipped = init_coordinates(
-            self.containers[0], self.shapes[0], coverage_rate, f_init
-        )
+        coords, skipped = init_coordinates(self.containers[0], self.shapes[0], coverage_rate, f_init)
         self.assert_correct_coordinates(
             coords,
             coverage_rate,
@@ -78,9 +74,7 @@ class TestInitialize(unittest.TestCase):
             descr="sphere",
         )
 
-        coords, _ = init_coordinates(
-            self.containers[1], self.shapes[1], coverage_rate, f_init
-        )
+        coords, _ = init_coordinates(self.containers[1], self.shapes[1], coverage_rate, f_init)
         self.assert_correct_coordinates(
             coords,
             coverage_rate,
@@ -90,9 +84,7 @@ class TestInitialize(unittest.TestCase):
             descr="box",
         )
 
-        coords, _ = init_coordinates(
-            self.containers[2], self.shapes[2], coverage_rate, f_init
-        )
+        coords, _ = init_coordinates(self.containers[2], self.shapes[2], coverage_rate, f_init)
         self.assert_correct_coordinates(
             coords,
             coverage_rate,
@@ -118,10 +110,7 @@ class TestInitialize(unittest.TestCase):
         )
 
         # all coordinates are far enough apart
-        not_too_close_list = [
-            np.linalg.norm((c1 - c2)) >= min_distance
-            for c1, c2 in combinations(coords, 2)
-        ]
+        not_too_close_list = [np.linalg.norm((c1 - c2)) >= min_distance for c1, c2 in combinations(coords, 2)]
         self.assertTrue(
             all(not_too_close_list),
             msg=f"not all coords are far enough apart ({descr})",
@@ -134,9 +123,7 @@ class TestInitialize(unittest.TestCase):
 
         mesh = pv.Box(bounds=(-1, 1, -1, 1, -1, 1))
         max_radius = get_max_radius(mesh)
-        self.assertAlmostEqual(
-            max_radius, np.sqrt(3), msg="max radius should be sqrt(3)"
-        )
+        self.assertAlmostEqual(max_radius, np.sqrt(3), msg="max radius should be sqrt(3)")
 
 
 class TestCoordIsCorrect(unittest.TestCase):
@@ -155,30 +142,22 @@ class TestCoordIsCorrect(unittest.TestCase):
 
     def test_coord_is_inside_and_valid(self):
         self.assertTrue(
-            coord_is_correct(
-                self.coord, self.c_box, self.object_coords, self.min_distance
-            ),
+            coord_is_correct(self.coord, self.c_box, self.object_coords, self.min_distance),
             "coord should be in box",
         )
         self.assertTrue(
-            coord_is_correct(
-                self.coord, self.c_sphere, self.object_coords, self.min_distance
-            ),
+            coord_is_correct(self.coord, self.c_sphere, self.object_coords, self.min_distance),
             "coord should be in sphere",
         )
 
     def test_coord_is_outside_and_invalid(self):
         outside_coord = np.array([3, 0, 0])
         self.assertFalse(
-            coord_is_correct(
-                outside_coord, self.c_box, self.object_coords, self.min_distance
-            ),
+            coord_is_correct(outside_coord, self.c_box, self.object_coords, self.min_distance),
             "coord should be outside box",
         )
         self.assertFalse(
-            coord_is_correct(
-                outside_coord, self.c_sphere, self.object_coords, self.min_distance
-            ),
+            coord_is_correct(outside_coord, self.c_sphere, self.object_coords, self.min_distance),
             "coord should be outside sphere",
         )
 
@@ -187,24 +166,18 @@ class TestCoordIsCorrect(unittest.TestCase):
         self.object_coords[0] = close_object_coord
         # self.assertFalse(coord_is_correct(self.coord, self.container, self.object_coords, self.min_distance))
         self.assertFalse(
-            coord_is_correct(
-                close_object_coord, self.c_box, self.object_coords, self.min_distance
-            ),
+            coord_is_correct(close_object_coord, self.c_box, self.object_coords, self.min_distance),
             "coord should be too close to other object",
         )
         self.assertFalse(
-            coord_is_correct(
-                close_object_coord, self.c_sphere, self.object_coords, self.min_distance
-            ),
+            coord_is_correct(close_object_coord, self.c_sphere, self.object_coords, self.min_distance),
             "coord should be too close to other object",
         )
 
     def test_coord_is_inside_but_too_close_to_container(self):
         close_container_coord = np.array([1.9, 0, 0])
         self.assertFalse(
-            coord_is_correct(
-                close_container_coord, self.c_box, self.object_coords, self.min_distance
-            ),
+            coord_is_correct(close_container_coord, self.c_box, self.object_coords, self.min_distance),
             "coord should be too close to container",
         )
         self.assertFalse(

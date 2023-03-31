@@ -1,4 +1,3 @@
-import sys
 from dataclasses import dataclass
 from itertools import combinations
 from time import sleep
@@ -51,9 +50,7 @@ def downsample_mesh(mesh: trimesh.Trimesh, sample_rate: float):
     target_reduction = sample_rate / nvertices
 
     pv_mesh = pv.wrap(mesh)
-    trimesh = pyvista_to_trimesh(
-        pv_mesh.decimate(target_reduction).clean().triangulate().extract_geometry()
-    )
+    trimesh = pyvista_to_trimesh(pv_mesh.decimate(target_reduction).clean().triangulate().extract_geometry())
     return trimesh
 
 
@@ -133,9 +130,7 @@ def optimal_local_transform(
             margin,
         ),
     }
-    res = minimize(
-        nlc.objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
-    )
+    res = minimize(nlc.objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
     return res.x
 
 
@@ -179,9 +174,7 @@ class Optimizer(OptimizerData):
     object_coords: np.ndarray
     prev_tf_arrs: np.ndarray[np.ndarray]
 
-    def __init__(
-        self, shape: PolyData, container: PolyData, settings: SimSettings, plotter=None
-    ):
+    def __init__(self, shape: PolyData, container: PolyData, settings: SimSettings, plotter=None):
         self.shape0 = shape
         self.shape = shape
         self.container0 = container
@@ -213,9 +206,7 @@ class Optimizer(OptimizerData):
             coverage_rate=self.settings.r,
             f_init=self.settings.init_f,
         )
-        self.log(
-            f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG
-        )
+        self.log(f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG)
         self.log(f"Number of objects: {self.n_objs}", LOG_LVL_INFO)
 
         object_rotations = np.random.uniform(-np.pi, np.pi, (self.n_objs, 3))
@@ -226,31 +217,25 @@ class Optimizer(OptimizerData):
         self.prev_tf_arrs = np.empty((self.n_objs, 7))
 
         for i in range(self.n_objs):
-            tf_arr_i = np.array(
-                [self.settings.init_f, *object_rotations[i], *self.object_coords[i]]
-            )
+            tf_arr_i = np.array([self.settings.init_f, *object_rotations[i], *self.object_coords[i]])
             self.tf_arrs[i] = tf_arr_i
 
         self.update_data(-1, -1)
         has_overlap = self.has_object_overlap()
         if has_overlap:
-            raise ValueError(
-                f"Initial object placements show overlaps for {has_overlap}"
-            )
+            raise ValueError(f"Initial object placements show overlaps for {has_overlap}")
 
         has_c_violations = self.has_container_violations()
         if has_c_violations:
             raise ValueError(
-                f"Initial object placements show container violations for {len(has_c_violations)} objects."
+                "Initial object placements show container violations for" f" {len(has_c_violations)} objects."
             )
 
         if self.plotter is not None:
             self.plotter.show(interactive=True, interactive_update=True)
 
     def setup_pbars(self):
-        self.pbar1 = tqdm(
-            range(self.settings.n_scaling_steps), desc="scaling \t", position=0
-        )
+        self.pbar1 = tqdm(range(self.settings.n_scaling_steps), desc="scaling \t", position=0)
         self.pbar2 = tqdm(range(self.settings.itn_max), desc="Iteration\t", position=1)
         self.pbar3 = tqdm(range(self.n_objs), desc="Object\t", position=2)
 
@@ -272,9 +257,7 @@ class Optimizer(OptimizerData):
             self.pbar1.write(msg)
 
     def report(self):
-        df = pd.DataFrame(
-            data=self.tf_arrs, columns=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"]
-        )
+        df = pd.DataFrame(data=self.tf_arrs, columns=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"])
         return df
 
     def mesh_sample_rate(self, k=0):
@@ -286,9 +269,7 @@ class Optimizer(OptimizerData):
     def resample_meshes(self):
         self.log("resampling meshes", LOG_LVL_DEBUG)
         try:
-            self.container = resample_pyvista_mesh(
-                self.container0, self.container_sample_rate()
-            )
+            self.container = resample_pyvista_mesh(self.container0, self.container_sample_rate())
             self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
         except ValueError:
             self.log("Could not resample meshes", LOG_LVL_WARNING)
@@ -320,8 +301,7 @@ class Optimizer(OptimizerData):
             self.plotter.add_mesh(mesh, color=colors[1][i], opacity=0.7)
 
         cat_meshes = [
-            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id))
-            for obj_id in range(self.n_objs)
+            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id)) for obj_id in range(self.n_objs)
         ]
 
         for i, mesh in enumerate(cat_meshes):
@@ -347,11 +327,9 @@ class Optimizer(OptimizerData):
                 self.check_validity()
                 self.pbar2.update()
 
-                if np.alltrue(
-                    [arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrs]
-                ):
+                if np.alltrue([arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrs]):
                     self.log(
-                        f"All objects have reached the scaling barrier {self.scaling_barrier_list[i_b]}",
+                        ("All objects have reached the scaling barrier" f" {self.scaling_barrier_list[i_b]}"),
                         LOG_LVL_INFO,
                     )
                     break
@@ -398,16 +376,12 @@ class Optimizer(OptimizerData):
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
         obj_points = [
-            trimesh.transform_points(
-                self.shape.points.copy(), nlc.construct_transform_matrix(transform_data)
-            )
+            trimesh.transform_points(self.shape.points.copy(), nlc.construct_transform_matrix(transform_data))
             for transform_data in self.tf_arrs
         ]
 
         # COMPUTE CAT CELLS
-        self.cat_data = cat.compute_cat_cells(
-            obj_points, self.container.points, self.object_coords
-        )
+        self.cat_data = cat.compute_cat_cells(obj_points, self.container.points, self.object_coords)
 
     # ----------------------------------------------------------------------------------------------
     # VALIDITY CHECKS
@@ -420,22 +394,17 @@ class Optimizer(OptimizerData):
 
     def check_closed_cells(self):
         cat_cells = [
-            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id))
-            for obj_id in range(self.n_objs)
+            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id)) for obj_id in range(self.n_objs)
         ]
         for i, cell in enumerate(cat_cells):
             if not cell.is_manifold:
-                self.log(
-                    f"CAT cell of object {i} is not manifold", log_lvl=LOG_LVL_WARNING
-                )
+                self.log(f"CAT cell of object {i} is not manifold", log_lvl=LOG_LVL_WARNING)
 
     def has_object_overlap(self):
         self.log("checking for collisions", LOG_LVL_DEBUG)
         p_meshes = self.final_meshes_after(self.shape)
 
-        extents = np.array(
-            [(get_max_bounds(mesh.bounds), mesh.volume) for mesh in p_meshes]
-        )
+        extents = np.array([(get_max_bounds(mesh.bounds), mesh.volume) for mesh in p_meshes])
         self.log(f"all mesh bounds, volumes: {extents}", LOG_LVL_DEBUG)
         n, colls, coll_meshes = compute_collisions(p_meshes)
 
@@ -453,9 +422,7 @@ class Optimizer(OptimizerData):
         n, violations, meshes = compute_cat_violations(p_meshes, cat_meshes)
 
         if n > 0:
-            self.log(
-                f"! cat boundary violation for objects {violations}", LOG_LVL_SEVERE
-            )
+            self.log(f"! cat boundary violation for objects {violations}", LOG_LVL_SEVERE)
             self.add_meshes_to_plot(meshes)
 
     def has_container_violations(self):
