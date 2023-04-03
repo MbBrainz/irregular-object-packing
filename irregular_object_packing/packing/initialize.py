@@ -7,6 +7,7 @@ from typing import List
 
 import numpy as np
 import plotly.graph_objs as go
+import trimesh
 from pyvista import PolyData
 from scipy.spatial import Voronoi
 
@@ -77,15 +78,18 @@ def init_coordinates(
     # TODO: Make sure the container is a closed surface mesh
     # max_dim_mesh = max(np.abs(mesh.bounds)) * 2 # for sphere this is the same, but quicker. for other shapes might be different
     max_dim_mesh = get_max_radius(mesh) * 2
-
     min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
     max_volume = container.volume * coverage_rate
+
+    tri_container = pyvista_to_trimesh(container)
 
     objects_coords = []
     acc_vol, skipped = 0, 0
     while acc_vol < max_volume:
-        coord = random_coordinate_within_bounds(np.reshape(container.bounds, (2, 3)))
-        if coord_is_correct(coord, container, objects_coords, min_distance_between_meshes):
+        coord = random_coordinate_within_bounds(tri_container.bounds)
+        if coord_is_correct(
+            coord, tri_container, objects_coords, min_distance_between_meshes
+        ):
             objects_coords.append(coord)
             acc_vol += mesh.volume
         else:
@@ -94,28 +98,27 @@ def init_coordinates(
     return objects_coords, skipped
 
 
-def trimesh_variant():
-    return
-    while acc_vol < max_volume:
-        coord = random_coordinate_within_bounds(scaled_container.bounds)
-        if scaled_container.contains([coord]):
-            distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in objects_coords]
-            distance_to_container = trimesh.proximity.signed_distance(scaled_container, [coord])[0]
-            distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
+def pyvista_to_trimesh(container):
+    tri_container = container.extract_surface().triangulate()
+    faces_as_array = tri_container.faces.reshape((tri_container.n_faces, 4))[:, 1:]
+    tri_container = trimesh.Trimesh(tri_container.points, faces_as_array)
+    return tri_container
 
 
 def coord_is_correct(
     coord,
-    container: PolyData,
+    container: trimesh.Trimesh,
     object_coords: list[np.ndarray],
     min_distance_between_meshes: float,
 ):
-    is_inside = PolyData([coord]).select_enclosed_points(container)["SelectedPoints"][0]
-    if is_inside == 1:
-        distance_arr = [np.linalg.norm(coord - i) > min_distance_between_meshes for i in object_coords]
-        # distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
-        point = container.find_closest_point(coord)
-        distance_to_container = np.linalg.norm(coord - container.points[point])
+    # PolyData([coord]).select_enclosed_points(container)["SelectedPoints"][0]
+    if container.contains([coord]):
+        distance_arr = [
+            np.linalg.norm(coord - i) > min_distance_between_meshes
+            for i in object_coords
+        ]
+        # positive for inside mesh, negative for outside
+        distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
         distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
         if np.alltrue(distance_arr):
@@ -123,7 +126,9 @@ def coord_is_correct(
     return False
 
 
-def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance, coords):
+def filter_coords(
+    container: PolyData, mesh_volume, coverage_rate, min_distance, coords
+):
     max_volume = container.volume * coverage_rate
     acc_vol = 0
     skipped = 0
@@ -136,7 +141,9 @@ def filter_coords(container: PolyData, mesh_volume, coverage_rate, min_distance,
     while acc_vol < max_volume:
         i += 1
         coord = points_inside.points[i]
-        distance_arr = [True] + [np.linalg.norm(coord - i) > min_distance for i in objects_coords]
+        distance_arr = [True] + [
+            np.linalg.norm(coord - i) > min_distance for i in objects_coords
+        ]
 
         if np.alltrue(distance_arr):
             point = container.find_closest_point(coord)
