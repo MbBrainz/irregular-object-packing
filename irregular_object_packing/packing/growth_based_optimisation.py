@@ -20,7 +20,7 @@ from irregular_object_packing.mesh.utils import print_mesh_info, resample_pyvist
 from irregular_object_packing.packing import chordal_axis_transform as cat
 from irregular_object_packing.packing import initialize as init
 from irregular_object_packing.packing import nlc_optimisation as nlc
-from irregular_object_packing.packing.OptimizerData import OptimizerData
+from irregular_object_packing.packing.OptimizerData import IterationData, OptimizerData
 from irregular_object_packing.packing.utils import get_max_bounds
 
 # pv.set_jupyter_backend("panel")
@@ -260,7 +260,14 @@ class Optimizer(OptimizerData):
     # ----------------------------------------------------------------------------------------------
     def update_data(self, i_b, i):
         self.log(f"Updating data for {i_b=}, {i=}")
-        self.add(self.tf_arrs, self.cat_data, (i_b, i))
+        iterdata = IterationData(
+            i,
+            i_b,
+            self.scaling_barrier_list[i_b],
+            self.scaling_barrier_list[i_b],
+            np.count_nonzero(self.tf_arrs[:, 0] < self.scaling_barrier_list[i_b]),
+        )
+        self.add(self.tf_arrs, self.cat_data, iterdata)
 
     def log(self, msg, log_lvl=LOG_LVL_INFO):
         if log_lvl > self.settings.log_lvl:
@@ -338,9 +345,9 @@ class Optimizer(OptimizerData):
         for i_b in range(0, self.settings.n_scaling_steps):
             self.pbar1.set_postfix(ƒ_max=f"{self.scaling_barrier_list[i_b]:.2f}")
             self.pbar2.reset()
-            self.pbar3.reset()
 
             for i in range(self.settings.itn_max):
+                self.pbar3.reset()
                 self.iteration(self.scaling_barrier_list[i_b])
 
                 # administrative stuff
@@ -474,7 +481,7 @@ class Optimizer(OptimizerData):
 
     @staticmethod
     def default_setup() -> "Optimizer":
-        DATA_FOLDER = "./../data/mesh/"
+        DATA_FOLDER = "./../../data/mesh/"
 
         mesh_volume = 0.4
         container_volume = 10
@@ -488,11 +495,11 @@ class Optimizer(OptimizerData):
         print_mesh_info(original_mesh, "original mesh")
 
         settings = SimSettings(
-            itn_max=10,
-            n_scaling_steps=10,
+            itn_max=2,
+            n_scaling_steps=2,
             r=0.3,
-            final_scale=0.5,
-            sample_rate=300,
+            final_scale=0.4,
+            sample_rate=100,
             log_lvl=0,
             init_f=0.1,  # NOTE: Smaller than paper
         )
@@ -535,11 +542,12 @@ class Optimizer(OptimizerData):
 # %%
 
 # # %%
-# optimizer = Optimizer.simple_shapes_setup()
-# optimizer.setup()
-# optimizer.run()
+# # optimizer = Optimizer.simple_shapes_setup()
+optimizer = Optimizer.default_setup()
+optimizer.setup()
+optimizer.run()
 
-# # %%
+# %%
 # iteration = 1
 # # # reload(plots)
 # plotter = pv.Plotter()
@@ -553,8 +561,13 @@ class Optimizer(OptimizerData):
 #     optimizer.container,
 #     plotter,
 # )
-# # %%
 
+# # %%
+# save_path = "process_gif_2.gif"
+# plots.generate_gif(optimizer, save_path)
+
+
+# %%
 # plotter = pv.Plotter()
 # pc = PolyData(optimizer.object_coords)
 # plotter.add_mesh(pc, color="red", point_size=10)

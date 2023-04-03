@@ -1,3 +1,4 @@
+import numpy as np
 import pyvista as pv
 import trimesh
 from numpy import ndarray
@@ -48,8 +49,6 @@ def plot_full_comparison(
     if plotter is None:
         plotter = pv.Plotter()
 
-    plotter = pv.Plotter(shape="1|1", notebook=True)
-
     colors = generate_tinted_colors(len(meshes_before))
     plotter.subplot(0)
     plotter.add_title(title_left)
@@ -73,7 +72,6 @@ def plot_full_comparison(
 
     for i, cat_mesh in enumerate(cat_cell_meshes):
         plotter.add_mesh(cat_mesh, color=colors[0][i], opacity=0.5)
-    plotter.show()
 
     return plotter
 
@@ -94,7 +92,9 @@ def plot_step_comparison(
     if cat_cell_mesh_2 is None:
         cat_cell_mesh_2 = cat_cell_mesh_1
 
-    plotter = pv.Plotter(shape="1|1", notebook=True)  # replace with the filename/path of your first mesh
+    plotter = pv.Plotter(
+        shape="1|1", notebook=True
+    )  # replace with the filename/path of your first mesh
     plotter.subplot(0)
     plotter.add_title(title_left)
     plotter.add_mesh(mesh_before, color="red", opacity=0.8)
@@ -132,8 +132,12 @@ def generate_tinted_colors(num_tints, base_color_1="FFFF00", base_color_2="FF000
 
     # Generate the tinted colors
     for i in range(1, num_tints + 1):
-        tint_1_rgb = tuple(min(base_color_1_rgb[j] + i * step_size, 255) for j in range(3))
-        tint_2_rgb = tuple(min(base_color_2_rgb[j] + i * step_size, 255) for j in range(3))
+        tint_1_rgb = tuple(
+            min(base_color_1_rgb[j] + i * step_size, 255) for j in range(3)
+        )
+        tint_2_rgb = tuple(
+            min(base_color_2_rgb[j] + i * step_size, 255) for j in range(3)
+        )
 
         # Convert the tinted colors back to hex format and add them to the lists
         tinted_color_1_hex = f"#{''.join(hex(c)[2:].zfill(2) for c in tint_1_rgb)}"
@@ -165,7 +169,9 @@ def create_packed_scene(
     for coord in objects_coords:
         new_mesh = mesh.copy()
         if rotate:
-            new_mesh = new_mesh.transform(trimesh.transformations.random_rotation_matrix())
+            new_mesh = new_mesh.transform(
+                trimesh.transformations.random_rotation_matrix()
+            )
 
         new_mesh = new_mesh.scale(mesh_scale)
         new_mesh = new_mesh.translate(coord)
@@ -179,3 +185,49 @@ def create_packed_scene(
         plotter.add_mesh(object, color=colors[i], opacity=0.9)
 
     return plotter
+
+
+def generate_gif(optimizer, save_path):
+    plotter = pv.Plotter(notebook=False, off_screen=True)
+    plotter.open_gif(save_path)
+
+    def add_cat_cells(optimizer, plotter, i):
+        for cells in optimizer.cat_meshes(i):
+            plotter.add_mesh(cells, opacity=0.5, color="yellow")
+
+    for i in range(0, optimizer.idx):
+        plotter.clear()
+        for j in optimizer.meshes_before(i, optimizer.shape):
+            plotter.add_mesh(j, opacity=0.5, color="red")
+        add_cat_cells(optimizer, plotter, i)
+        plotter.write_frame()
+        plotter.clear()
+
+        add_cat_cells(optimizer, plotter, i)
+        for j in optimizer.meshes_after(i, optimizer.shape):
+            plotter.add_mesh(j, opacity=0.5, color="red")
+        plotter.write_frame()
+
+    camera_position = plotter.camera_position
+    camera_position
+    focus_point = camera_position[1]
+
+    num_frames = 100
+    rotation_step = 360 / num_frames
+
+    for i in range(num_frames):
+        # Compute the new camera position
+        angle = i * rotation_step
+        x_offset = 10 * np.sin(np.radians(angle))
+        y_offset = 10 * np.cos(np.radians(angle))
+        new_camera_position = [
+            (focus_point[0] + x_offset, focus_point[1] + y_offset, focus_point[2] + 10),
+            focus_point,
+            (0, 0, 1),
+        ]
+
+        # Update the camera position
+        plotter.camera_position = new_camera_position
+        plotter.write_frame()
+
+    plotter.close()

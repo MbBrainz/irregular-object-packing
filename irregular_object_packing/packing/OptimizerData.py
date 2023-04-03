@@ -1,4 +1,5 @@
 from copy import copy
+from dataclasses import dataclass
 
 from numpy import ndarray
 from pandas import DataFrame
@@ -9,6 +10,20 @@ from irregular_object_packing.packing.chordal_axis_transform import (
     face_coord_to_points_and_faces,
 )
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
+
+
+@dataclass
+class IterationData:
+    i: int
+    """The iteration step"""
+    i_b: int
+    """The scale iteration step"""
+    starting_f: float
+    """The starting value of the scale"""
+    max_f: float
+    """The maximum value of the scale"""
+    n_succes_scale: int
+    """the number of objects that have succesfully been scaled to the current limit"""
 
 
 class OptimizerData:
@@ -23,12 +38,13 @@ class OptimizerData:
     def __getitem__(self, key):
         return self._data[key]
 
-    def add(self, tf_arrays: ndarray, cat_data: None | CatData, ref: tuple[int, int]):
+    def add(self, tf_arrays: ndarray, cat_data: None | CatData, iteration_data: IterationData):
         self._data[self._index] = {
             "tf_arrays": tf_arrays.copy(),
             "cat_data": copy(cat_data),
+            "iterationData": iteration_data,
         }
-        self._data[ref] = self._data[self._index]
+        # self._data[ref] = self._data[self._index]
         self._index += 1
 
     def _tf_arrays(self, index: int):
@@ -67,7 +83,9 @@ class OptimizerData:
 
     def cat_mesh(self, iteration: int, obj_id: int) -> PolyData:
         """Get the mesh of the cat cell that corresponds to the object from the given iteration"""
-        return PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
+        return PolyData(
+            *face_coord_to_points_and_faces(self._cat_data(iteration), obj_id)
+        )
 
     def meshes_before(self, iteration: int, mesh: PolyData):
         """Get the meshes of all objects at the given iteration, before the optimisation."""
