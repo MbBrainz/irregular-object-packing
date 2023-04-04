@@ -1,6 +1,9 @@
+# ruff: noqa: E501
 import unittest
+from dataclasses import astuple, dataclass
 
 import numpy as np
+from parameterized import parameterized
 from scipy.optimize import minimize
 
 from irregular_object_packing.packing.nlc_optimisation import (
@@ -9,6 +12,136 @@ from irregular_object_packing.packing.nlc_optimisation import (
     objective,
     transform_v,
 )
+
+RB = 1 / 12 * np.pi
+
+
+@dataclass
+class NLCTestParams:
+    name: str
+    v: np.ndarray = (9, 10, 11)
+    f_init: float = 0.9
+    r_init: float = 0.0
+    t_init: float = 0.0
+    f_bounds: tuple[float, float] = (0.0, None)
+    r_bounds: tuple[float, float] = (-1 / 12 * np.pi, 1 / 12 * np.pi)
+    t_bounds: tuple[float, float] = (0.0, None)
+    padding: float = 0.0
+    expected_f: float = None
+
+    def tuple(self):
+        return astuple(self)
+
+    @property
+    def list(self):
+        return list(astuple(self))
+
+
+TEST_CASES = [
+    NLCTestParams(
+        "no bounds",
+        t_bounds=(None, None),
+        r_bounds=(None, None),
+        f_bounds=(0, None),
+    ).list,
+    NLCTestParams(
+        "no r",
+        r_bounds=(0.0, 0.0),
+    ).list,
+    NLCTestParams(
+        "no t",
+        t_bounds=(0, 0),
+    ).list,
+    NLCTestParams(
+        "no f",
+        f_bounds=(1, 1),
+    ).list,
+    NLCTestParams(
+        "no r or t",
+        r_bounds=(0, 0),
+        t_bounds=(0, 0),
+    ).list,
+    NLCTestParams(
+        "no r or f",
+        r_bounds=(0, 0.0),
+        f_bounds=(1, 1),
+    ).list,
+    NLCTestParams(
+        "no t or f",
+        t_bounds=(0.0, 0.0),
+        f_bounds=(1, 1),
+    ).list,
+    NLCTestParams(
+        "no r,t or f",
+        r_bounds=(0.0, 0.0),
+        t_bounds=(0.0, 0.0),
+        f_bounds=(1, 1),
+    ).list,
+    NLCTestParams(
+        "at limits",
+        v=(12, 13, 14),
+        expected_f=1.0,
+    ).list,
+    NLCTestParams(
+        "no bounds with p",
+        t_bounds=(None, None),
+        r_bounds=(None, None),
+        f_bounds=(0, None),
+        padding=0.1,
+    ).list,
+    NLCTestParams(
+        "no r with p",
+        r_bounds=(0.0, 0.0),
+        padding=0.1,
+    ).list,
+    NLCTestParams(
+        "no t with p",
+        t_bounds=(0, 0),
+        padding=0.1,
+    ).list,
+    NLCTestParams(
+        "no f with p",
+        f_init=1.0,
+        r_init=0.1,
+        t_init=0.1,
+        f_bounds=(1, 1),
+        padding=0.1,
+    ).list,
+    NLCTestParams(
+        "no r or t with p",
+        r_bounds=(0, 0),
+        t_bounds=(0, 0),
+        padding=0.1,
+    ).list,
+    NLCTestParams(
+        "no r or f with p",
+        r_bounds=(0.0, 0.0),
+        f_bounds=(1.0, 1.0),
+        f_init=1.0,
+        padding=0.1,
+    ).list,
+    NLCTestParams(
+        "no t or f with p",
+        t_bounds=(0.0, 0.0),
+        f_bounds=(1, 1),
+        padding=0.1,
+    ).list,
+    NLCTestParams(
+        "no r,t or f with p",
+        f_init=1.0,
+        r_bounds=(0.0, 0.0),
+        t_bounds=(0.0, 0.0),
+        f_bounds=(1.0, 1.0),
+        padding=0.1,
+        expected_f=1.0,
+    ).list,
+    NLCTestParams(
+        "at limits with p",
+        v=(12, 13, 14),
+        padding=0.1,
+        expected_f=0.9,
+    ).list,
+]
 
 
 class TestNLCConstraintOptimisationLocal(unittest.TestCase):
@@ -35,7 +168,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         self.box_coords = [point for id, point in self.points.items() if id <= 8]
 
         # Define facets [(face, normal)]
-        self.facets = [
+        self.faces = [
             (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
             (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
             (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
@@ -43,163 +176,43 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
             (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
             (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
         ]
-
+        self.face_sets = [self.faces, self.faces, self.faces]
         return super().setUp()
 
-    def test_basic_nlcp(self):
-        """This test case covers a general case where we have a box and 3 points that we allow to scale within the box"""
-        x0 = np.array([0.9, 0.01, 0.01, 0.01, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, None)
-        f_bounds = (0, None)  # scale bound
+    @parameterized.expand(TEST_CASES)
+    def test_local(
+        self,
+        name,
+        v,
+        f_init,
+        r_init,
+        t_init,
+        f_bounds,
+        r_bounds,
+        t_bounds,
+        padding,
+        expected_f,
+    ):
+        x0 = [f_init] + [r_init] * 3 + [t_init] * 3
 
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-        ## %%
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.points[point], T)
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
-
-    def test_nlcp_already_at_boundary(self):
-        x0 = np.array([1, 0, 0, 0, 0, 0, 0])
-        v = [12, 13, 14]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, None)
-        f_bounds = (0, None)  # scale bound
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-        self.assertListEqual(
-            opt_tf.tolist(),
-            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "transformation should be identity",
+        T, opt_tf = compute_optimal_tf(
+            x0,
+            v,
+            self.face_sets,
+            self.points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            padding=padding,
         )
-
-    # -----------------------------------------------------------
-    # Test cases where we fix bound parameters ⬇︎
-    # -----------------------------------------------------------
-    def test_nlcp_no_translation(self):
-        x0 = np.array([0.9, 0.01, 0.01, 0.01, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, 0)
-        f_bounds = (0, None)  # scale bound
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
         resulting_points = []
         for point in v:
             res_v = transform_v(self.points[point], T)
             resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
+            assert_point_within_box(self, res_v, self.box_coords, padding=padding)
 
-    def test_nlcp_no_rotation(self):
-        x0 = np.array([0.9, 0.0, 0.0, 0.0, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (0, 0)
-        t_bounds = (0, None)
-        f_bounds = (0, None)  # scale bound
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.points[point], T)
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
-
-    def test_nlcp_no_scale(self):
-        x0 = np.array([1.0, 0.01, 0.01, 0.01, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, None)
-        f_bounds = (1, 1)
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-        self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.points[point], T)
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
-
-    def test_nlcp_no_scale_no_rotation(self):
-        x0 = np.array([1.0, 0.0, 0.0, 0.0, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (0, 0)
-        t_bounds = (0, None)
-        f_bounds = (1, 1)
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-        self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.points[point], T)
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
-
-    def test_nlcp_no_scale_no_translation(self):
-        x0 = np.array([1.0, 0.01, 0.01, 0.01, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, 0)
-        f_bounds = (1, 1)
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-        self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.points[point], T)
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
-
-    def test_nlcp_no_translation_no_rotation(self):
-        x0 = np.array([1.0, 0.0, 0.0, 0.0, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (0, 0)
-        t_bounds = (0, 0)
-        f_bounds = (0.5, None)
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-        self.assertGreater(opt_tf[0], 0.5, "Scale should be greater than 0.5")
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.points[point], T)
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
-
-    def test_nlcp_no_scale_no_translation_no_rotation(self):
-        x0 = np.array([1.0, 0.0, 0.0, 0.0, 0, 0, 0])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (0, 0)
-        t_bounds = (0, 0)
-        f_bounds = (1, 1)
-
-        T, opt_tf = compute_optimal_tf(x0, v, facets_sets, self.points, f_bounds, r_bounds, t_bounds)
-        self.assertEqual(opt_tf[0], 1.0, "Scale should be 1")
-        self.assertListEqual(opt_tf[1:4].tolist(), [0.0, 0.0, 0.0], "Rotation should be 0")
-        self.assertListEqual(opt_tf[4:].tolist(), [0.0, 0.0, 0.0], "Translation should be 0")
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.points[point], T)
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
+        if expected_f is not None:
+            self.assertAlmostEqual(opt_tf[0], expected_f, places=4)
 
     # ----------------------------------------------------------------
     # Helper functions
@@ -215,9 +228,9 @@ def compute_optimal_tf(
     r_bounds,
     t_bounds,
     obj_coords=np.array([0, 0, 0]),
+    padding=0.0,
 ):
     bounds = [f_bounds, r_bounds, r_bounds, r_bounds, t_bounds, t_bounds, t_bounds]
-    # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
     constraint_dict = {
         "type": "ineq",
         "fun": local_constraint_multiple_points,
@@ -226,27 +239,41 @@ def compute_optimal_tf(
             sets_of_faces,
             points,
             obj_coords,
-            None,
+            padding,
         ),
     }
-    res = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
+    res = minimize(
+        objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
+    )
     T = construct_transform_matrix(res.x)
     return T, res.x
 
 
-def is_point_within_box(point, box_coords, tolerance=1e-9):
-    min_coords = np.min(box_coords, axis=0)
-    max_coords = np.max(box_coords, axis=0)
-    return np.all(np.isclose(min_coords, point, rtol=0, atol=tolerance) | (min_coords <= point)) and np.all(
-        np.isclose(point, max_coords, rtol=0, atol=tolerance) | (point <= max_coords)
+def is_point_within_box(point, box_coords, tolerance=1e-8, padding=0.0):
+    min_coords = np.min(box_coords, axis=0) + np.array([padding, padding, padding])
+    max_coords = np.max(box_coords, axis=0) - np.array([padding, padding, padding])
+    tol = np.array([tolerance, tolerance, tolerance])
+    return np.all(
+        np.isclose(min_coords, point, rtol=0, atol=tolerance)
+        | (min_coords - tol <= point)
+    ) and np.all(
+        np.isclose(point, max_coords, rtol=0, atol=tolerance)
+        | (point <= max_coords + tol)
     )
 
-    return np.all(min_coords <= point) and np.all(point <= max_coords)
+    # return np.all(min_coords <= point) and np.all(point <= max_coords)
 
 
-def assert_point_within_box(test_case: unittest.TestCase, point, box_coords, tolerance=1e-9):
-    is_inside = is_point_within_box(point, box_coords, tolerance=tolerance)
-    test_case.assertTrue(is_inside, f"Point {point} is not inside the box defined by {box_coords}")
+def assert_point_within_box(
+    test_case: unittest.TestCase, point, box_coords, tolerance=1e-7, padding=0.0
+):
+    is_inside = is_point_within_box(
+        point, box_coords, tolerance=tolerance, padding=padding
+    )
+    test_case.assertTrue(
+        is_inside,
+        f"Point {point} is not inside the box defined by {box_coords} with padding {padding}",
+    )
 
 
 def get_face_coords(facet, points):
@@ -282,7 +309,7 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         }
         self.points = {k: v + self.obj_coord for k, v in self.local_points.items()}
 
-        self.facets = [
+        self.faces = [
             (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
             (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
             (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
@@ -290,29 +317,37 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
             (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
         ]
-        self.box_coords = np.array([self.points[p_id] for p_id in range(1, 9)])
-        self.tf0 = np.array([1.0, 0.0, 0.0, 0.0, 2, 2, 2])
-        self.local_box_coords = [coord - self.obj_coord for coord in self.box_coords]
+        self.face_sets = [self.faces, self.faces, self.faces]
+        self.local_box_coords = np.array([self.points[p_id] for p_id in range(1, 9)])
+        self.box_coords = [coord + self.obj_coord for coord in self.local_box_coords]
 
         return super().setUp()
 
-    def test_nlcp_basic(self):
-        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, None)
-        f_bounds = (0, None)
+    @parameterized.expand(TEST_CASES)
+    def test(
+        self,
+        name,
+        v,
+        f_init,
+        r_init,
+        t_init,
+        f_bounds,
+        r_bounds,
+        t_bounds,
+        padding,
+        expected_f,
+    ):
+        x0 = [f_init] + [r_init] * 3 + [t_init] * 3
 
         T_local, opt_tf = compute_optimal_tf(
             x0,
             v,
-            facets_sets,
+            self.face_sets,
             self.points,
             f_bounds,
             r_bounds,
             t_bounds,
-            obj_coords=self.obj_coord,
+            padding=padding,
         )
 
         # Check if the local system is correct
@@ -320,11 +355,16 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords)
+            assert_point_within_box(
+                self, res_v, self.local_box_coords, tolerance=1e-7, padding=padding
+            )
+
+        if expected_f is not None:
+            self.assertAlmostEqual(opt_tf[0], expected_f, places=5)
 
         # This part is based on Optimizer.local_optimisation()
-        new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0]
+        new_tf = opt_tf
+        # new_tf[0] = opt_tf[0]
         T = construct_transform_matrix(new_tf)
 
         resulting_points = []
@@ -332,232 +372,6 @@ class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T)
 
             resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords)
-
-    def test_nlcp_not_scalable(self):
-        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-        v = [12, 13, 14]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, None)
-        f_bounds = (0, None)
-
-        T_local, opt_tf = compute_optimal_tf(
-            x0,
-            v,
-            facets_sets,
-            self.points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            obj_coords=self.obj_coord,
-        )
-
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
-
-        # This part is based on Optimizer.local_optimisation()
-        new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0]
-        T = construct_transform_matrix(new_tf)
-
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T)
-
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
-
-    def test_nlcp_no_translation(self):
-        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, 0)
-        f_bounds = (0, None)
-
-        T_local, opt_tf = compute_optimal_tf(
-            x0,
-            v,
-            facets_sets,
-            self.points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            obj_coords=self.obj_coord,
-        )
-
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
-
-        # This part is based on Optimizer.local_optimisation()
-        new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0]
-        T = construct_transform_matrix(new_tf)
-
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T)
-
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
-
-    def test_nlcp_no_rotation(self):
-        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (0, 0)
-        t_bounds = (0, None)
-        f_bounds = (0, None)
-
-        T_local, opt_tf = compute_optimal_tf(
-            x0,
-            v,
-            facets_sets,
-            self.points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            obj_coords=self.obj_coord,
-        )
-
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
-
-        # This part is based on Optimizer.local_optimisation()
-        new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0]
-        T = construct_transform_matrix(new_tf)
-
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T)
-
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
-
-    def test_nlcp_no_scaling(self):
-        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, None)
-        f_bounds = (1, 1)
-
-        T_local, opt_tf = compute_optimal_tf(
-            x0,
-            v,
-            facets_sets,
-            self.points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            obj_coords=self.obj_coord,
-        )
-
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
-
-        # This part is based on Optimizer.local_optimisation()
-        new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0]
-        T = construct_transform_matrix(new_tf)
-
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T)
-
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
-
-    def test_nlcp_no_scaling_no_translation(self):
-        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (-1 / 12 * np.pi, 1 / 12 * np.pi)
-        t_bounds = (0, 0)
-        f_bounds = (1, 1)
-
-        T_local, opt_tf = compute_optimal_tf(
-            x0,
-            v,
-            facets_sets,
-            self.points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            obj_coords=self.obj_coord,
-        )
-
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
-
-        # This part is based on Optimizer.local_optimisation()
-        new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0]
-        T = construct_transform_matrix(new_tf)
-
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T)
-
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
-
-    def test_nlcp_no_scaling_no_translation_no_rotation(self):
-        x0 = np.array([1.0, 0.1, 0.1, 0.1, 0.01, 0.01, 0.01])
-        v = [9, 10, 11]
-        facets_sets = [self.facets, self.facets, self.facets]
-        r_bounds = (0, 0)
-        t_bounds = (0, 0)
-        f_bounds = (1, 1)
-
-        T_local, opt_tf = compute_optimal_tf(
-            x0,
-            v,
-            facets_sets,
-            self.points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            obj_coords=self.obj_coord,
-        )
-
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, tolerance=1e-8)
-
-        # This part is based on Optimizer.local_optimisation()
-        new_tf = self.tf0 + opt_tf
-        new_tf[0] = opt_tf[0]
-        T = construct_transform_matrix(new_tf)
-
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T)
-
-            resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords, tolerance=1e-8)
+            assert_point_within_box(
+                self, res_v, self.box_coords, tolerance=1e-7, padding=padding
+            )

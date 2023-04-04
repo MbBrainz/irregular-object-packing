@@ -4,7 +4,6 @@ from scipy.optimize import minimize
 
 from irregular_object_packing.packing.chordal_axis_transform import CatData
 from irregular_object_packing.packing.utils import (
-    compute_face_normal,
     print_transform_array,
 )
 
@@ -132,18 +131,18 @@ def transform_v(v_i, T: np.ndarray):
     return norm_v
 
 
-def constraint_single_point_margin(
-    v_i, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), margin=None
+def local_constraint_for_point_with_padding(
+    v_id, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), padding=0.0
 ):
     """Compute conditions for a single point.
 
     Parameters
     ----------
-    v_i : int
+    v_id : int
         ID of the point for which the conditions are computed.
     transform_matrix: numpy.ndarray
         Matrix that transforms a point.
-    facets: list
+    faces: list
         List of lists of point IDs.
     points: dict
         Dictionary of point IDs and their coordinates.
@@ -155,39 +154,42 @@ def constraint_single_point_margin(
     list
         List of conditions for a single point.
     """
-    v_i = np.array(points[v_i]) - obj_coord
+    # translate the point to the local coordinate system of the object
+    # NOTE: This will be a point that has already been rotated and
+    # scaled to according to the last iteration. Therefore the bounds for
+    # rotation, scaling and translation are around zero
+    v_i = np.array(points[v_id]) - obj_coord
+    # apply the transformation matrix to the point
+    transformed_v_i = transform_v(v_i, transform_matrix)
 
-    transformed_v_i = transform_v(v_i, transform_matrix)  # transform v_i
+    constraints = []
+    for _i, (face_p_ids, n_face) in enumerate(faces):
+        # translate the points of the faces to the local coordinate system of the object
+        face_coords = [np.array(points[p_id]) - obj_coord for p_id in face_p_ids]
+        # # NOTE: Concider changing q_j to just one of the face coords for performance)
+        # q_j = facet_coords[0]
+        q_j = np.mean(face_coords, axis=0)
+        condition = np.dot(transformed_v_i - q_j, n_face) / np.linalg.norm(n_face)
 
-    values = []
-    for face_p_ids, _n_face in faces:
-        face = [np.array(points[p_id]) - obj_coord for p_id in face_p_ids]
+        # MARGIN: Compute distance to surface
+        # dist = abs(condition) - padding
+        # if dist < 0:
+        #     dist = 0
 
-        n_j = compute_face_normal(face, v_i)
-
-        # normals = facet[1:]  # remaining points in facet are normals
-        # for q_j in facet[:1]:
-        q_j = face[0]
-        condition = np.dot(transformed_v_i - q_j, n_j) / np.linalg.norm(n_j)
-        if margin is None:
-            values.append(condition)
-
-        else:
-            dist = abs(condition) - margin
-            if dist < 0:
-                dist = 0
-
-            # Return negative value if point is inside surface plus margin, positive value otherwise
-            if condition < 0:
-                values.append(-dist)
-            else:
-                values.append(dist)
-
-    return values
+        dist = condition - padding
+        constraints.append(dist)
+        # Return negative value if point is inside surface plus margin,
+        # # positive value otherwise
+        # if condition < 0:
+        #     constraints.append(-dist)
+        # else:
+        #     constraints.append(dist)
+        # # constraints.append(condition)
+    return constraints
 
 
-def local_constraint_single_point_normal(
-    v_id, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), margin=None
+def local_constraint_for_point(
+    v_id, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), padding=0.0
 ):
     """Compute conditions for a single point relative to the local coordinate system of the object.
     This is done by translating `v_i` and the points of the facets to the local coordinate system before computing the optimization conditions.
@@ -215,18 +217,18 @@ def local_constraint_single_point_normal(
     # NOTE: This will be a point that has already been rotated and
     # scaled to according to the last iteration. Therefore the bounds for
     # rotation, scaling and translation are around zero
-    v_id = np.array(points[v_id]) - obj_coord
+    v_i = np.array(points[v_id]) - obj_coord
     # apply the transformation matrix to the point
-    transformed_v_i = transform_v(v_id, transform_matrix)
+    transformed_v_i = transform_v(v_i, transform_matrix)
 
     constraints = []
-    for _i, (facet_p_ids, n_face) in enumerate(faces):
+    for _i, (face_p_ids, n_face) in enumerate(faces):
         # translate the points of the facet to the local coordinate system of the object
-        facet_coords = [np.array(points[p_id]) - obj_coord for p_id in facet_p_ids]
-        q_j = facet_coords[
+        face_coords = [np.array(points[p_id]) - obj_coord for p_id in face_p_ids]
+        q_j = face_coords[
             0
         ]  # first point in facet is q_j (can be any point of the facet)
-        q_j = np.mean(facet_coords, axis=0)
+        q_j = np.mean(face_coords, axis=0)
         condition = np.dot(transformed_v_i - q_j, n_face) / np.linalg.norm(n_face)
         constraints.append(condition)
 
@@ -239,7 +241,7 @@ def local_constraint_multiple_points(
     sets_of_faces: list[list[int]],
     points: dict,
     obj_coords,
-    margin=None,
+    padding=0.0,
 ):
     """Compute conditions for a list of point with corresponding facets_sets.
 
@@ -261,11 +263,14 @@ def local_constraint_multiple_points(
     list
         List of conditions for all the points.
     """
+    constraint_func = local_constraint_for_point
+    if padding != 0.0:
+        constraint_func = local_constraint_for_point_with_padding
     transform_matrix = construct_transform_matrix(tf_arr)
     constraints = []  # list of constraints
     for i, v_i in enumerate(v):
-        constraints += local_constraint_single_point_normal(
-            v_i, transform_matrix, sets_of_faces[i], points, obj_coords, margin=margin
+        constraints += constraint_func(
+            v_i, transform_matrix, sets_of_faces[i], points, obj_coords, padding=padding
         )
 
     return constraints
@@ -276,16 +281,18 @@ def local_constraints_from_dict(
     obj_coord: np.ndarray,
     cat_faces: dict,
     points: dict,
-    margin=None,
+    padding=None,
 ):
     """Does the same as local_constraints_from_cat but takes a dictionary instead of a CatData object. NOT USED RN"""
     # item will be in the form (vi, [facet_j, facet_j+1, ...])
     v, sets_of_faces = [*zip(*cat_faces.items())]
-    return local_constraint_multiple_points(tf_arr, v, sets_of_faces, points, obj_coord)
+    return local_constraint_multiple_points(
+        tf_arr, v, sets_of_faces, points, obj_coord, padding
+    )
 
 
 def local_constraints_from_cat(
-    tf_arr: list[float], obj_id: int, cat_data: CatData, margin=None
+    tf_arr: list[float], obj_id: int, cat_data: CatData, padding=None
 ):
     # item will be in the form [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
 
@@ -299,7 +306,7 @@ def local_constraints_from_cat(
         sets_of_faces,
         cat_data.points,
         cat_data.object_coords[obj_id],
-        margin,
+        padding,
     )
 
 
@@ -352,7 +359,7 @@ def test_nlcp_facets():
             facets_sets,
             points,
             np.array([0, 0, 0]),
-            None,
+            0.1,
         ),
     }
 
@@ -366,9 +373,9 @@ def test_nlcp_facets():
     print_transform_array(res.x)
     # print("resulting vectors:")
 
-    # print(transform_v(points[9], T))
-    # print(transform_v(points[10], T))
-    # print(transform_v(points[11], T))
+    print(transform_v(points[9], T))
+    print(transform_v(points[10], T))
+    print(transform_v(points[11], T))
 
     ## %%
     # Create a 3D plot
@@ -412,7 +419,7 @@ def test_nlcp_facets():
 
 
 if __name__ == "__main__":
-    # test_nlcp_facets()
+    test_nlcp_facets()
     pass
 
 # %%
