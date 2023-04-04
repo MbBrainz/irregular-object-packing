@@ -47,7 +47,7 @@ def plot_full_comparison(
     title_right="Improved Placement",
 ):
     if plotter is None:
-        plotter = pv.Plotter()
+        plotter = pv.Plotter( shape="1|1")
 
     colors = generate_tinted_colors(len(meshes_before))
     plotter.subplot(0)

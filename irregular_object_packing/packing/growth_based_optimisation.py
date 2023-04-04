@@ -113,7 +113,7 @@ def optimal_local_transform(
     scale_bound=(0.1, None),
     max_angle=1 / 12 * np.pi,
     max_t=None,
-    margin=None,
+    padding=0.0,
 ):
     """Computes the optimal local transform for a given object id. This will return the transformation parameters that
     maximises scale with respect to a local coordinate system of the object. This is possible due to the `obj_coords`.
@@ -130,7 +130,7 @@ def optimal_local_transform(
         "args": (
             obj_id,
             cat_data,
-            margin,
+            padding,
         ),
     }
     res = minimize(
@@ -166,6 +166,8 @@ class SimSettings:
     """Whether to decimate the object mesh"""
     sample_rate_ratio: float = 2.0
     """The ratio between the sample rate of the object and the container"""
+    padding: float = 0.0
+    """the padding which is added to the inside of the cat cells"""
 
 
 class Optimizer(OptimizerData):
@@ -195,7 +197,7 @@ class Optimizer(OptimizerData):
         self.data_index = -1
         self.objects = None
         self.pbar1 = self.pbar2 = None
-        self.margin = None
+        self.padding = 0.0
         self.scaling_barrier_list = np.linspace(
             self.settings.init_f,
             self.settings.final_scale,
@@ -219,7 +221,7 @@ class Optimizer(OptimizerData):
         self.log(f"Number of objects: {self.n_objs}", LOG_LVL_INFO)
 
         object_rotations = np.random.uniform(-np.pi, np.pi, (self.n_objs, 3))
-        self.margin = 0.01
+        self.padding = 0.01
 
         # SET TRANSFORM DATA
         self.tf_arrs = np.empty((self.n_objs, 7))
@@ -343,10 +345,12 @@ class Optimizer(OptimizerData):
         self.setup_pbars()
 
         for i_b in range(0, self.settings.n_scaling_steps):
+            self.log(f"Starting scaling step {i_b}")
             self.pbar1.set_postfix(ƒ_max=f"{self.scaling_barrier_list[i_b]:.2f}")
             self.pbar2.reset()
 
             for i in range(self.settings.itn_max):
+                self.log(f"Starting iteration {i}")
                 self.pbar3.reset()
                 self.iteration(self.scaling_barrier_list[i_b])
 
@@ -391,7 +395,7 @@ class Optimizer(OptimizerData):
             scale_bound=(self.settings.init_f, None),
             max_angle=self.settings.max_a,
             max_t=self.settings.max_t,
-            margin=self.margin,
+            padding=self.padding,
         )
 
         new_tf = previous_tf_array + tf_arr
@@ -498,13 +502,13 @@ class Optimizer(OptimizerData):
             itn_max=2,
             n_scaling_steps=2,
             r=0.3,
-            final_scale=0.4,
-            sample_rate=100,
-            log_lvl=0,
-            init_f=0.1,  # NOTE: Smaller than paper
+            final_scale=10.4,
+            sample_rate=200,
+            log_lvl=3,
+            init_f=0.1,
+            padding=1e-3,
         )
         plotter = None
-        plotter = pv.Plotter(off_screen=True)
         optimizer = Optimizer(original_mesh, container, settings, plotter)
         return optimizer
 
@@ -521,14 +525,15 @@ class Optimizer(OptimizerData):
         original_mesh = scale_and_center_mesh(original_mesh, mesh_volume)
 
         settings = SimSettings(
-            itn_max=2,
-            n_scaling_steps=1,
+            itn_max=1,
+            n_scaling_steps=3,
             r=0.3,
-            final_scale=1,
-            sample_rate=100,
+            final_scale=0.5,
+            sample_rate=200,
             log_lvl=LOG_LVL_ERROR,
             init_f=0.1,
             sample_rate_ratio=1,
+            padding=1e-5,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -543,28 +548,30 @@ class Optimizer(OptimizerData):
 
 # # %%
 # # optimizer = Optimizer.simple_shapes_setup()
-optimizer = Optimizer.default_setup()
-optimizer.setup()
-optimizer.run()
+# optimizer = Optimizer.default_setup()
+# optimizer.setup()
+# # optimizer.run()
 
-# %%
-# iteration = 1
-# # # reload(plots)
-# plotter = pv.Plotter()
+# # %%
+# save_path = "process_gif_2.gif"
+# plots.generate_gif(optimizer, save_path)
+
+# # %%
+# from importlib import reload
+
+# iteration = 3
+# reload(plots)
 # # enumerate
-# plots.plot_full_comparison(
+# plotter = plots.plot_full_comparison(
 #     optimizer.meshes_before(iteration, optimizer.shape),
 #     # optimizer.final_meshes_before(optimizer.shape),
 #     optimizer.meshes_after(iteration, optimizer.shape),
 #     # optimizer.final_cat_meshes(),
 #     optimizer.cat_meshes(iteration),
 #     optimizer.container,
-#     plotter,
 # )
-
-# # %%
-# save_path = "process_gif_2.gif"
-# plots.generate_gif(optimizer, save_path)
+# plotter.show()
+# %%
 
 
 # %%
@@ -587,10 +594,13 @@ optimizer.run()
 
 
 # # # %%
-# # @pprofile
-# # def profile_optimizer():
-# #     optimizer.run()
+# @pprofile
+# def profile_optimizer():
+#     optimizer.run()
 
-# # %%
+
+# profile_optimizer()
+# # # %%
+
 
 # %%

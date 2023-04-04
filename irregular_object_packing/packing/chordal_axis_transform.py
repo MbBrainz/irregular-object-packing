@@ -290,6 +290,7 @@ def compute_cat_cells(
     # Each cat cell is a list of faces, each face is a list of points
     cat_cells = compute_cat_faces(tetmesh, obj_point_sets, obj_coords)
 
+    del tetmesh
     return cat_cells
 
 

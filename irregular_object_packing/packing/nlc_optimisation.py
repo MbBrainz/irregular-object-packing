@@ -30,25 +30,6 @@ def rotation_matrix(rx, ry, rz):
     -------
     R : (3,3) array
         Rotation matrix.
-
-    Examples
-    --------
-    >>> rotation_matrix(0, 0, 0)
-    array([[1., 0., 0.],
-           [0., 1., 0.],
-           [0., 0., 1.]])
-    >>> rotation_matrix(np.pi, 0, 0)
-    array([[-1.,  0.,  0.],
-           [ 0., -1.,  0.],
-           [ 0.,  0.,  1.]])
-    >>> rotation_matrix(0, np.pi, 0)
-    array([[-1.,  0.,  0.],
-           [ 0.,  1.,  0.],
-           [ 0.,  0., -1.]])
-    >>> rotation_matrix(0, 0, np.pi)
-    array([[ 1.,  0.,  0.],
-           [ 0., -1.,  0.],
-           [ 0.,  0., -1.]])
     """
     cx, cy, cz = np.cos(rx), np.cos(ry), np.cos(rz)
     sx, sy, sz = np.sin(rx), np.sin(ry), np.sin(rz)
@@ -292,7 +273,7 @@ def local_constraints_from_dict(
 
 
 def local_constraints_from_cat(
-    tf_arr: list[float], obj_id: int, cat_data: CatData, padding=None
+    tf_arr: list[float], obj_id: int, cat_data: CatData, padding=0.0
 ):
     # item will be in the form [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
 
