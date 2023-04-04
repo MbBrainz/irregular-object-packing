@@ -45,34 +45,34 @@ TEST_CASES = [
         f_bounds=(0, None),
     ).list,
     NLCTestParams(
-        "no r",
+        "no rotation",
         r_bounds=(0.0, 0.0),
     ).list,
     NLCTestParams(
-        "no t",
+        "no translation",
         t_bounds=(0, 0),
     ).list,
     NLCTestParams(
-        "no f",
+        "no scaling",
         f_bounds=(1, 1),
     ).list,
     NLCTestParams(
-        "no r or t",
+        "no rotation or translation",
         r_bounds=(0, 0),
         t_bounds=(0, 0),
     ).list,
     NLCTestParams(
-        "no r or f",
+        "no rotation or scaling",
         r_bounds=(0, 0.0),
         f_bounds=(1, 1),
     ).list,
     NLCTestParams(
-        "no t or f",
+        "no translation or scaling",
         t_bounds=(0.0, 0.0),
         f_bounds=(1, 1),
     ).list,
     NLCTestParams(
-        "no r,t or f",
+        "no rotation, translation or scaling",
         r_bounds=(0.0, 0.0),
         t_bounds=(0.0, 0.0),
         f_bounds=(1, 1),
@@ -83,24 +83,24 @@ TEST_CASES = [
         expected_f=1.0,
     ).list,
     NLCTestParams(
-        "no bounds with p",
+        "no bounds with padding",
         t_bounds=(None, None),
         r_bounds=(None, None),
         f_bounds=(0, None),
         padding=0.1,
     ).list,
     NLCTestParams(
-        "no r with p",
+        "no rotation with padding",
         r_bounds=(0.0, 0.0),
         padding=0.1,
     ).list,
     NLCTestParams(
-        "no t with p",
+        "no translation with padding",
         t_bounds=(0, 0),
         padding=0.1,
     ).list,
     NLCTestParams(
-        "no f with p",
+        "no scaling with padding",
         f_init=1.0,
         r_init=0.1,
         t_init=0.1,
@@ -108,26 +108,26 @@ TEST_CASES = [
         padding=0.1,
     ).list,
     NLCTestParams(
-        "no r or t with p",
+        "no rotation or translation with padding",
         r_bounds=(0, 0),
         t_bounds=(0, 0),
         padding=0.1,
     ).list,
     NLCTestParams(
-        "no r or f with p",
+        "no rotation or scaling with padding",
         r_bounds=(0.0, 0.0),
         f_bounds=(1.0, 1.0),
         f_init=1.0,
         padding=0.1,
     ).list,
     NLCTestParams(
-        "no t or f with p",
+        "no translation or scaling with padding",
         t_bounds=(0.0, 0.0),
         f_bounds=(1, 1),
         padding=0.1,
     ).list,
     NLCTestParams(
-        "no r,t or f with p",
+        "no rotation, translation or scaling with padding",
         f_init=1.0,
         r_bounds=(0.0, 0.0),
         t_bounds=(0.0, 0.0),
@@ -136,7 +136,7 @@ TEST_CASES = [
         expected_f=1.0,
     ).list,
     NLCTestParams(
-        "at limits with p",
+        "at limits with padding",
         v=(12, 13, 14),
         padding=0.1,
         expected_f=0.9,
@@ -144,9 +144,10 @@ TEST_CASES = [
 ]
 
 
-class TestNLCConstraintOptimisationLocal(unittest.TestCase):
+class TestNLCConstraintOptimisation(unittest.TestCase):
     def setUp(self) -> None:
-        self.points = {
+        self.obj_coord = np.array([2, 2, 2], dtype=np.float64)
+        self.local_points = {
             # Box of size 2x2x2 centered at the origin
             1: np.array([-1, -1, 1], dtype=np.float64),
             2: np.array([1, -1, 1], dtype=np.float64),
@@ -165,7 +166,15 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
             13: np.array([1, 1, 0]),
             14: np.array([1, 0, 1]),
         }
-        self.box_coords = [point for id, point in self.points.items() if id <= 8]
+        self.global_points = {
+            k: v + self.obj_coord for k, v in self.local_points.items()
+        }
+        self.local_box_coords = [
+            point for id, point in self.local_points.items() if id <= 8
+        ]
+        self.global_box_coords = [
+            point for id, point in self.global_points.items() if id <= 8
+        ]
 
         # Define facets [(face, normal)]
         self.faces = [
@@ -199,7 +208,7 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
             x0,
             v,
             self.face_sets,
-            self.points,
+            self.local_points,
             f_bounds,
             r_bounds,
             t_bounds,
@@ -207,12 +216,67 @@ class TestNLCConstraintOptimisationLocal(unittest.TestCase):
         )
         resulting_points = []
         for point in v:
-            res_v = transform_v(self.points[point], T)
+            res_v = transform_v(self.local_points[point], T)
             resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.box_coords, padding=padding)
+            assert_point_within_box(self, res_v, self.local_box_coords, padding=padding)
 
         if expected_f is not None:
             self.assertAlmostEqual(opt_tf[0], expected_f, places=4)
+
+    @parameterized.expand(TEST_CASES)
+    def test_global(
+        self,
+        name,
+        v,
+        f_init,
+        r_init,
+        t_init,
+        f_bounds,
+        r_bounds,
+        t_bounds,
+        padding,
+        expected_f,
+    ):
+        x0 = [f_init] + [r_init] * 3 + [t_init] * 3
+
+        T_local, opt_tf = compute_optimal_tf(
+            x0,
+            v,
+            self.face_sets,
+            self.global_points,
+            f_bounds,
+            r_bounds,
+            t_bounds,
+            obj_coords=self.obj_coord,
+            padding=padding,
+        )
+
+        # Check if the local system is correct
+        local_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T_local)
+            local_points.append(res_v)
+            assert_point_within_box(
+                self, res_v, self.local_box_coords, tolerance=1e-7, padding=padding
+            )
+
+        if expected_f is not None:
+            self.assertAlmostEqual(opt_tf[0], expected_f, places=5)
+
+        # This part is based on Optimizer.local_optimisation()
+        tf0 = np.array([0, 0, 0, 0] + list(self.obj_coord))
+        new_tf = opt_tf + tf0
+        # new_tf[4:] = opt_tf[4:] + self.obj_coord
+        T = construct_transform_matrix(new_tf)
+
+        resulting_points = []
+        for point in v:
+            res_v = transform_v(self.local_points[point], T)
+
+            resulting_points.append(res_v)
+            assert_point_within_box(
+                self, res_v, self.global_box_coords, tolerance=1e-7, padding=padding
+            )
 
     # ----------------------------------------------------------------
     # Helper functions
@@ -280,98 +344,106 @@ def get_face_coords(facet, points):
     return [points[p_id] for p_id in facet[0]]
 
 
-class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
-    """This test case is meant to test the optimisation of the NLC constraint with a global coodinate system
-    This means that we initialize a container away from the origin and use the object coordinates to transform the
-    container to the local system, perform the optimisation, and then transform the container and the object back to the global system.
-    """
+# class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
+#     """This test case is meant to test the optimisation of the NLC constraint with a global coodinate system
+#     This means that we initialize a container away from the origin and use the object coordinates to transform the
+#     container to the local system, perform the optimisation, and then transform the container and the object back to the global system.
+#     """
 
-    def setUp(self) -> None:
-        self.obj_coord = np.array([2, 2, 2])
-        self.local_points = {
-            # Box of size 2x2x2 centered at the origin
-            1: np.array([-1, -1, 1], dtype=np.float64),
-            2: np.array([1, -1, 1], dtype=np.float64),
-            3: np.array([1, 1, 1], dtype=np.float64),
-            4: np.array([-1, 1, 1], dtype=np.float64),
-            5: np.array([-1, -1, 0], dtype=np.float64),
-            6: np.array([1, -1, 0], dtype=np.float64),
-            7: np.array([1, 1, 0], dtype=np.float64),
-            8: np.array([-1, 1, 0], dtype=np.float64),
-            # points to test at the edges of the box but stil scalable
-            9: np.array([0, 0, 1]),
-            10: np.array([0, 1, 0.0]),
-            11: np.array([1, 0.0, 0.0]),
-            # points to test at the edges of the box but not scalable
-            12: np.array([1, 1, 1]),
-            13: np.array([1, 1, 0]),
-            14: np.array([1, 0, 1]),
-        }
-        self.points = {k: v + self.obj_coord for k, v in self.local_points.items()}
+#     def setUp(self) -> None:
+#         self.obj_coord = np.array([2, 2, 2])
+#         self.local_points = {
+#             # Box of size 2x2x1 centered at the origin
+#             1: np.array([-1, -1, 1], dtype=np.float64),
+#             2: np.array([1, -1, 1], dtype=np.float64),
+#             3: np.array([1, 1, 1], dtype=np.float64),
+#             4: np.array([-1, 1, 1], dtype=np.float64),
+#             5: np.array([-1, -1, 0], dtype=np.float64),
+#             6: np.array([1, -1, 0], dtype=np.float64),
+#             7: np.array([1, 1, 0], dtype=np.float64),
+#             8: np.array([-1, 1, 0], dtype=np.float64),
+#             # points to test at the edges of the box but stil scalable
+#             9: np.array([0, 0, 1]),
+#             10: np.array([0, 1, 0.0]),
+#             11: np.array([1, 0.0, 0.0]),
+#             # points to test at the edges of the box but not scalable
+#             12: np.array([1, 1, 1]),
+#             13: np.array([1, 1, 0]),
+#             14: np.array([1, 0, 1]),
+#         }
+#         self.global_points = {
+#             k: v + self.obj_coord for k, v in self.local_points.items()
+#         }
 
-        self.faces = [
-            (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
-            (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
-            (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
-            (np.array([2, 3, 7, 6]), np.array([-1, 0, 0])),
-            (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
-            (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
-        ]
-        self.face_sets = [self.faces, self.faces, self.faces]
-        self.local_box_coords = np.array([self.points[p_id] for p_id in range(1, 9)])
-        self.box_coords = [coord + self.obj_coord for coord in self.local_box_coords]
+#         self.faces = [
+#             (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
+#             (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
+#             (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
+#             (np.array([2, 3, 7, 6]), np.array([-1, 0, 0])),
+#             (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
+#             (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
+#         ]
+#         self.face_sets = [self.faces, self.faces, self.faces]
+#         self.local_box_coords = np.array(
+#             [self.local_points[p_id] for p_id in range(1, 9)]
+#         )
 
-        return super().setUp()
+#         self.global_box_coords = [
+#             coord + self.obj_coord for coord in self.local_box_coords
+#         ]
+#         self.tf0 = np.array([1.0, 0.0, 0.0, 0.0, 2, 2, 2])
+#         return super().setUp()
 
-    @parameterized.expand(TEST_CASES)
-    def test(
-        self,
-        name,
-        v,
-        f_init,
-        r_init,
-        t_init,
-        f_bounds,
-        r_bounds,
-        t_bounds,
-        padding,
-        expected_f,
-    ):
-        x0 = [f_init] + [r_init] * 3 + [t_init] * 3
+#     @parameterized.expand(TEST_CASES)
+#     def test_global(
+#         self,
+#         name,
+#         v,
+#         f_init,
+#         r_init,
+#         t_init,
+#         f_bounds,
+#         r_bounds,
+#         t_bounds,
+#         padding,
+#         expected_f,
+#     ):
+#         x0 = [f_init] + [r_init] * 3 + [t_init] * 3
 
-        T_local, opt_tf = compute_optimal_tf(
-            x0,
-            v,
-            self.face_sets,
-            self.points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            padding=padding,
-        )
+#         T_local, opt_tf = compute_optimal_tf(
+#             x0,
+#             v,
+#             self.face_sets,
+#             self.global_points,
+#             f_bounds,
+#             r_bounds,
+#             t_bounds,
+#             obj_coords=self.obj_coord,
+#             padding=padding,
+#         )
 
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(
-                self, res_v, self.local_box_coords, tolerance=1e-7, padding=padding
-            )
+#         # Check if the local system is correct
+#         local_points = []
+#         for point in v:
+#             res_v = transform_v(self.local_points[point], T_local)
+#             local_points.append(res_v)
+#             assert_point_within_box(
+#                 self, res_v, self.local_box_coords, tolerance=1e-7, padding=padding
+#             )
 
-        if expected_f is not None:
-            self.assertAlmostEqual(opt_tf[0], expected_f, places=5)
+#         if expected_f is not None:
+#             self.assertAlmostEqual(opt_tf[0], expected_f, places=5)
 
-        # This part is based on Optimizer.local_optimisation()
-        new_tf = opt_tf
-        # new_tf[0] = opt_tf[0]
-        T = construct_transform_matrix(new_tf)
+#         # This part is based on Optimizer.local_optimisation()
+#         new_tf = opt_tf + self.tf0
+#         new_tf[4:] = opt_tf[4:] + self.obj_coord
+#         T = construct_transform_matrix(new_tf)
 
-        resulting_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T)
+#         resulting_points = []
+#         for point in v:
+#             res_v = transform_v(self.local_points[point], T)
 
-            resulting_points.append(res_v)
-            assert_point_within_box(
-                self, res_v, self.box_coords, tolerance=1e-7, padding=padding
-            )
+#             resulting_points.append(res_v)
+#             assert_point_within_box(
+#                 self, res_v, self.global_box_coords, tolerance=1e-7, padding=padding
+#             )

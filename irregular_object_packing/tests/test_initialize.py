@@ -164,8 +164,8 @@ class TestCoordIsCorrect(unittest.TestCase):
         ]
 
         # Create a container mesh (a simple box)
-        self.c_box = pv.Box(bounds=(-2, 2, -2, 2, -2, 2))
-        self.c_sphere = pv.Sphere(radius=2)
+        self.c_box = pyvista_to_trimesh(pv.Box(bounds=(-2, 2, -2, 2, -2, 2)))
+        self.c_sphere = pyvista_to_trimesh(pv.Sphere(radius=2))
 
     def test_coord_is_inside_and_valid(self):
         self.assertTrue(

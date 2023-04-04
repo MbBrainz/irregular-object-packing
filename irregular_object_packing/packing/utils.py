@@ -214,8 +214,8 @@ def compute_face_normal(points, v_i):
 
     Examples
     --------
-    >>> compute_face_normal([(0, 0, 0), (0, 0, 1)], (0, 1, 2))
-    (0.0, 1.0, 0.0)
+    >>> compute_face_normal(np.array([[0, 0, 0], [0, 0, 1], [1, 0, 0]]), np.array([0, 1, 2]))
+    array([0, 1, 0])
     """
     n_points = len(points)
     assert 3 <= n_points <= 4, "The number of points should be either 3 or 4."
