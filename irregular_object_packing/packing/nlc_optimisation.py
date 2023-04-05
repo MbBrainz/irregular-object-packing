@@ -265,7 +265,7 @@ def local_constraint_multiple_points(
 def local_constraints_from_cat(
     tf_arr: list[float], obj_id: int, cat_data: CatData, padding=0.0
 ):
-    """Compute the conditions for one object"""
+    """Compute the conditions for one object."""
     # item will be in the form
 
     # [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]

@@ -1,7 +1,4 @@
-"""
-Initialization phase of the packing algorithm.
-
-"""
+"""Initialization phase of the packing algorithm."""
 # %%
 from typing import List
 
@@ -13,7 +10,7 @@ from scipy.spatial import Voronoi
 
 
 def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
-    """generates a random coordinate within the bounds of the bounding box"""
+    """Generates a random coordinate within the bounds of the bounding box."""
     x = np.random.uniform(bounding_box[0][0], bounding_box[1][0])
     y = np.random.uniform(bounding_box[0][1], bounding_box[1][1])
     z = np.random.uniform(bounding_box[0][2], bounding_box[1][2])
@@ -31,7 +28,8 @@ def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
 
 
 def get_min_bounding_mesh(mesh: PolyData) -> PolyData:
-    """Selects one of 'Box', 'Sphere' or 'Cylinder' bounding mesh of mesh that has the smallest volume
+    """Selects one of 'Box', 'Sphere' or 'Cylinder' bounding mesh of mesh that has the
+    smallest volume.
 
     Args:
         mesh (PolyData): original mesh
@@ -46,7 +44,7 @@ def get_min_bounding_mesh(mesh: PolyData) -> PolyData:
 
 
 def get_max_radius(mesh: PolyData) -> float:
-    """Returns the maximum distence from the center of mass to the mesh points
+    """Returns the maximum distence from the center of mass to the mesh points.
 
     Args:
         mesh (PolyData): original mesh

@@ -116,9 +116,7 @@ def plot_step_comparison(
 
 
 def generate_tinted_colors(num_tints, base_color_1="FFFF00", base_color_2="FF0000"):
-    """
-    Generates two lists of hex colors with corresponding tints.
-    """
+    """Generates two lists of hex colors with corresponding tints."""
     # Convert the base colors to RGB format
     base_color_1_rgb = tuple(int(base_color_1[i : i + 2], 16) for i in (0, 2, 4))
     base_color_2_rgb = tuple(int(base_color_2[i : i + 2], 16) for i in (0, 2, 4))

@@ -1,9 +1,8 @@
-"""
+"""This file includes a cloth and ball simulation that has been written based on the
+following medium article below.
 
-This file includes a cloth and ball simulation that has been written based on the following medium article below.
-It is written as a practice for the Taichi programming language.
-medium article: https://medium.com/parallel-programming-in-python/head-first-taichi-a-beginners-guide-to-high-performance-computing-in-python-be6afc5db93e
-
+It is written as a practice for the Taichi programming language. medium article:
+https://medium.com/parallel-programming-in-python/head-first-taichi-a-beginners-guide-to-high-performance-computing-in-python-be6afc5db93e
 """
 # %%
 import taichi as ti
@@ -46,9 +45,11 @@ def init_scene():
 
 @ti.kernel
 def step_no_slide():
-    """This is the main iteration of the simulation. It is basically a verlet integration,
-    where the position of the particles is updated based on the velocity and the acceleration.
-    The acceleration is calculated based on the forces that are applied to the particles.
+    """This is the main iteration of the simulation.
+
+    It is basically a verlet integration, where the position of the particles is
+    updated based on the velocity and the acceleration. The acceleration is
+    calculated based on the forces that are applied to the particles.
     """
     # first, update the vertical velocity based on the gravity constant
     for i in ti.grouped(x):
@@ -83,9 +84,11 @@ def step_no_slide():
 
 @ti.kernel
 def step_slide():
-    """This is the main iteration of the simulation. It is basically a verlet integration,
-    where the position of the particles is updated based on the velocity and the acceleration.
-    The acceleration is calculated based on the forces that are applied to the particles.
+    """This is the main iteration of the simulation.
+
+    It is basically a verlet integration, where the position of the particles is
+    updated based on the velocity and the acceleration. The acceleration is
+    calculated based on the forces that are applied to the particles.
     """
     # first, update the vertical velocity based on the gravity constant
     for i in ti.grouped(x):
@@ -139,8 +142,10 @@ vertices = ti.Vector.field(3, float, N * N)
 @ti.kernel
 def set_vertices():
     """Sets the vertices of the mesh to the positions of the particles.
+
     The `i * N` is because the mesh is a 1D array of vertices,
-    and we need to convert the 2D indices to 1D."""
+    and we need to convert the 2D indices to 1D.
+    """
     for i, j in ti.ndrange(N, N):
         vertices[i * N + j] = x[i, j]
 

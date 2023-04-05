@@ -194,8 +194,8 @@ def split_quadrilateral_to_triangles(points):
 
 
 def compute_face_unit_normal(points, v_i):
-    """
-     Compute the normal vector of a planar face defined by either 3 or 4 points in 3D space.
+    """Compute the normal vector of a planar face defined by either 3 or 4 points in 3D
+    space.
 
     This function calculates the normal vector of a planar face, ensuring that it points
     in the direction of the reference point v_i.

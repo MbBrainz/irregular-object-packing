@@ -1,5 +1,4 @@
-"""
-Module that contains the command line app.
+"""Module that contains the command line app.
 
 Why does this file exist, and why not put this in __main__?
 

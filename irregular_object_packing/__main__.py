@@ -1,6 +1,4 @@
-"""
-Entrypoint module, in case you use `python -mirregular_object_packing`.
-
+"""Entrypoint module, in case you use `python -mirregular_object_packing`.
 
 Why does this file exist, and why __main__? For more info, read:
 

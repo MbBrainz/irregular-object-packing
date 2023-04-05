@@ -1,4 +1,6 @@
-""" In step 4.2.1 of the algorithm in [Ma et al. 2018], The CAT is computed by using the following steps:
+"""In step 4.2.1 of the algorithm in [Ma et al.
+
+2018], The CAT is computed by using the following steps:
 1. Create a Tetrahedron Mesh from all the points on the surface mesh of both the objects and the container as the input points.
 2. Use onlty those tetrahedrons that constructed of points from multiple objects.
 3. Compute the chordal axis of each tetrahedron.
@@ -24,10 +26,10 @@ def compute_cat_cells(
     container_points: np.ndarray,
     obj_coords: list[np.ndarray],
 ):
-    """Compute the CAT cells of the objects in the list and the container.
-    First a Tetrahedral mesh is created from the pointcloud of all the objects points and the container points.
-    Then, for each tetrahedron that has points from at least 2 different objects, the faces of the CAT mesh are computed.
-
+    """Compute the CAT cells of the objects in the list and the container. First a
+    Tetrahedral mesh is created from the pointcloud of all the objects points and the
+    container points. Then, for each tetrahedron that has points from at least 2
+    different objects, the faces of the CAT mesh are computed.
 
     Args:
         - object_points_list: a list of point clouds which define the surface meshes of the objects
@@ -56,7 +58,8 @@ def compute_cat_faces(
     tetmesh, point_sets: list[set[tuple]], obj_coords: list[np.ndarray]
 ):
     """Compute the CAT faces of the tetrahedron mesh, by checking which tetrahedrons
-    have points from more than one object and splitting those according to figure 2 from the main paper.
+    have points from more than one object and splitting those according to figure 2 from
+    the main paper.
 
     args:
         - tetmesh: a tetrahedron mesh of the container and objects
@@ -104,8 +107,9 @@ def compute_cat_faces(
 
 
 def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
-    """Create the faces of a tetrahedron with 2 different objects.
-    This function serves both for the case of 2 and 2 points for object a and b resp., as for 3 and 1 points for object a and b resp.
+    """Create the faces of a tetrahedron with 2 different objects. This function serves
+    both for the case of 2 and 2 points for object a and b resp., as for 3 and 1 points
+    for object a and b resp.
 
     Args:
         - cat_faces: the dictionary of faces for each object
@@ -172,7 +176,6 @@ def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
         - cat_faces: dict of faces for each object
         - occ: list of tuples of the object ids and the number of times they appear in the tetrahedron
         - tet_points: list of points in the tetrahedron
-
     """
     most = [p for p in tet_points if p.obj_id == occ[0][0]]
     least = [p for p in tet_points if (p.obj_id == occ[1][0] or p.obj_id == occ[2][0])]
@@ -306,9 +309,9 @@ def create_faces_4(data: CatData, tet_points: list[TetPoint]):
 
 
 def face_coord_to_points_and_faces(data: CatData, obj_id: int):
-    """Convert a list of triangular only faces represented by points with coordinates
-    to a list of points and a list of faces represented by the number of points and
-    point ids. This function is used to convert the data so that it can be used by the
+    """Convert a list of triangular only faces represented by points with coordinates to
+    a list of points and a list of faces represented by the number of points and point
+    ids. This function is used to convert the data so that it can be used by the
     pyvista.PolyData class.
 
     Note: Currently this function assumes that the indices of the points

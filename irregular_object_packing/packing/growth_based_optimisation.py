@@ -109,8 +109,11 @@ def optimal_local_transform(
     max_t=None,
     padding=0.0,
 ):
-    """Computes the optimal local transform for a given object id. This will return the transformation parameters that
-    maximises scale with respect to a local coordinate system of the object. This is possible due to the `obj_coords`.
+    """Computes the optimal local transform for a given object id.
+
+    This will return the transformation parameters that maximises scale with
+    respect to a local coordinate system of the object. This is possible due to
+    the `obj_coords`.
     """
 
     r_bound = (-max_angle, max_angle)
@@ -137,31 +140,31 @@ def optimal_local_transform(
 @dataclass
 class SimSettings:
     sample_rate: int = 50
-    """The sample rate of the object surface mesh"""
+    """The sample rate of the object surface mesh."""
     max_a: float = 1 / 12 * np.pi
-    """The maximum rotation angle per growth step"""
+    """The maximum rotation angle per growth step."""
     max_t: float = None
-    """The maximum translation per growth step"""
+    """The maximum translation per growth step."""
     init_f: float = 0.1
-    """Final scale"""
+    """Final scale."""
     final_scale: float = 1.0
-    """The initial scale factor"""
+    """The initial scale factor."""
     itn_max: int = 1
-    """The maximum number of iterations per scaling step"""
+    """The maximum number of iterations per scaling step."""
     n_scaling_steps: int = 1
-    """The number of scaling steps"""
+    """The number of scaling steps."""
     r: float = 0.3
-    """The coverage rate"""
+    """The coverage rate."""
     plot_intermediate: bool = False
-    """Whether to plot intermediate results"""
+    """Whether to plot intermediate results."""
     log_lvl: int = -1
-    """The log level maximum level is 3"""
+    """The log level maximum level is 3."""
     decimate: bool = True
-    """Whether to decimate the object mesh"""
+    """Whether to decimate the object mesh."""
     sample_rate_ratio: float = 2.0
-    """The ratio between the sample rate of the object and the container"""
+    """The ratio between the sample rate of the object and the container."""
     padding: float = 0.0
-    """the padding which is added to the inside of the cat cells"""
+    """The padding which is added to the inside of the cat cells."""
 
 
 class Optimizer(OptimizerData):
@@ -370,7 +373,7 @@ class Optimizer(OptimizerData):
     # Optimisation
     # ----------------------------------------------------------------------------------------------
     def iteration(self, scale_bound):
-        """Perform a single iteration of the optimisation"""
+        """Perform a single iteration of the optimisation."""
         # DOWN SAMPLE MESHES
         self.compute_cat_cells()
         self.update_plot()

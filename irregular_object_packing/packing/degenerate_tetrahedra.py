@@ -7,9 +7,8 @@ from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
 
 def count_degenerate_tetrahedra(tetmesh, threshold=1e-5):
-    """
-    Count degenerate tetrahedra in the given tetrahedral mesh by checking the volume of
-    each tetrahedron.
+    """Count degenerate tetrahedra in the given tetrahedral mesh by checking the volume
+    of each tetrahedron.
 
     Parameters:
     -----------
