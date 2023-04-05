@@ -193,7 +193,7 @@ def split_quadrilateral_to_triangles(points):
     return [triangle1, triangle2]
 
 
-def compute_face_normal(points, v_i):
+def compute_face_unit_normal(points, v_i):
     """
      Compute the normal vector of a planar face defined by either 3 or 4 points in 3D space.
 
@@ -225,7 +225,9 @@ def compute_face_normal(points, v_i):
     normal = np.cross(v0, v1)
     if np.dot(normal, v_i - points[0]) < 0:
         normal *= -1
-    return normal
+    unit_normal = normal / np.linalg.norm(normal)
+
+    return unit_normal
 
 
 def print_transform_array(array):

@@ -83,6 +83,13 @@ TEST_CASES = [
         expected_f=1.0,
     ).list,
     NLCTestParams(
+        "normal bounds with padding",
+        t_bounds=(None, None),
+        r_bounds=(-1/12 * np.pi, 1/12 * np.pi),
+        f_bounds=(0, None),
+        padding=0.1,
+    ).list,
+    NLCTestParams(
         "no bounds with padding",
         t_bounds=(None, None),
         r_bounds=(None, None),
@@ -158,9 +165,9 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
             7: np.array([1, 1, 0], dtype=np.float64),
             8: np.array([-1, 1, 0], dtype=np.float64),
             # points to test at the edges of the box but stil scalable
-            9: np.array([0, 0, 1]),
-            10: np.array([0, 1, 0.0]),
-            11: np.array([1, 0.0, 0.0]),
+            9: np.array([0, 0, 0.9]),
+            10: np.array([0, 0.9, 0.0]),
+            11: np.array([0.9, 0.0, 0.0]),
             # points to test at the edges of the box but not scalable
             12: np.array([1, 1, 1]),
             13: np.array([1, 1, 0]),

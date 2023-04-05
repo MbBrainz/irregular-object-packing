@@ -10,7 +10,7 @@ from irregular_object_packing.packing.utils import (
 
 # Define the objective function to be maximized
 def objective(x):
-    f, theta, t = x[0], x[1:4], x[4:]
+    f, _theta, _t = x[0], x[1:4], x[4:]
     return -f  # maximize f
 
 
@@ -106,7 +106,7 @@ def transform_v(v_i, T: np.ndarray):
     """
     transformed_v_i = T @ np.hstack((v_i, 1))  # transform v_i
 
-    # Normalize the resulting homogeneous coordinate vector to get the transformed 3D coordinate
+    # Normalize the resulting homogeneous vector to get the transformed 3D coordinate
     norm_v = transformed_v_i[:-1] / transformed_v_i[-1]
 
     return norm_v
@@ -147,19 +147,23 @@ def local_constraint_for_point_with_padding(
     for _i, (face_p_ids, n_face) in enumerate(faces):
         # translate the points of the faces to the local coordinate system of the object
         face_coords = [np.array(points[p_id]) - obj_coord for p_id in face_p_ids]
-        # # NOTE: Concider changing q_j to just one of the face coords for performance)
-        # q_j = facet_coords[0]
-        q_j = np.mean(face_coords, axis=0)
-        condition = np.dot(transformed_v_i - q_j, n_face) / np.linalg.norm(n_face)
 
+        # NOTE: Any point on the surface of the object can be used as q_j
+        q_j = face_coords[0] # q_j = np.mean(face_coords, axis=0) -> not necessary
+
+        # NOTE: The normal vector has unit length [./utils.py:196], no need to divide
+        condition = np.dot(transformed_v_i - q_j, n_face)
+
+
+        # Return negative value if point is inside surface plus margin,
+        dist = condition - padding
+        constraints.append(dist)
+
+        # NOTE: alternative implementation: (currently allows point inside margin only)
         # MARGIN: Compute distance to surface
         # dist = abs(condition) - padding
         # if dist < 0:
         #     dist = 0
-
-        dist = condition - padding
-        constraints.append(dist)
-        # Return negative value if point is inside surface plus margin,
         # # positive value otherwise
         # if condition < 0:
         #     constraints.append(-dist)
@@ -172,8 +176,9 @@ def local_constraint_for_point_with_padding(
 def local_constraint_for_point(
     v_id, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), padding=0.0
 ):
-    """Compute conditions for a single point relative to the local coordinate system of the object.
-    This is done by translating `v_i` and the points of the facets to the local coordinate system before computing the optimization conditions.
+    """Compute conditions for a single point relative to the local coordinate system of
+    the object. This is done by translating `v_i` and the points of the facets to the
+    local coordinate system before computing the optimization conditions.
 
     Parameters
     ----------
@@ -257,30 +262,16 @@ def local_constraint_multiple_points(
     return constraints
 
 
-def local_constraints_from_dict(
-    tf_arr: list[float],
-    obj_coord: np.ndarray,
-    cat_faces: dict,
-    points: dict,
-    padding=None,
-):
-    """Does the same as local_constraints_from_cat but takes a dictionary instead of a CatData object. NOT USED RN"""
-    # item will be in the form (vi, [facet_j, facet_j+1, ...])
-    v, sets_of_faces = [*zip(*cat_faces.items())]
-    return local_constraint_multiple_points(
-        tf_arr, v, sets_of_faces, points, obj_coord, padding
-    )
-
-
 def local_constraints_from_cat(
     tf_arr: list[float], obj_id: int, cat_data: CatData, padding=0.0
 ):
-    # item will be in the form [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
+    """Compute the conditions for one object"""
+    # item will be in the form
 
+    # [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
     items = cat_data.cat_faces[obj_id].items()
-    # TODO: replace with only keys and then use dict to get faces. NOTE: Not sure if this is the way to go( adds complexity)
 
-    v, sets_of_faces = [*zip(*items)]
+    v, sets_of_faces = [*zip(*items, strict=True)]
     return local_constraint_multiple_points(
         tf_arr,
         v,
@@ -290,7 +281,9 @@ def local_constraints_from_cat(
         padding,
     )
 
-
+# -----------------------------------------------------------------------------
+# Visual Tests
+# -----------------------------------------------------------------------------
 def test_nlcp_facets():
     # Define points
     points = {
@@ -331,7 +324,7 @@ def test_nlcp_facets():
     r_bound = (-1 / 12 * np.pi, 1 / 12 * np.pi)
     t_bound = (0, None)
     bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
-    # constraint_dict = {"type": "ineq", "fun": constraint_multiple_points, "args": (v, [facets, facets, facets])}
+
     constraint_dict = {
         "type": "ineq",
         "fun": local_constraint_multiple_points,
@@ -384,7 +377,7 @@ def test_nlcp_facets():
     colors = ["r", "g", "b"]  # Different colors for each pair
     for i, pair in enumerate(pairs):
         color = colors[i % len(colors)]  # Cycle through the colors
-        ax.plot(*zip(*pair), color=color, marker="o", linestyle="-")
+        ax.plot(*zip(*pair, strict=True), color=color, marker="o", linestyle="-")
 
     # Set the plot limits and labels
     ax.set_xlim(-1, 1)

@@ -92,19 +92,13 @@ def compute_container_violations(p_meshes, container):
 def compute_cat_violations(p_meshes, cat_meshes):
     n, violations, viol_meshes = 0, [], []
 
-    for i, (mesh, cat_mesh) in enumerate(zip(p_meshes, cat_meshes)):
+    for i, (mesh, cat_mesh) in enumerate(zip(p_meshes, cat_meshes, strict=True)):
         violation = compute_boundary_violation(mesh, cat_mesh)
         if violation[1] > 0:
             violations.append(i)
             viol_meshes.append(violation[0])
             n += 1
     return n, violations, viol_meshes
-
-
-## %% [markdown] {"slideshow": {"slide_type": "slide"}}
-# ### NLC optimisation with CAT cells single interation
-# We will now combine the NLC optimisation with the CAT cells to create a single iteration of the optimisation.
-#
 
 
 def optimal_local_transform(
