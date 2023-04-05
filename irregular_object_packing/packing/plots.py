@@ -76,7 +76,6 @@ def plot_full_comparison(
     return plotter
 
 
-# def plot_step_comparison(original_mesh: Trimesh, tf_arrs, cat_cell_mesh_1, cat_cell_mesh_2=None):
 def plot_step_comparison(
     mesh_before,
     mesh_after,
@@ -185,9 +184,10 @@ def create_packed_scene(
     return plotter
 
 
-def generate_gif(optimizer, save_path):
+def generate_gif(optimizer, save_path, title="Optimization"):
     plotter = pv.Plotter(notebook=False, off_screen=True)
     plotter.open_gif(save_path)
+    plotter.add_title(title)
 
     def add_cat_cells(optimizer, plotter, i):
         for cells in optimizer.cat_meshes(i):
@@ -208,7 +208,7 @@ def generate_gif(optimizer, save_path):
 
     camera_position = plotter.camera_position
     camera_position
-    focus_point = camera_position[1]
+    focus_point = [0,0,0]
 
     num_frames = 100
     rotation_step = 360 / num_frames

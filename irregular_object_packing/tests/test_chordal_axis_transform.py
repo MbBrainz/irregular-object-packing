@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import unittest
 
 import numpy as np
@@ -287,18 +288,19 @@ class TestCreateCatFaces(unittest.TestCase):
 
         self.compare_results(self.data, expected_faces)
 
-        # NOTE: This test has been manually checked using debug mode and is correct.
-        #       crazy anoying to test of list of list of arrays contain the same list of arrays
+# NOTE: This test has been manually checked using debug mode and is correct.
+#       crazy anoying to test of list of list of arrays contain the same list of arrays
 
-        # for obj in range(4):
-        #     for p in self.points:
-        #         if computed_faces[obj].get(tuple(p.vertex)):
-        #             compset = set(tuple(face) for face in computed_faces[obj][tuple(p.vertex)])
-        #             expset = set(tuple(face) for face in expected_faces[obj][tuple(p.vertex)])
-        #             assert compset == expset
-        #             # assert computed_faces[obj][tuple(p.vertex)] == expected_faces[obj][tuple(p.vertex)]
+# for obj in range(4):
+#     for p in self.points:
+#         if computed_faces[obj].get(tuple(p.vertex)):
+#             compset = set(tuple(face) for face in computed_faces[obj][tuple(p.vertex)]
+#             expset = set(tuple(face) for face in expected_faces[obj][tuple(p.vertex)])
+#             assert compset == expset
+#             assert computed_faces[obj][tuple(p.vertex)] == \
+#               expected_faces[obj][tuple(p.vertex)]
 
-        # assert_faces_equal(self, computed_faces, expected_faces)
+# assert_faces_equal(self, computed_faces, expected_faces)
 
     def test_create_faces_2_aabb(self):
         self.set_object_ids([0, 0, 1, 1])
@@ -469,7 +471,7 @@ class TestCreateCatFaces(unittest.TestCase):
 
     @unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_faces_with_3_and_4_points(self):
-        [
+        faces = [
             [
                 np.array([1, -1, 1]),
                 np.array([1, 1, 1]),

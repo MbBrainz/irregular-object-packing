@@ -22,6 +22,7 @@ from irregular_object_packing.packing import initialize as init
 from irregular_object_packing.packing import nlc_optimisation as nlc
 from irregular_object_packing.packing.OptimizerData import IterationData, OptimizerData
 from irregular_object_packing.packing.utils import get_max_bounds
+from irregular_object_packing.tools.profile import pprofile
 
 # pv.set_jupyter_backend("panel")
 LOG_LVL_ERROR = 0
@@ -496,11 +497,11 @@ class Optimizer(OptimizerData):
         print_mesh_info(original_mesh, "original mesh")
 
         settings = SimSettings(
-            itn_max=2,
-            n_scaling_steps=2,
+            itn_max=10,
+            n_scaling_steps=5,
             r=0.3,
-            final_scale=10.4,
-            sample_rate=200,
+            final_scale=1.0,
+            sample_rate=400,
             log_lvl=3,
             init_f=0.1,
             padding=1e-3,
@@ -540,18 +541,18 @@ class Optimizer(OptimizerData):
 # # %%
 # for _i in range(1000):
 #     optimizer = Optimizer.simple_shapes_setup()
-#     optimizer.setup()
+#     optimizer.setup()s
 # %%
 
 # # %%
-# # optimizer = Optimizer.simple_shapes_setup()
-# optimizer = Optimizer.default_setup()
-# optimizer.setup()
-# # optimizer.run()
+# optimizer = Optimizer.simple_shapes_setup()
+optimizer = Optimizer.default_setup()
+optimizer.setup()
+optimizer.run()
 
-# # %%
-# save_path = "process_gif_2.gif"
-# plots.generate_gif(optimizer, save_path)
+# %%
+save_path = "process_packing_works.gif"
+plots.generate_gif(optimizer, save_path)
 
 # # %%
 # from importlib import reload
@@ -590,14 +591,14 @@ class Optimizer(OptimizerData):
 # # )
 
 
-# # # %%
-# @pprofile
-# def profile_optimizer():
-#     optimizer.run()
+# # %%
+@pprofile
+def profile_optimizer():
+    optimizer.run()
 
 
-# profile_optimizer()
-# # # %%
+profile_optimizer()
+# # %%
 
 
 # %%

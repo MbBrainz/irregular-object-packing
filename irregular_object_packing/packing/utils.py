@@ -27,7 +27,7 @@ def sort_points_clockwise(points, start, end):
         angles.append(math.atan2(u, t))
 
     sorted_points = [
-        x for _, x in sorted(zip(angles, points), key=lambda pair: pair[0])
+        x for _, x in sorted(zip(angles, points, strict=True), key=lambda pair: pair[0])
     ]
     return sorted_points
 
