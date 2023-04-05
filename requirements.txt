@@ -12,3 +12,5 @@ plotly
 rtree
 networkx
 pandas
+parameterized
+black
