@@ -2,7 +2,7 @@
 
 import numpy as np
 import pyvista as pv
-from sklearn.cluster import KMeans
+from trimesh import Trimesh
 
 
 def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True):
@@ -12,43 +12,7 @@ def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True)
             f" {mesh.bounds} \ncenter of mass: {mesh.center_of_mass()}\n"
         )
 
-
-def resample_pyvista_mesh_kmeans(mesh, target_vertices):
-    # Convert PyVista mesh to NumPy points|
+def pyvista_to_trimesh(mesh: pv.PolyData):
     points = mesh.points
-
-    # Cluster points using KMeans to get the target number of vertices
-    kmeans = KMeans(n_clusters=target_vertices)
-    kmeans.fit(points)
-    new_points = kmeans.cluster_centers_
-
-    # Create a new mesh from the reduced points
-    cloud = pv.PolyData(new_points)
-
-    # Regenerate the surface mesh using Delaunay triangulation
-    new_mesh = cloud.reconstruct_surface()
-
-    # Extract the surface of the 3D triangulation
-    new_mesh = new_mesh.extract_surface()
-
-    # Smooth the mesh
-    new_mesh = new_mesh.smooth(n_iter=10)
-
-    return new_mesh
-
-
-def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
-    # Compute the decimation factor based on the target number of faces
-    num_faces = mesh.n_faces
-    if num_faces < target_faces:
-        raise ValueError("Target number of faces must be less than the number of faces in the mesh.")
-    decimation_factor = 1 - target_faces / num_faces
-
-    # Decimate the mesh using the decimation factor
-    new_mesh = mesh.decimate(decimation_factor, inplace=False)
-
-    print(new_mesh)
-    # Smooth the mesh
-    new_mesh = new_mesh.smooth(n_iter=10)
-
-    return new_mesh
+    faces = mesh.faces.reshape(mesh.n_faces, 4)[:, 1:]
+    return Trimesh(vertices=points, faces=faces)

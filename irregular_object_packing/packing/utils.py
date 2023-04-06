@@ -1,6 +1,6 @@
 # %%
-import itertools
 import math
+from dataclasses import dataclass
 
 import numpy as np
 import pyvista as pv
@@ -169,26 +169,54 @@ def get_max_bounds(bounds):
     x_size, y_size, z_size = [bounds[i + 1] - bounds[i] for i in range(0, 6, 2)]
     return max(x_size, y_size, z_size)
 
+def has_duplicates(points):
+    """
+    Check if the list of points has duplicates.
 
-def split_quadrilateral_to_triangles(points):
-    if len(points) != 4:
+    :param points: A list of points (tuples)
+    :return: True if there are duplicates, False otherwise
+    """
+    unique_points = set(points)
+    return len(unique_points) != len(points)
+
+@dataclass
+class Point:
+    id: int
+    v: np.ndarray
+
+
+
+def split_quadrilateral_to_triangles(point_ids: list[int], vertices: np.ndarray):
+    if len(vertices) != 4 | len(point_ids) != 4:
         raise ValueError("Expected a list of 4 points")
+    for p in vertices:
+        if not isinstance(p, (list, tuple, np.ndarray)):
+            raise ValueError(f"Expected vertex type, but got {p} in {vertices}")
+        if len(p) != 3:
+            raise ValueError(f"Expected a list of 3D points, but got {p} in {vertices}")
+    if has_duplicates(point_ids):
+        raise ValueError(f"The list of points contains duplicates {point_ids}")
+
+    # points = [Point(*p) for p in list(zip(point_ids, vertices, strict=True))]
+    points = sort_vertices_clockwise(vertices, point_ids)
 
     # Compute distances between all pairs of points
     distances = [
-        (p1, p2, distance_squared(p1, p2))
-        for p1, p2 in itertools.combinations(points, 2)
+        (points[0], points[2], distance_squared(points[0][0], points[2][0])),
+        (points[1], points[3], distance_squared(points[1][0], points[3][0])),
     ]
 
+
     # Find the pair of points with the longest distance
-    diagonal = max(distances, key=lambda x: x[2])
+    diagonal  = min(distances, key=lambda x: x[2])
+    diagonal_ids = [diagonal[0][1], diagonal[1][1]]
 
     # Get the two remaining points
-    remaining_points = [p for p in points if p not in diagonal[:2]]
+    remaining_points = [p for p in point_ids if p not in diagonal_ids]
 
     # Form two triangles by connecting the endpoints of the diagonal with the remaining points
-    triangle1 = [diagonal[0], diagonal[1], remaining_points[0]]
-    triangle2 = [diagonal[0], diagonal[1], remaining_points[1]]
+    triangle1 = [diagonal_ids[0], diagonal_ids[1], remaining_points[0]]
+    triangle2 = [diagonal_ids[0], diagonal_ids[1], remaining_points[1]]
 
     return [triangle1, triangle2]
 
@@ -242,3 +270,40 @@ def print_transform_array(array):
 
 # compute_face_normal(np.array([[0, 0, 0], [0, 0, 1], [1, 0, 0]]), [0, 1, 2])
 # %%
+
+
+def center_point(points):
+    return np.mean(points, axis=0)
+
+def plane_normal(points):
+    v1 = np.array(points[1]) - np.array(points[0])
+    v2 = np.array(points[2]) - np.array(points[0])
+    normal = np.cross(v1, v2)
+    return normal / np.linalg.norm(normal)
+
+def angle(v1, v2, normal):
+    cross_product = np.cross(v1, v2)
+    dot_product = np.dot(v1, v2)
+    angle = np.arctan2(np.linalg.norm(cross_product), dot_product)
+
+    if np.dot(normal, cross_product) < 0:
+        angle = 2 * np.pi - angle
+
+    return angle
+def sort_vertices_clockwise(points, point_ids):
+    if len(points) != 4:
+        raise ValueError("Expected a list of 4 points")
+
+    center = center_point(points)
+    normal = plane_normal(points)
+
+    # Compute the reference direction
+    ref_direction = np.array(points[0]) - center
+
+    # Compute the angles between the reference direction and each vertex
+    angles = [angle(ref_direction, np.array(p) - center, normal) for p in points]
+
+    # Sort the vertices based on their angles
+    sorted_points = [(point, point_id) for (_angle, point, point_id) in sorted(zip(angles, points, point_ids, strict=True), key=lambda x: x[0])]
+
+    return sorted_points

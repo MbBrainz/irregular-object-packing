@@ -113,11 +113,11 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
 
     Args:
         - cat_faces: the dictionary of faces for each object
-        - occ: the occurences of each object in the tetrahedron
+        - occ: the occurences of each object in the tetrahedron (sorted on value)
         - tet_points: the points in the tetrahedron
     """
     assert len(occ) == 2
-
+#TODO: add descr
     most = [p for p in tet_points if p.obj_id == occ[0][0]]
     least = [p for p in tet_points if p.obj_id == occ[1][0]]
 

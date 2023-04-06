@@ -3,11 +3,17 @@
 from typing import List
 
 import numpy as np
-import plotly.graph_objs as go
 import trimesh
-from pyvista import PolyData
+from pyvista import PolyData, StructuredGrid
 from scipy.spatial import Voronoi
 
+from irregular_object_packing.mesh.utils import pyvista_to_trimesh
+
+
+def grid_initialisation_within_bounds() -> np.ndarray:
+    """Generates a grid of points within the bounds of the bounding box."""
+
+    pass
 
 def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
     """Generates a random coordinate within the bounds of the bounding box."""
@@ -96,13 +102,6 @@ def init_coordinates(
     return objects_coords, skipped
 
 
-def pyvista_to_trimesh(container):
-    tri_container = container.extract_surface().triangulate()
-    faces_as_array = tri_container.faces.reshape((tri_container.n_faces, 4))[:, 1:]
-    tri_container = trimesh.Trimesh(tri_container.points, faces_as_array)
-    return tri_container
-
-
 def coord_is_correct(
     coord,
     container: trimesh.Trimesh,
@@ -154,42 +153,31 @@ def filter_coords(
             skipped += 1
     return skipped, objects_coords
 
+def generate_sample_points(mesh, grid_spacing, bounds=None):
+    """
+    Generate sample points based on a structured grid within a specific mesh.
 
-# NOT IN USE CURRENTLY
-def dynamic_plot(points: np.ndarray, power_cells: List[np.ndarray]):
-    """Create a dynamic 3D plot of the power cells and the input points."""
-    polygons = []
-    for _i, cell in enumerate(power_cells):
-        polygons.append(
-            go.Mesh3d(
-                x=[x[0] for x in cell],
-                y=[x[1] for x in cell],
-                z=[x[2] for x in cell],
-                #   color=plt.cm.jet(i/len(power_cells)),
-                opacity=0.5,
-            )
-        )
+    :param mesh: A PyVista mesh
+    :param grid_spacing: A tuple (dx, dy, dz) representing the grid spacing in each dimension
+    :param bounds: A tuple (xmin, xmax, ymin, ymax, zmin, zmax) representing the bounds of the grid
+    :return: A PyVista point cloud representing the sample points
+    """
+    if bounds is None:
+        bounds = mesh.bounds
 
-    # Create the input points as a scatter plot
-    if points is not None:
-        scatter = go.Scatter3d(
-            x=points[:, 0],
-            y=points[:, 1],
-            z=points[:, 2],
-            mode="markers",
-            marker={"size": 3, "color": "red"},
-        )
+    xmin, xmax, ymin, ymax, zmin, zmax = bounds
+    dx, dy, dz = grid_spacing
 
-    # Combine the polygons and the scatter plot into a single figure
-    fig = go.Figure(data=polygons + [scatter])
+    # Create the structured grid
+    x = np.arange(xmin, xmax, dx)
+    y = np.arange(ymin, ymax, dy)
+    z = np.arange(zmin, zmax, dz)
+    structured_grid = StructuredGrid(*np.meshgrid(x, y, z, indexing='ij'))
 
-    # Set the axis labels and the title
-    fig.update_layout(
-        scene={"xaxis_title": "X", "yaxis_title": "Y", "zaxis_title": "Z"},
-        title="Power Cells",
-    )
+    # Clip the grid to the mesh
+    sample_points = structured_grid.clip_surface(mesh)
 
-    fig.show()
+    return sample_points
 
 
 # NOT IN USE CURRENTLY
@@ -223,11 +211,6 @@ class PartitionBuilder:
         # # Use a library such as numpy to compute the centroid of the cell
         #     centroid = np.mean(power_cell, axis=0)
         #     centroids.append(centroid)
-
-        # self.seed_points = centroids
-
-    def plot_power_cells(self):
-        dynamic_plot(self.points, self.power_cells)
 
     def run(self):
         for _i in range(100):

@@ -12,11 +12,12 @@ from scipy.optimize import minimize
 from tqdm.auto import tqdm
 
 import irregular_object_packing.packing.plots as plots
+from irregular_object_packing.mesh.sampling import resample_pyvista_mesh
 from irregular_object_packing.mesh.transform import (
     scale_and_center_mesh,
     scale_to_volume,
 )
-from irregular_object_packing.mesh.utils import print_mesh_info, resample_pyvista_mesh
+from irregular_object_packing.mesh.utils import print_mesh_info
 from irregular_object_packing.packing import chordal_axis_transform as cat
 from irregular_object_packing.packing import initialize as init
 from irregular_object_packing.packing import nlc_optimisation as nlc
@@ -32,30 +33,6 @@ LOG_LVL_DEBUG = 3
 LOG_LVL_NO_LOG = -1
 LOG_PREFIX = ["[ERROR]: ", "[WARNING]: ", "[INFO]: ", "[DEBUG]: "]
 
-
-def pyvista_to_trimesh(mesh: PolyData):
-    points = mesh.points
-    faces = mesh.faces.reshape(mesh.n_faces, 4)[:, 1:]
-    return trimesh.Trimesh(vertices=points, faces=faces)
-
-
-def trimesh_to_pyvista(mesh: trimesh.Trimesh):
-    return pv.wrap(mesh)
-
-
-# NOTE: Unfortunately this method produces too many issues i dont know to deal with rn. reconsidering design...  # noqa: E501
-def downsample_mesh(mesh: trimesh.Trimesh, sample_rate: float):
-    nvertices = len(mesh.vertices)
-    if not nvertices > sample_rate:
-        return mesh
-
-    target_reduction = sample_rate / nvertices
-
-    pv_mesh = pv.wrap(mesh)
-    trimesh = pyvista_to_trimesh(
-        pv_mesh.decimate(target_reduction).clean().triangulate().extract_geometry()
-    )
-    return trimesh
 
 
 violations, viol_meshes, n = [], [], 0
@@ -162,7 +139,7 @@ class SimSettings:
     """The log level maximum level is 3."""
     decimate: bool = True
     """Whether to decimate the object mesh."""
-    sample_rate_ratio: float = 2.0
+    sample_rate_ratio: float = 1.0
     """The ratio between the sample rate of the object and the container."""
     padding: float = 0.0
     """The padding which is added to the inside of the cat cells."""
@@ -206,13 +183,13 @@ class Optimizer(OptimizerData):
     # SETUP functions
     # ----------------------------------------------------------------------------------------------
     def setup(self):
-        self.resample_meshes()
         self.object_coords, skipped = init.init_coordinates(
             container=self.container,
             mesh=self.shape,
             coverage_rate=self.settings.r,
             f_init=self.settings.init_f,
         )
+        self.resample_meshes()
         self.log(
             f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG
         )
@@ -289,17 +266,14 @@ class Optimizer(OptimizerData):
         return self.settings.sample_rate  # currently simple
 
     def container_sample_rate(self):
-        return self.settings.sample_rate * self.settings.sample_rate_ratio
+        return self.settings.sample_rate * self.settings.sample_rate_ratio * self.n_objs
 
     def resample_meshes(self):
         self.log("resampling meshes", LOG_LVL_DEBUG)
-        try:
-            self.container = resample_pyvista_mesh(
-                self.container0, self.container_sample_rate()
-            )
-            self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
-        except ValueError:
-            self.log("Could not resample meshes", LOG_LVL_WARNING)
+        self.container = resample_pyvista_mesh(
+            self.container0, self.container_sample_rate()
+        )
+        self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
 
     @property
     def n_objs(self):
@@ -485,7 +459,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.4
+        mesh_volume = 0.1
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -497,14 +471,15 @@ class Optimizer(OptimizerData):
         print_mesh_info(original_mesh, "original mesh")
 
         settings = SimSettings(
-            itn_max=10,
-            n_scaling_steps=5,
+            itn_max=3,
+            n_scaling_steps=9,
             r=0.3,
             final_scale=1.0,
-            sample_rate=400,
-            log_lvl=3,
+            sample_rate=200,
+            log_lvl=2,
             init_f=0.1,
-            padding=1e-3,
+            padding=5e-4,
+            sample_rate_ratio=0.1,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -548,13 +523,14 @@ class Optimizer(OptimizerData):
 # optimizer = Optimizer.simple_shapes_setup()
 optimizer = Optimizer.default_setup()
 optimizer.setup()
+# %%
 optimizer.run()
 
 # %%
-save_path = "process_packing_works.gif"
+save_path = "process_packing_works3.gif"
 plots.generate_gif(optimizer, save_path)
 
-# # %%
+    # %%
 # from importlib import reload
 
 # iteration = 3
