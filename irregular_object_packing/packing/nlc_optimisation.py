@@ -357,7 +357,7 @@ def test_nlcp_facets():
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
+    ax = fig.add_subplot(111)
 
     # Plot the faces with opacity = 0.5
     for face in facets:

@@ -459,7 +459,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.1
+        mesh_volume = 0.4
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -472,7 +472,7 @@ class Optimizer(OptimizerData):
 
         settings = SimSettings(
             itn_max=3,
-            n_scaling_steps=9,
+            n_scaling_steps=5,
             r=0.3,
             final_scale=1.0,
             sample_rate=200,

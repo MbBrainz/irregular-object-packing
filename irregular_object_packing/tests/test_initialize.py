@@ -11,6 +11,7 @@ from irregular_object_packing.mesh.transform import (
 from irregular_object_packing.packing.initialize import (
     coord_is_correct,
     get_max_radius,
+    grid_initialisation,
     init_coordinates,
     pyvista_to_trimesh,
     random_coordinate_within_bounds,
@@ -21,7 +22,7 @@ class TestInitialize(unittest.TestCase):
     def setUp(self) -> None:
         sphere = pv.Sphere(radius=1)
         box = pv.Box(bounds=[-1, 1, -1, 1, -1, 1])
-        cylinder = pv.Cylinder(radius=1, height=2).clean()
+        cylinder = pv.PolyData(pv.Cylinder(radius=1, height=2)).clean()
 
         self.containers = [sphere, box, cylinder]
         self.tri_containers = [pyvista_to_trimesh(c) for c in self.containers]
@@ -140,6 +141,17 @@ class TestInitialize(unittest.TestCase):
             all(not_too_close_list),
             msg=f"not all coords are far enough apart ({descr})",
         )
+
+    def test_grid_initialisation(self):
+        container_volume = 10
+        mesh_volume = 0.1
+
+        self.prepare_scale(mesh_volume, container_volume)
+        for container, shape in zip(self.containers, self.shapes, strict=True):
+            coords = grid_initialisation(container, shape, 0.3, 0.1)
+
+            self.assertAlmostEqual(len(coords) * shape.volume, container.volume * 0.3, places=3)
+
 
     def test_get_max_radius(self):
         mesh = pv.Sphere(radius=1)

@@ -186,37 +186,37 @@ class Point:
 
 
 
-def split_quadrilateral_to_triangles(point_ids: list[int], vertices: np.ndarray):
-    if len(vertices) != 4 | len(point_ids) != 4:
+def split_quadrilateral_to_triangles(points: list[int], vertices: np.ndarray):
+    if len(vertices) != 4 | len(points) != 4:
         raise ValueError("Expected a list of 4 points")
     for p in vertices:
         if not isinstance(p, (list, tuple, np.ndarray)):
             raise ValueError(f"Expected vertex type, but got {p} in {vertices}")
         if len(p) != 3:
             raise ValueError(f"Expected a list of 3D points, but got {p} in {vertices}")
-    if has_duplicates(point_ids):
-        raise ValueError(f"The list of points contains duplicates {point_ids}")
+    if has_duplicates(points):
+        raise ValueError(f"The list of points contains duplicates {points}")
 
     # points = [Point(*p) for p in list(zip(point_ids, vertices, strict=True))]
-    points = sort_vertices_clockwise(vertices, point_ids)
+    # points = sort_vertices_clockwise(vertices, points)
 
     # Compute distances between all pairs of points
     distances = [
-        (points[0], points[2], distance_squared(points[0][0], points[2][0])),
-        (points[1], points[3], distance_squared(points[1][0], points[3][0])),
+        (points[0], points[2], distance_squared(vertices[0], vertices[2])),
+        (points[1], points[3], distance_squared(vertices[1], vertices[3])),
     ]
 
 
     # Find the pair of points with the longest distance
-    diagonal  = min(distances, key=lambda x: x[2])
-    diagonal_ids = [diagonal[0][1], diagonal[1][1]]
+    diagonal = min(distances, key=lambda x: x[2])
+    diagonal = (diagonal[0], diagonal[1])
 
     # Get the two remaining points
-    remaining_points = [p for p in point_ids if p not in diagonal_ids]
+    remaining_points = [p for p in points if p not in diagonal]
 
     # Form two triangles by connecting the endpoints of the diagonal with the remaining points
-    triangle1 = [diagonal_ids[0], diagonal_ids[1], remaining_points[0]]
-    triangle2 = [diagonal_ids[0], diagonal_ids[1], remaining_points[1]]
+    triangle1 = [diagonal[0], diagonal[1], remaining_points[0]]
+    triangle2 = [diagonal[0], diagonal[1], remaining_points[1]]
 
     return [triangle1, triangle2]
 

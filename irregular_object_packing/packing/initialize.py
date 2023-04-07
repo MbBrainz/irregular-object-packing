@@ -5,15 +5,11 @@ from typing import List
 import numpy as np
 import trimesh
 from pyvista import PolyData, StructuredGrid
+from scipy.optimize import minimize
 from scipy.spatial import Voronoi
 
 from irregular_object_packing.mesh.utils import pyvista_to_trimesh
 
-
-def grid_initialisation_within_bounds() -> np.ndarray:
-    """Generates a grid of points within the bounds of the bounding box."""
-
-    pass
 
 def random_coordinate_within_bounds(bounding_box: np.ndarray) -> np.ndarray:
     """Generates a random coordinate within the bounds of the bounding box."""
@@ -99,7 +95,7 @@ def init_coordinates(
         else:
             skipped += 1
 
-    return objects_coords, skipped
+    return objects_coords, skipped # type: ignore
 
 
 def coord_is_correct(
@@ -115,7 +111,7 @@ def coord_is_correct(
             for i in object_coords
         ]
         # positive for inside mesh, negative for outside
-        distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]
+        distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0] # type: ignore
         distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
         if np.alltrue(distance_arr):
@@ -153,7 +149,7 @@ def filter_coords(
             skipped += 1
     return skipped, objects_coords
 
-def generate_sample_points(mesh, grid_spacing, bounds=None):
+def generate_sample_points(mesh: PolyData, container: PolyData, grid_spacing: float, min_distance: float, bounds=None) -> np.ndarray:
     """
     Generate sample points based on a structured grid within a specific mesh.
 
@@ -163,10 +159,10 @@ def generate_sample_points(mesh, grid_spacing, bounds=None):
     :return: A PyVista point cloud representing the sample points
     """
     if bounds is None:
-        bounds = mesh.bounds
+        bounds = container.bounds
 
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    dx, dy, dz = grid_spacing
+    xmin, xmax, ymin, ymax, zmin, zmax = np.array(bounds).flatten()
+    dx, dy, dz = (grid_spacing, grid_spacing, grid_spacing)
 
     # Create the structured grid
     x = np.arange(xmin, xmax, dx)
@@ -175,9 +171,69 @@ def generate_sample_points(mesh, grid_spacing, bounds=None):
     structured_grid = StructuredGrid(*np.meshgrid(x, y, z, indexing='ij'))
 
     # Clip the grid to the mesh
-    sample_points = structured_grid.clip_surface(mesh)
+    sample_points: PolyData = structured_grid.clip_surface(container)
+    points = []
+    for p in sample_points.points: # type: ignore
+        if trimesh.proximity.signed_distance(pyvista_to_trimesh(container), [p])[0] > min_distance / 2: # type: ignore
+            points.append(p)
 
-    return sample_points
+    return np.array(points)
+
+def estimate_grid_spacing(volume, num_grid_points):
+    if volume <= 0 or num_grid_points <= 0:
+        raise ValueError("Volume and number of grid points must be positive")
+
+    # Calculate the volume per grid point
+    volume_per_point = volume / num_grid_points
+
+    # Take the cube root of the volume per grid point
+    cube_root = np.cbrt(volume_per_point)
+
+    # Calculate the grid dimensions
+    return cube_root
+
+def objective_function(spacing, target_volume, min_distance, mesh, container):
+    grid_points = generate_sample_points(mesh, container, spacing, min_distance)
+    objective = np.abs(len(grid_points) * mesh.volume - target_volume)
+    return -objective
+
+def find_optimal_grid_spacing( mesh: PolyData, container: PolyData, coverage_rate:float, min_distance:float) -> float:
+    target_volume = container.volume * coverage_rate
+    n_objects = np.ceil(target_volume / mesh.volume)
+    spacing0 = estimate_grid_spacing(container.volume, n_objects)
+    # spacing0 = 0.5
+    # pyvista_to_trimesh(container)
+
+    res = minimize(
+        objective_function,
+        spacing0,
+        args=(target_volume, min_distance, mesh, container),
+        bounds=[(1e-6, None)],  # Avoid zero spacing
+        method='SLSQP',
+        options={
+            'ftol': 1e-6,  # Function value tolerance
+            'maxiter': 1000,  # Maximum number of iterations
+        },
+    )
+    if res.success:
+        return res.x
+    else:
+        raise RuntimeError(f"Could not find optimal grid spacing due to {res.message}")
+
+
+def grid_initialisation(
+    container: PolyData,
+    mesh: PolyData,
+    coverage_rate: float = 0.3,
+    f_init: float = 0.1,
+    ) -> np.ndarray:
+    """Generates a grid of points within the bounds of the bounding box."""
+    # Init
+    max_dim_mesh = get_max_radius(mesh) * 2
+    min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
+    grid_dimensions = find_optimal_grid_spacing(mesh, container, coverage_rate, min_distance_between_meshes)
+    grid_points = generate_sample_points(mesh, container, grid_dimensions, min_distance_between_meshes)
+    return grid_points
 
 
 # NOT IN USE CURRENTLY
@@ -185,7 +241,7 @@ class PartitionBuilder:
     vor: Voronoi
     container: PolyData
     points: np.ndarray
-    seed_points: np.ndarray = []
+    seed_points: np.ndarray = np.empty((0))
     threshold: float = 0.01
     power_cells: List[np.ndarray] = []
 
@@ -215,3 +271,5 @@ class PartitionBuilder:
     def run(self):
         for _i in range(100):
             self.power_cell_step()
+
+# %%

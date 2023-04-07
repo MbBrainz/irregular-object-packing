@@ -12,7 +12,9 @@ def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True)
             f" {mesh.bounds} \ncenter of mass: {mesh.center_of_mass()}\n"
         )
 
+
 def pyvista_to_trimesh(mesh: pv.PolyData):
-    points = mesh.points
-    faces = mesh.faces.reshape(mesh.n_faces, 4)[:, 1:]
-    return Trimesh(vertices=points, faces=faces)
+    tri_container = mesh.extract_surface().triangulate() # type: ignore
+    faces_as_array = tri_container.faces.reshape((tri_container.n_faces, 4))[:, 1:] # type: ignore
+    tri_container = Trimesh(tri_container.points, faces_as_array) # type: ignore
+    return tri_container

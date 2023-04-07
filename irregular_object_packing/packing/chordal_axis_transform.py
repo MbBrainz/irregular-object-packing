@@ -131,8 +131,8 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
         n_mface = compute_face_unit_normal(data.get_face(face), most[0].vertex)
         # n_mface = n_mface * -1
         n_lface = n_mface * -1
-        face_0, face_1 = split_quadrilateral_to_triangles(face)
-        # faces = [[ab_point, ac_point, cd_point], [cd_point, bd_point, ab_point]]
+        face_0, face_1 = split_quadrilateral_to_triangles(face, data.get_face(face))
+        face_0, face_1 = [[ab_point, ac_point, cd_point], [cd_point, bd_point, ab_point]]
         m_faces = [(face_0, n_mface), (face_1, n_mface)]
         l_faces = [(face_0, n_lface), (face_1, n_lface)]
 
@@ -200,8 +200,10 @@ def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
         data.get_face(most_face_c), most[0].vertex
     )  # can be both most[0] and most[1]
     n_mfd = compute_face_unit_normal(data.get_face(most_face_d), most[0].vertex)
-    mfc_1, mfc_2 = split_quadrilateral_to_triangles(most_face_c)
-    mfd_1, mfd_2 = split_quadrilateral_to_triangles(most_face_d)
+    mfc_1, mfc_2 = split_quadrilateral_to_triangles(most_face_c, data.get_face(most_face_c))
+    # mfc_1, mfc_2 = [acd_point, ac_point, bcd_point], [bcd_point, bc_point, acd_point]
+    mfd_1, mfd_2 = split_quadrilateral_to_triangles(most_face_d, data.get_face(most_face_d))
+    # mfd_1, mfd_2 = [acd_point, ad_point, bcd_point], [bcd_point, bd_point, acd_point]
     most_faces = [(mfc_1, n_mfc), (mfc_2, n_mfc), (mfd_1, n_mfd), (mfd_2, n_mfd)]
 
     l_face = [cd_point, acd_point, bcd_point]
