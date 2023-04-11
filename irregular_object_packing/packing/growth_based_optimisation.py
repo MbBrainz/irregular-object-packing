@@ -1,5 +1,6 @@
 # %%
 from dataclasses import dataclass
+from importlib import reload
 from itertools import combinations
 from time import sleep
 
@@ -12,7 +13,11 @@ from scipy.optimize import minimize
 from tqdm.auto import tqdm
 
 import irregular_object_packing.packing.plots as plots
-from irregular_object_packing.mesh.sampling import resample_pyvista_mesh
+from irregular_object_packing.mesh.sampling import (
+    mesh_simplification_condition,
+    resample_mesh_by_triangle_area,
+    resample_pyvista_mesh,
+)
 from irregular_object_packing.mesh.transform import (
     scale_and_center_mesh,
     scale_to_volume,
@@ -21,7 +26,7 @@ from irregular_object_packing.mesh.utils import print_mesh_info
 from irregular_object_packing.packing import chordal_axis_transform as cat
 from irregular_object_packing.packing import initialize as init
 from irregular_object_packing.packing import nlc_optimisation as nlc
-from irregular_object_packing.packing.OptimizerData import IterationData, OptimizerData
+from irregular_object_packing.packing.optimizer_data import IterationData, OptimizerData
 from irregular_object_packing.packing.utils import get_max_bounds
 from irregular_object_packing.tools.profile import pprofile
 
@@ -32,7 +37,6 @@ LOG_LVL_INFO = 2
 LOG_LVL_DEBUG = 3
 LOG_LVL_NO_LOG = -1
 LOG_PREFIX = ["[ERROR]: ", "[WARNING]: ", "[INFO]: ", "[DEBUG]: "]
-
 
 
 violations, viol_meshes, n = [], [], 0
@@ -143,6 +147,7 @@ class SimSettings:
     """The ratio between the sample rate of the object and the container."""
     padding: float = 0.0
     """The padding which is added to the inside of the cat cells."""
+    dynamic_simplification: bool = False
 
 
 class Optimizer(OptimizerData):
@@ -189,7 +194,7 @@ class Optimizer(OptimizerData):
             coverage_rate=self.settings.r,
             f_init=self.settings.init_f,
         )
-        self.resample_meshes()
+        # self.resample_meshes(self.settings.init_f)
         self.log(
             f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG
         )
@@ -262,18 +267,25 @@ class Optimizer(OptimizerData):
         )
         return df
 
-    def mesh_sample_rate(self, k=0):
+    def sample_rate_mesh(self, scale_factor):
+        if self.settings.dynamic_simplification:
+            return mesh_simplification_condition(scale_factor, 0.05, 0.5) * self.shape0.n_faces
         return self.settings.sample_rate  # currently simple
 
-    def container_sample_rate(self):
-        return self.settings.sample_rate * self.settings.sample_rate_ratio * self.n_objs
+    # def container_sample_rate(self, scale_factor):
+    #     return self.sample_rate_mesh(scale_factor) * self.n_objs
 
-    def resample_meshes(self):
+    def resample_meshes(self, scale_factor):
         self.log("resampling meshes", LOG_LVL_DEBUG)
-        self.container = resample_pyvista_mesh(
-            self.container0, self.container_sample_rate()
-        )
-        self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
+
+        # self.container = resample_pyvista_mesh(
+        #     self.container0, container_sample_rate
+        # )
+        mesh_sample_rate = self.sample_rate_mesh(scale_factor)
+        self.shape = resample_pyvista_mesh(self.shape0, mesh_sample_rate)
+        self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
+        self.log(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]", LOG_LVL_INFO)
+        self.log(f"mesh: n_faces: {mesh_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
 
     @property
     def n_objs(self):
@@ -317,12 +329,13 @@ class Optimizer(OptimizerData):
         self.setup_pbars()
 
         for i_b in range(0, self.settings.n_scaling_steps):
+            self.resample_meshes(self.scaling_barrier_list[i_b])
             self.log(f"Starting scaling step {i_b}")
             self.pbar1.set_postfix(ƒ_max=f"{self.scaling_barrier_list[i_b]:.2f}")
             self.pbar2.reset()
 
             for i in range(self.settings.itn_max):
-                self.log(f"Starting iteration {i}")
+                self.log(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
                 self.pbar3.reset()
                 self.iteration(self.scaling_barrier_list[i_b])
 
@@ -330,18 +343,9 @@ class Optimizer(OptimizerData):
                 self.update_data(i_b, i)
                 self.check_validity()
                 self.pbar2.update()
-
-                if np.alltrue(
-                    [arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrs]
-                ):
-                    self.log(
-                        (
-                            "All objects have reached the scaling barrier"
-                            f" {self.scaling_barrier_list[i_b]}"
-                        ),
-                        LOG_LVL_INFO,
-                    )
+                if self.terminate_step(i_b):
                     break
+
             self.pbar1.update()
 
     # ----------------------------------------------------------------------------------------------
@@ -366,7 +370,8 @@ class Optimizer(OptimizerData):
             self.cat_data,
             scale_bound=(self.settings.init_f, None),
             max_angle=self.settings.max_a,
-            max_t=self.settings.max_t,
+            # limit the maximum translation to the radius of the scaled object
+            max_t=self.settings.max_t * max_scale,
             padding=self.padding,
         )
 
@@ -395,6 +400,21 @@ class Optimizer(OptimizerData):
         self.cat_data = cat.compute_cat_cells(
             obj_points, self.container.points, self.object_coords
         )
+        print("CAT cells computed")
+
+    def terminate_step(self, i_b):
+        are_scaled = [arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrs]
+        count = 0
+        for i in range(self.n_objs):
+            if are_scaled[i]:
+                count += 1
+                self.log(f"Object {i} has reached the scaling barrier", LOG_LVL_DEBUG)
+
+        self.log(f"{count}/{self.n_objs} objects have reached the scaling barrier", LOG_LVL_INFO)
+        print(self.report())
+        if count == self.n_objs:
+            return True
+        return False
 
     # ----------------------------------------------------------------------------------------------
     # VALIDITY CHECKS
@@ -441,7 +461,7 @@ class Optimizer(OptimizerData):
 
         if n > 0:
             self.log(
-                f"! cat boundary violation for objects {violations}", LOG_LVL_ERROR
+                f"! cat boundary violation for objects {violations}", LOG_LVL_WARNING
             )
             self.add_meshes_to_plot(meshes)
 
@@ -471,15 +491,17 @@ class Optimizer(OptimizerData):
         print_mesh_info(original_mesh, "original mesh")
 
         settings = SimSettings(
-            itn_max=3,
-            n_scaling_steps=5,
+            itn_max=100,
+            n_scaling_steps=11,
             r=0.3,
-            final_scale=1.0,
-            sample_rate=200,
+            final_scale=0.8,
+            sample_rate=600,
             log_lvl=2,
             init_f=0.1,
-            padding=5e-4,
-            sample_rate_ratio=0.1,
+            max_t=0.4**(1 / 3),
+            padding=1e-3,
+            sample_rate_ratio=2,
+            dynamic_simplification=True,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -502,7 +524,7 @@ class Optimizer(OptimizerData):
             n_scaling_steps=3,
             r=0.3,
             final_scale=0.5,
-            sample_rate=200,
+            sample_rate=600,
             log_lvl=LOG_LVL_ERROR,
             init_f=0.1,
             sample_rate_ratio=1,
@@ -527,14 +549,28 @@ optimizer.setup()
 optimizer.run()
 
 # %%
-save_path = "process_packing_works3.gif"
+
+reload(plots)
+save_path = "process_packing_works5.gif"
 plots.generate_gif(optimizer, save_path)
 
-    # %%
-# from importlib import reload
+# %%
 
+
+def plot_step(optimizer, step):
+    plotter = pv.Plotter()
+    for cat_cell in optimizer.cat_meshes(step):
+        plotter.add_mesh(cat_cell, opacity=0.6, color="yellow")
+
+    for obj in optimizer.meshes_after(step, optimizer.shape):
+        plotter.add_mesh(obj, opacity=0.8, color="red")
+    plotter.add_mesh(optimizer.container, opacity=0.4)
+
+    plotter.show()
+
+
+plot_step(optimizer, 28)
 # iteration = 3
-# reload(plots)
 # # enumerate
 # plotter = plots.plot_full_comparison(
 #     optimizer.meshes_before(iteration, optimizer.shape),
@@ -549,25 +585,15 @@ plots.generate_gif(optimizer, save_path)
 
 
 # %%
-# plotter = pv.Plotter()
-# pc = PolyData(optimizer.object_coords)
-# plotter.add_mesh(pc, color="red", point_size=10)
-# for obj in optimizer.final_meshes_after(optimizer.shape):
-#     plotter.add_mesh(obj, opacity=0.8)
-
-# print(optimizer.report())
-# plotter.add_mesh(optimizer.container, opacity=0.5)
-# plotter.show_grid()
-# plotter.show()
-# # obj_i = 0
-# # plots.plot_step_comparison(
-# #     optimizer.mesh_before(0, obj_i, optimizer.shape),
-# #     optimizer.mesh_after(0, obj_i, optimizer.shape),
-# #     optimizer.cat_mesh(0, obj_i),
-# # )
+obj_i = 0
+plots.plot_step_comparison(
+    optimizer.mesh_before(0, obj_i, optimizer.shape),
+    optimizer.mesh_after(0, obj_i, optimizer.shape),
+    optimizer.cat_mesh(0, obj_i),
+)
 
 
-# # %%
+# %%
 @pprofile
 def profile_optimizer():
     optimizer.run()

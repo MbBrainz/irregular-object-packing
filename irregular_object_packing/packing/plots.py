@@ -47,7 +47,7 @@ def plot_full_comparison(
     title_right="Improved Placement",
 ):
     if plotter is None:
-        plotter = pv.Plotter( shape="1|1")
+        plotter = pv.Plotter(shape="1|1")
 
     colors = generate_tinted_colors(len(meshes_before))
     plotter.subplot(0)
@@ -195,20 +195,26 @@ def generate_gif(optimizer, save_path, title="Optimization"):
 
     for i in range(0, optimizer.idx):
         plotter.clear()
+        plotter.add_text(f"step {i}", position="upper_right")
+        plotter.add_text(optimizer.status(i).table_str, position="upper_left")
         for j in optimizer.meshes_before(i, optimizer.shape):
             plotter.add_mesh(j, opacity=0.5, color="red")
         add_cat_cells(optimizer, plotter, i)
+        plotter.add_mesh(optimizer.container0, color="white", opacity=0.3)
         plotter.write_frame()
         plotter.clear()
 
+        plotter.add_text(f"step {i}", position="upper_right")
+        plotter.add_text(optimizer.status(i).table_str, position="upper_left")
         add_cat_cells(optimizer, plotter, i)
+        plotter.add_mesh(optimizer.container0, color="white", opacity=0.3)
         for j in optimizer.meshes_after(i, optimizer.shape):
             plotter.add_mesh(j, opacity=0.5, color="red")
         plotter.write_frame()
 
     camera_position = plotter.camera_position
     camera_position
-    focus_point = [0,0,0]
+    focus_point = [0, 0, 0]
 
     num_frames = 100
     rotation_step = 360 / num_frames

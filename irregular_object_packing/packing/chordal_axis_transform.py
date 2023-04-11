@@ -38,6 +38,8 @@ def compute_cat_cells(
     Returns:
         - dictionary of the CAT cells for each object.
     """
+    assert len(object_points_list) != 0, "No objects to pack"
+
     pc = pv.PolyData(np.concatenate((object_points_list + [container_points])))
     tetmesh = pc.delaunay_3d()
 
@@ -69,6 +71,8 @@ def compute_cat_faces(
 
     # FOR EACH TETRAHEDRON
     for cell in range(tetmesh.n_cells):
+        if tetmesh.cell_points(cell).shape[0] != 4:
+            continue  # skip non-tetrahedrons
         occ = {}
         tet_points: list[TetPoint] = []
 
@@ -117,7 +121,7 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
         - tet_points: the points in the tetrahedron
     """
     assert len(occ) == 2
-#TODO: add descr
+# TODO: add descr
     most = [p for p in tet_points if p.obj_id == occ[0][0]]
     least = [p for p in tet_points if p.obj_id == occ[1][0]]
 
@@ -131,10 +135,12 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
         n_mface = compute_face_unit_normal(data.get_face(face), most[0].vertex)
         # n_mface = n_mface * -1
         n_lface = n_mface * -1
-        face_0, face_1 = split_quadrilateral_to_triangles(face, data.get_face(face))
-        face_0, face_1 = [[ab_point, ac_point, cd_point], [cd_point, bd_point, ab_point]]
-        m_faces = [(face_0, n_mface), (face_1, n_mface)]
-        l_faces = [(face_0, n_lface), (face_1, n_lface)]
+        # face_0, face_1 = split_quadrilateral_to_triangles(face, data.get_face(face))
+        # face_0, face_1 = [[ab_point, ac_point, cd_point], [cd_point, bd_point, ab_point]]
+        # m_faces = [(face_0, n_mface), (face_1, n_mface)]
+        m_faces = [(face, n_mface)]
+        # l_faces = [(face_0, n_lface), (face_1, n_lface)]
+        l_faces = [(face, n_lface)]
 
         data.add_cat_faces_to_cell(most[0].obj_id, m_faces)
         data.add_cat_faces_to_point(most[0], m_faces)
@@ -204,13 +210,16 @@ def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
     # mfc_1, mfc_2 = [acd_point, ac_point, bcd_point], [bcd_point, bc_point, acd_point]
     mfd_1, mfd_2 = split_quadrilateral_to_triangles(most_face_d, data.get_face(most_face_d))
     # mfd_1, mfd_2 = [acd_point, ad_point, bcd_point], [bcd_point, bd_point, acd_point]
-    most_faces = [(mfc_1, n_mfc), (mfc_2, n_mfc), (mfd_1, n_mfd), (mfd_2, n_mfd)]
+    # most_faces = [(mfc_1, n_mfc), (mfc_2, n_mfc), (mfd_1, n_mfd), (mfd_2, n_mfd)]
+    most_faces = [(most_face_c, n_mfc), (most_face_d, n_mfd)]
 
     l_face = [cd_point, acd_point, bcd_point]
     n_l0_face = compute_face_unit_normal(data.get_face(l_face), least[0].vertex)
     n_l1_face = n_l0_face * -1
-    l0_faces = [(l_face, n_l0_face), (mfc_1, n_mfc * -1), (mfc_2, n_mfc * -1)]
-    l1_faces = [(l_face, n_l1_face), (mfd_1, n_mfd * -1), (mfd_2, n_mfd * -1)]
+    # l0_faces = [(l_face, n_l0_face), (mfc_1, n_mfc * -1), (mfc_2, n_mfc * -1)]
+    l0_faces = [(l_face, n_l0_face), (most_face_c, n_mfc * -1)]
+    # l1_faces = [(l_face, n_l1_face), (mfd_1, n_mfd * -1), (mfd_2, n_mfd * -1)]
+    l1_faces = [(l_face, n_l1_face), (most_face_d, n_mfd * -1)]
 
     # Add faces to cells and to BOTH the points of max
     data.add_cat_faces_to_cell(most[0].obj_id, most_faces)
@@ -325,7 +334,7 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
     n_entries = 0
     for face, _n_face in cat_faces:
         len_face = len(face)
-        assert len_face == 3, f"len_face: {len_face}"
+        # assert len_face == 3, f"len_face: {len_face}"
         if len_face == 3:
             n_entries += 4
         if len_face == 4:
@@ -343,8 +352,8 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
         face_len = len(face)
         new_face = np.zeros(face_len)
         for i in range(len(face)):
-            if face_len != 3:
-                raise NotImplementedError("Only triangular faces are supported")
+            # if face_len != 3:
+            #     raise NotImplementedError("Only triangular faces are supported")
 
             if face[i] not in points.keys():
                 points[data.point(face[i])] = counter
@@ -371,7 +380,6 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
             poly_faces[idx + 3] = new_face[2]
             poly_faces[idx + 4] = new_face[3]
             idx += 5
-
 
     return cat_points, poly_faces
 
