@@ -1,6 +1,5 @@
 # %%
 import math
-from dataclasses import dataclass
 
 import numpy as np
 import pyvista as pv
@@ -169,6 +168,7 @@ def get_max_bounds(bounds):
     x_size, y_size, z_size = [bounds[i + 1] - bounds[i] for i in range(0, 6, 2)]
     return max(x_size, y_size, z_size)
 
+
 def has_duplicates(points):
     """
     Check if the list of points has duplicates.
@@ -178,12 +178,6 @@ def has_duplicates(points):
     """
     unique_points = set(points)
     return len(unique_points) != len(points)
-
-@dataclass
-class Point:
-    id: int
-    v: np.ndarray
-
 
 
 def split_quadrilateral_to_triangles(points: list[int], vertices: np.ndarray):
@@ -205,7 +199,6 @@ def split_quadrilateral_to_triangles(points: list[int], vertices: np.ndarray):
         (points[0], points[2], distance_squared(vertices[0], vertices[2])),
         (points[1], points[3], distance_squared(vertices[1], vertices[3])),
     ]
-
 
     # Find the pair of points with the longest distance
     diagonal = min(distances, key=lambda x: x[2])
@@ -275,11 +268,13 @@ def print_transform_array(array):
 def center_point(points):
     return np.mean(points, axis=0)
 
+
 def plane_normal(points):
     v1 = np.array(points[1]) - np.array(points[0])
     v2 = np.array(points[2]) - np.array(points[0])
     normal = np.cross(v1, v2)
     return normal / np.linalg.norm(normal)
+
 
 def angle(v1, v2, normal):
     cross_product = np.cross(v1, v2)
@@ -290,6 +285,8 @@ def angle(v1, v2, normal):
         angle = 2 * np.pi - angle
 
     return angle
+
+
 def sort_vertices_clockwise(points, point_ids):
     if len(points) != 4:
         raise ValueError("Expected a list of 4 points")

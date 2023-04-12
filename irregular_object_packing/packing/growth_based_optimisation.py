@@ -2,8 +2,9 @@
 from dataclasses import dataclass
 from importlib import reload
 from itertools import combinations
-from time import sleep
+from time import sleep, time
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyvista as pv
@@ -99,7 +100,7 @@ def optimal_local_transform(
     """
 
     r_bound = (-max_angle, max_angle)
-    t_bound = (0, max_t)
+    t_bound = (-max_t, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
     x0 = np.array([scale_bound[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
@@ -148,15 +149,13 @@ class SimSettings:
     padding: float = 0.0
     """The padding which is added to the inside of the cat cells."""
     dynamic_simplification: bool = False
+    """Whether to use dynamic simplification."""
+    alpha: float = 0.05
+    beta: float = 0.1
 
 
 class Optimizer(OptimizerData):
-    shape0: PolyData
-    shape: PolyData
-    container0: PolyData
-    container: PolyData
     settings: SimSettings
-    cat_data: cat.CatData
     tf_arrs: np.ndarray[np.ndarray]
     object_coords: np.ndarray
     prev_tf_arrs: np.ndarray[np.ndarray]
@@ -174,7 +173,6 @@ class Optimizer(OptimizerData):
         self.object_coords = np.empty(0)
         self.prev_tf_arrs = np.empty(0)
         self.plotter: pv.Plotter = plotter
-        self.data_index = -1
         self.objects = None
         self.pbar1 = self.pbar2 = None
         self.padding = 0.0
@@ -188,6 +186,7 @@ class Optimizer(OptimizerData):
     # SETUP functions
     # ----------------------------------------------------------------------------------------------
     def setup(self):
+        self.curr_sample_rate = self.shape0.n_faces
         self.object_coords, skipped = init.init_coordinates(
             container=self.container,
             mesh=self.shape,
@@ -245,9 +244,10 @@ class Optimizer(OptimizerData):
         iterdata = IterationData(
             i,
             i_b,
+            self.scaling_barrier_list[i_b - 1] if i_b > 0 else self.settings.init_f,
             self.scaling_barrier_list[i_b],
-            self.scaling_barrier_list[i_b],
-            np.count_nonzero(self.tf_arrs[:, 0] < self.scaling_barrier_list[i_b]),
+            np.count_nonzero(self.tf_arrs[:, 0] > self.scaling_barrier_list[i_b]),
+            self.curr_sample_rate,
         )
         self.add(self.tf_arrs, self.cat_data, iterdata)
 
@@ -255,7 +255,7 @@ class Optimizer(OptimizerData):
         if log_lvl > self.settings.log_lvl:
             return
 
-        msg = LOG_PREFIX[log_lvl] + msg
+        msg = LOG_PREFIX[log_lvl] + msg + f"[i={self.idx}]"
         if self.pbar1 is None:
             print(msg)
         else:
@@ -269,7 +269,7 @@ class Optimizer(OptimizerData):
 
     def sample_rate_mesh(self, scale_factor):
         if self.settings.dynamic_simplification:
-            return mesh_simplification_condition(scale_factor, 0.05, 0.5) * self.shape0.n_faces
+            return mesh_simplification_condition(scale_factor, self.settings.alpha, self.settings.beta) * self.shape0.n_faces
         return self.settings.sample_rate  # currently simple
 
     # def container_sample_rate(self, scale_factor):
@@ -281,11 +281,11 @@ class Optimizer(OptimizerData):
         # self.container = resample_pyvista_mesh(
         #     self.container0, container_sample_rate
         # )
-        mesh_sample_rate = self.sample_rate_mesh(scale_factor)
-        self.shape = resample_pyvista_mesh(self.shape0, mesh_sample_rate)
+        self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
+        self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
         self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
         self.log(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]", LOG_LVL_INFO)
-        self.log(f"mesh: n_faces: {mesh_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
+        self.log(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
 
     @property
     def n_objs(self):
@@ -337,6 +337,7 @@ class Optimizer(OptimizerData):
             for i in range(self.settings.itn_max):
                 self.log(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
                 self.pbar3.reset()
+                self.pbar3.set_postfix(total=self.idx)
                 self.iteration(self.scaling_barrier_list[i_b])
 
                 # administrative stuff
@@ -400,7 +401,6 @@ class Optimizer(OptimizerData):
         self.cat_data = cat.compute_cat_cells(
             obj_points, self.container.points, self.object_coords
         )
-        print("CAT cells computed")
 
     def terminate_step(self, i_b):
         are_scaled = [arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrs]
@@ -411,7 +411,7 @@ class Optimizer(OptimizerData):
                 self.log(f"Object {i} has reached the scaling barrier", LOG_LVL_DEBUG)
 
         self.log(f"{count}/{self.n_objs} objects have reached the scaling barrier", LOG_LVL_INFO)
-        print(self.report())
+        self.log("self.report()", LOG_LVL_INFO)
         if count == self.n_objs:
             return True
         return False
@@ -479,7 +479,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.4
+        mesh_volume = 1.3
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -492,16 +492,17 @@ class Optimizer(OptimizerData):
 
         settings = SimSettings(
             itn_max=100,
-            n_scaling_steps=11,
+            n_scaling_steps=10,
             r=0.3,
-            final_scale=0.8,
-            sample_rate=600,
-            log_lvl=2,
+            final_scale=1.0,
+            sample_rate=1000,
+            log_lvl=LOG_LVL_WARNING,
             init_f=0.1,
             max_t=0.4**(1 / 3),
             padding=1e-3,
             sample_rate_ratio=2,
-            dynamic_simplification=True,
+
+            # dynamic_simplification=True,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -521,7 +522,7 @@ class Optimizer(OptimizerData):
 
         settings = SimSettings(
             itn_max=1,
-            n_scaling_steps=3,
+            n_scaling_steps=1,
             r=0.3,
             final_scale=0.5,
             sample_rate=600,
@@ -551,7 +552,7 @@ optimizer.run()
 # %%
 
 reload(plots)
-save_path = "process_packing_works5.gif"
+save_path = f"dump/upscaling_{time()}.gif"
 plots.generate_gif(optimizer, save_path)
 
 # %%
@@ -562,14 +563,18 @@ def plot_step(optimizer, step):
     for cat_cell in optimizer.cat_meshes(step):
         plotter.add_mesh(cat_cell, opacity=0.6, color="yellow")
 
-    for obj in optimizer.meshes_after(step, optimizer.shape):
-        plotter.add_mesh(obj, opacity=0.8, color="red")
+    # for obj in optimizer.meshes_after(step):
+    #     plotter.add_mesh(obj, opacity=0.8, color="red")
     plotter.add_mesh(optimizer.container, opacity=0.4)
+    plotter.add_text(optimizer.status(step).table_str, position="upper_left")
+    tet, isotet, _ = optimizer.reconstruct_delaunay(step)
+    plotter.add_mesh(tet, color="gray", opacity=0.2)
+    plotter.add_mesh(isotet, color="blue", opacity=0.2, show_edges=True)
 
     plotter.show()
 
 
-plot_step(optimizer, 28)
+plot_step(optimizer, 15)
 # iteration = 3
 # # enumerate
 # plotter = plots.plot_full_comparison(
@@ -585,15 +590,26 @@ plot_step(optimizer, 28)
 
 
 # %%
-obj_i = 0
+obj_i, step = 1, 37
 plots.plot_step_comparison(
-    optimizer.mesh_before(0, obj_i, optimizer.shape),
-    optimizer.mesh_after(0, obj_i, optimizer.shape),
-    optimizer.cat_mesh(0, obj_i),
+    optimizer.mesh_before(step, obj_i, optimizer.shape),
+    optimizer.mesh_after(step, obj_i, optimizer.shape),
+    optimizer.cat_mesh(step, obj_i),
 )
-
+# %%
+reload(plots)
+plots.plot_step_single(optimizer.mesh_before(step, obj_i, optimizer.shape), optimizer.cat_mesh(step, obj_i), cat_opacity=1)
 
 # %%
+# store cat mesh in file
+issue_name = "cat_incorrect1"
+cat_mesh = optimizer.cat_mesh(step, obj_i)
+filename = f"{issue_name}-cat[o{obj_i}i{step}].stl"
+cat_mesh.save("../dump/" + filename)
+
+# %%
+
+
 @pprofile
 def profile_optimizer():
     optimizer.run()
@@ -603,4 +619,19 @@ profile_optimizer()
 # # %%
 
 
+# %%
+
+
+fig, ax = plt.subplots()
+
+a = [0.05, 0.15, 0.25]
+b = [0.1, 0.2, 0.3, 0.5]
+
+x = np.linspace(0, 1, 100)
+
+for ai in a:
+    for bi in b:
+        print(f"{ai} {bi}`")
+        ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
+ax.legend()
 # %%

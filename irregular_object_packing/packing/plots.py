@@ -114,6 +114,31 @@ def plot_step_comparison(
     return plotter
 
 
+def plot_step_single(
+    mesh,
+    cat_cell_mesh_1,
+    cat_opacity=0.4,
+    plotter=None,
+    title="Title",
+):
+    if plotter is None:
+        plotter = pv.Plotter()
+
+    plotter = pv.Plotter(
+        notebook=True
+    )  # replace with the filename/path of your first mesh
+    plotter.add_title(title)
+    open_edges = cat_cell_mesh_1.extract_feature_edges(
+        boundary_edges=True, feature_edges=False, manifold_edges=False
+    )
+    plotter.add_mesh(open_edges, color="black", line_width=1, opacity=0.8)
+    plotter.add_mesh(cat_cell_mesh_1, color="yellow", opacity=cat_opacity)
+    plotter.add_mesh(mesh, color="red", opacity=0.8)
+    plotter.show()
+
+    return plotter
+
+
 def generate_tinted_colors(num_tints, base_color_1="FFFF00", base_color_2="FF0000"):
     """Generates two lists of hex colors with corresponding tints."""
     # Convert the base colors to RGB format

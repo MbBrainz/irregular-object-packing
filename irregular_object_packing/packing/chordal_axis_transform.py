@@ -56,6 +56,37 @@ def compute_cat_cells(
     return cat_cells
 
 
+def filter_tetmesh(tetmesh: pv.PolyData, point_sets: list[set[tuple]]):
+    """Filter the tetrahedron mesh to only contain tetrahedrons with points from more than one object
+
+    args:
+        - tetmesh: a tetrahedron mesh of the container and objects
+        - point_sets: a list of sets of points, each set contains points from a single object
+    """
+    cells_to_extract = []
+    occs = {}
+    cell_id = 0
+    for cell in range(tetmesh.n_cells):
+        occ = {}
+
+        points = tetmesh.cell_points(cell)
+        for i, obj in enumerate(point_sets):
+            for cell_point in points:
+                # check if the cell has points from more than one point set
+                if tuple(cell_point) in obj:
+                    occ[i] = occ.get(i, 0) + 1
+
+        occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
+
+        if len(occ) > 1:
+            cells_to_extract.append(cell)
+            occs[cell_id] = occ
+            cell_id += 1
+
+    tets_of_interest = tetmesh.extract_cells(cells_to_extract)
+    return tets_of_interest, occs
+
+
 def compute_cat_faces(
     tetmesh, point_sets: list[set[tuple]], obj_coords: list[np.ndarray]
 ):
@@ -69,15 +100,19 @@ def compute_cat_faces(
     """
     data = CatData(point_sets, obj_coords)
 
+    # TODO: First filter tetrahedron mesh to only contain tetrahedrons with points from more than one object
+
     # FOR EACH TETRAHEDRON
     for cell in range(tetmesh.n_cells):
-        if tetmesh.cell_points(cell).shape[0] != 4:
+        # if tetmesh.cell_points(cell).shape[0] != 4:
+        if tetmesh.get_cell(cell).n_points != 4:
             continue  # skip non-tetrahedrons
         occ = {}
         tet_points: list[TetPoint] = []
 
         for i, obj in enumerate(point_sets):
-            for cell_point in tetmesh.cell_points(cell):
+            # for cell_point in tetmesh.cell_points(cell):
+            for cell_point in tetmesh.get_cell(cell).points:
                 # check if the cell has points from more than one point set
                 if tuple(cell_point) in obj:
                     occ[i] = occ.get(i, 0) + 1
