@@ -1,7 +1,6 @@
 import numpy as np
 import pyvista as pv
 from sklearn.cluster import KMeans
-from trimesh import Trimesh
 
 
 def resample_pyvista_mesh_kmeans(mesh: pv.PolyData, target_vertices: int):
@@ -27,6 +26,7 @@ def resample_pyvista_mesh_kmeans(mesh: pv.PolyData, target_vertices: int):
 
     return new_mesh
 
+
 def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
     """Resample a PyVista mesh to a target number of faces.
 
@@ -43,6 +43,7 @@ def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
     # Smooth the mesh
     new_mesh = new_mesh.smooth(n_iter=10)
     return new_mesh
+
 
 def upsample_pv_mesh(input_mesh: pv.PolyData, target_faces: int):
     """
@@ -78,9 +79,35 @@ def downsample_pv_mesh(mesh: pv.PolyData, target_faces: int):
     return new_mesh
 
 
+def mesh_simplification_condition(scale_factor: float, alpha: float = 0.05, beta: float = 0.1) -> float:
+    """Compute a mesh simplification condition based on the scale factor and the
+    parameters alpha and beta.
+
+    :param scale_factor: The scale factor of the object
+    :param alpha: The alpha parameter of the mesh simplification condition
+    :param beta: The beta parameter of the mesh simplification condition
+    :return: The mesh simplification condition
+    """
+    return alpha * (1 + alpha**(1 / beta) - scale_factor) ** (-beta)
 
 
+def resample_mesh_by_triangle_area(example_mesh: pv.PolyData, target_mesh: pv.PolyData):
+    """Resample a target mesh to match the average triangle area of the example mesh.
+    function assumes that both meshes are triangulated surface meshes
+    """
+    # Compute average triangle area for both meshes
+    example_avg_area = compute_average_triangle_area(example_mesh)
+    target_avg_area = compute_average_triangle_area(target_mesh)
 
-def trimesh_to_pyvista(mesh: Trimesh):
-    return pv.wrap(mesh)
+    # Calculate the desired number of triangles in the target mesh
+    target_num_triangles = int(target_mesh.n_faces * (example_avg_area / target_avg_area))
 
+    # Use the decimation algorithm to reduce the number of triangles in the target mesh
+    resampled_mesh = resample_pyvista_mesh(target_mesh, target_faces=target_num_triangles)
+
+    return resampled_mesh
+
+
+def compute_average_triangle_area(mesh: pv.PolyData):
+    """Compute the average triangle area of a mesh."""
+    return mesh.area / mesh.n_faces

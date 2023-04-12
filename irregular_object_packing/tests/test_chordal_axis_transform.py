@@ -137,6 +137,7 @@ class TestCreateCatFaces(unittest.TestCase):
                 self.assertListEqual(
                     sorted_computed_faces, sorted_expecte_faces, "faces are not equal"
                 )
+    # TODO: Test for CAT faces: Each face should only belong to 2 objects
 
     def test_create_faces_4(self):
         self.set_object_ids([0, 1, 2, 3])
