@@ -53,6 +53,10 @@ class CatData:
     belonging to that object."""
     object_coords: np.ndarray
 
+    @staticmethod
+    def default() -> "CatData":
+        return CatData([], np.array([]))
+
     def __init__(self, point_sets: list[set[tuple]], object_coords: np.ndarray):
         self.points = {}
         self.point_ids = {}

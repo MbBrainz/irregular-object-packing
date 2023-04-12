@@ -81,6 +81,7 @@ def plot_step_comparison(
     mesh_after,
     cat_cell_mesh_1,
     cat_cell_mesh_2=None,
+    other_meshes=None,
     plotter=None,
     title_left="Initial Placement",
     title_right="Improved Placement",
@@ -109,6 +110,9 @@ def plot_step_comparison(
     plotter.add_title(title_right)
     plotter.add_mesh(mesh_after, color="red", opacity=0.8)
     plotter.add_mesh(cat_cell_mesh_2, color="yellow", opacity=0.4)
+    if other_meshes is not None:
+        for mesh in other_meshes:
+            plotter.add_mesh(mesh, color="red", opacity=0.8)
     plotter.show()
 
     return plotter
@@ -222,7 +226,7 @@ def generate_gif(optimizer, save_path, title="Optimization"):
         plotter.clear()
         plotter.add_text(f"step {i}", position="upper_right")
         plotter.add_text(optimizer.status(i).table_str, position="upper_left")
-        for j in optimizer.meshes_before(i, optimizer.shape):
+        for j in optimizer.meshes_before(i):
             plotter.add_mesh(j, opacity=0.5, color="red")
         add_cat_cells(optimizer, plotter, i)
         plotter.add_mesh(optimizer.container0, color="white", opacity=0.3)
@@ -233,7 +237,7 @@ def generate_gif(optimizer, save_path, title="Optimization"):
         plotter.add_text(optimizer.status(i).table_str, position="upper_left")
         add_cat_cells(optimizer, plotter, i)
         plotter.add_mesh(optimizer.container0, color="white", opacity=0.3)
-        for j in optimizer.meshes_after(i, optimizer.shape):
+        for j in optimizer.meshes_after(i):
             plotter.add_mesh(j, opacity=0.5, color="red")
         plotter.write_frame()
 

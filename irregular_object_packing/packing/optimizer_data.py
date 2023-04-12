@@ -1,5 +1,5 @@
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from numpy import concatenate, ndarray
 from pandas import DataFrame
@@ -19,6 +19,20 @@ from irregular_object_packing.packing.nlc_optimisation import construct_transfor
 
 
 @dataclass
+class ViolationData:
+    """Data structure for conveniently getting per-step meshes from the data generated"""
+    n_cat_viols: int = 0
+    cat_voilating_objs: list = field(default_factory=list)
+    cat_violation_meshes: list = field(default_factory=list)
+    n_container_viols: int = 0
+    container_violating_objs: list = field(default_factory=list)
+    container_violation_meshes: list = field(default_factory=list)
+    n_collisions: int = 0
+    collisions: list = field(default_factory=list)
+    collision_meshes: list = field(default_factory=list)
+
+
+@dataclass
 class IterationData:
     i: int
     """The iteration step."""
@@ -31,6 +45,8 @@ class IterationData:
     n_succes_scale: int
     """The number of objects that have succesfully been scaled to the current limit."""
     sample_rate: int
+    """The sample rate of the mesh."""
+    violation_data: ViolationData
 
     @property
     def table_str(self):
@@ -46,6 +62,9 @@ class OptimizerData:
     container0: PolyData
     container: PolyData
     cat_data: CatData
+    tf_arrays: ndarray
+    previous_tf_arrays: ndarray
+    object_coords: ndarray
     _data = {}
     _index = -1
 
@@ -92,6 +111,10 @@ class OptimizerData:
     def idx(self):
         return self._index - 1
 
+    @property
+    def n_objs(self):
+        return len(self.object_coords)
+
     # ------------------- Public methods -------------------
     def mesh_before(self, iteration: int, obj_id: int):
         """Get the mesh of the object at the given iteration, before the
@@ -113,6 +136,19 @@ class OptimizerData:
     def status(self, iteration: int) -> IterationData:
         """Get the data of the given iteration."""
         return self._iteration_data(iteration)
+
+    def violation_data(self, iteration: int) -> ViolationData:
+        """Get the violation data of the given iteration."""
+        return self.status(iteration).violation_data
+
+    def violating_meshes(self, iteration: int) -> list[PolyData]:
+        viol_data = self.violation_data(iteration)
+        meshes = []
+        if viol_data is not None:
+            meshes += viol_data.cat_violation_meshes
+            meshes += viol_data.container_violation_meshes
+            meshes += viol_data.collision_meshes
+        return meshes
 
     def resample_mesh(self, iteration: int) -> PolyData:
         """Resample the given mesh with the sample rate of the given iteration."""
@@ -163,32 +199,36 @@ class OptimizerData:
 
     def final_meshes_after(self):
         """Get the meshes of all objects with the most recent transformation."""
-        if self._index < 0:
-            ValueError("No data stored yet")
 
-        if self._index == 0:
-            return self._get_meshes(-1, self.shape)
-
-        return self._get_meshes(self.idx, self.shape)
+        return [self.shape.transform(
+                construct_transform_matrix(tf_array), inplace=False,
+                )
+                for tf_array in self.tf_arrays]
 
     def final_meshes_before(self):
         """Get the meshes of all objects at the final iteration, before the
         optimisation."""
-        return self._get_meshes(self.idx - 1, self.shape0)
+        return [self.shape.transform(
+            construct_transform_matrix(tf_array), inplace=False,
+        )
+            for tf_array in self.tf_arrays]
 
     def final_cat_meshes(self):
         """Get the meshes of all cat cells that correspond to the objects from the final
         iteration."""
         if self._index <= 0:
             ValueError("No cat data stored yet")
-        return self.cat_meshes(self.idx)
+        return [
+            PolyData(*face_coord_to_points_and_faces(self.cat_data, obj_id))
+            for obj_id in range(self.n_objs)
+        ]
 
     def before_and_after_meshes(self, iteration: int, mesh: PolyData):
         """Get the meshes of all objects at the given iteration, before and after the
         optimisation."""
         return (
-            self.meshes_before(iteration, mesh),
-            self.meshes_after(iteration, mesh),
+            self.meshes_before(iteration),
+            self.meshes_after(iteration),
             self.cat_meshes(iteration),
         )
 
