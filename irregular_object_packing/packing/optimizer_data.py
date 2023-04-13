@@ -6,6 +6,7 @@ from pandas import DataFrame
 from pyvista import PolyData
 from trimesh import transform_points
 
+from irregular_object_packing.mesh.collision import compute_all_collisions
 from irregular_object_packing.mesh.sampling import (
     resample_mesh_by_triangle_area,
     resample_pyvista_mesh,
@@ -16,20 +17,6 @@ from irregular_object_packing.packing.chordal_axis_transform import (
     filter_tetmesh,
 )
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
-
-
-@dataclass
-class ViolationData:
-    """Data structure for conveniently getting per-step meshes from the data generated"""
-    n_cat_viols: int = 0
-    cat_voilating_objs: list = field(default_factory=list)
-    cat_violation_meshes: list = field(default_factory=list)
-    n_container_viols: int = 0
-    container_violating_objs: list = field(default_factory=list)
-    container_violation_meshes: list = field(default_factory=list)
-    n_collisions: int = 0
-    collisions: list = field(default_factory=list)
-    collision_meshes: list = field(default_factory=list)
 
 
 @dataclass
@@ -46,7 +33,9 @@ class IterationData:
     """The number of objects that have succesfully been scaled to the current limit."""
     sample_rate: int
     """The sample rate of the mesh."""
-    violation_data: ViolationData
+    container_violations: list = field(default_factory=list)
+    cat_violations: list = field(default_factory=list)
+    collisions: list = field(default_factory=list)
 
     @property
     def table_str(self):
@@ -137,18 +126,18 @@ class OptimizerData:
         """Get the data of the given iteration."""
         return self._iteration_data(iteration)
 
-    def violation_data(self, iteration: int) -> ViolationData:
-        """Get the violation data of the given iteration."""
-        return self.status(iteration).violation_data
+    def violating_mesh_ids(self, iteration: int) -> list[int]:
+        status = self.status(iteration)
+        mesh_ids = set()
+        for obj_id in status.cat_violations:
+            mesh_ids.add(obj_id)
+        for obj_id in status.container_violations:
+            mesh_ids.add(obj_id)
+        for (a, b, _n) in status.collisions:
+            mesh_ids.add(a)
+            mesh_ids.add(b)
 
-    def violating_meshes(self, iteration: int) -> list[PolyData]:
-        viol_data = self.violation_data(iteration)
-        meshes = []
-        if viol_data is not None:
-            meshes += viol_data.cat_violation_meshes
-            meshes += viol_data.container_violation_meshes
-            meshes += viol_data.collision_meshes
-        return meshes
+        return list(mesh_ids)
 
     def resample_mesh(self, iteration: int) -> PolyData:
         """Resample the given mesh with the sample rate of the given iteration."""
@@ -196,6 +185,14 @@ class OptimizerData:
 
         filtered_tetmesh, occs = filter_tetmesh(tetmesh, obj_point_sets)
         return tetmesh, filtered_tetmesh, occs
+
+    def recreate_scene(self, iteration: int):
+        """Recreate the scene at the given iteration."""
+        meshes = self.meshes_after(iteration)
+        cat_meshes = self.cat_meshes(iteration)
+        compute_all_collisions(meshes, cat_meshes, self.container0, set_contacts=True)
+
+        return meshes, cat_meshes, self.container0
 
     def final_meshes_after(self):
         """Get the meshes of all objects with the most recent transformation."""
