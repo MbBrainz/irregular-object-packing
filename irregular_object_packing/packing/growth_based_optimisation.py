@@ -1,7 +1,7 @@
 # %%
 from dataclasses import dataclass
 from importlib import reload
-from time import sleep
+from time import sleep, time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -110,8 +110,6 @@ class SimSettings:
     """The log level maximum level is 3."""
     decimate: bool = True
     """Whether to decimate the object mesh."""
-    sample_rate_ratio: float = 1.0
-    """The ratio between the sample rate of the object and the container."""
     padding: float = 0.0
     """The padding which is added to the inside of the cat cells."""
     dynamic_simplification: bool = False
@@ -391,15 +389,14 @@ class Optimizer(OptimizerData):
 
         settings = SimSettings(
             itn_max=20,
-            n_scaling_steps=4,
+            n_scaling_steps=2,
             r=0.3,
             final_scale=0.4,
-            sample_rate=1000,
             log_lvl=LOG_LVL_INFO,
             init_f=0.1,
-            max_t=0.4**(1 / 3),
-            padding=1e-3,
-            sample_rate_ratio=2,
+            max_t=mesh_volume**(1 / 3),
+            # padding=1e-3,
+            # sample_rate=1000,
             dynamic_simplification=True,
         )
         plotter = None
@@ -426,7 +423,6 @@ class Optimizer(OptimizerData):
             sample_rate=600,
             log_lvl=LOG_LVL_ERROR,
             init_f=0.1,
-            sample_rate_ratio=1,
             padding=1e-5,
         )
         plotter = None
@@ -449,9 +445,9 @@ optimizer.run()
 
 # %%
 
-# reload(plots)
-# save_path = f"../dump/upscaling_{time()}.gif"
-# plots.generate_gif(optimizer, save_path)
+reload(plots)
+save_path = f"../dump/collisions_{time()}"
+plots.generate_gif(optimizer , save_path + ".gif")
 
 # %%
 
@@ -459,26 +455,21 @@ optimizer.run()
 def plot_step(optimizer, step):
     plotter = pv.Plotter()
     meshes, cat_meshes, container = optimizer.recreate_scene(step)
-    for obj in meshes:
-        plotter.add_mesh(obj, opacity=0.5, color="orange", scalars="collisions")
-
-    for cat_cell in cat_meshes:
-        plotter.add_mesh(cat_cell, opacity=0.6, color="yellow")
-
-    plotter.add_mesh(container, opacity=0.4)
+    plots.plot_simulation_scene(plotter, meshes, cat_meshes, container)
     plotter.add_text(optimizer.status(step).table_str, position="upper_left")
 
     plotter.show()
     return plotter
 
 
-plot_step(optimizer, 1)
+plot_step(optimizer, 19)
 
 
 # %%
 obj_i, step = 0, 5
+meshes, cat_meshes, container = optimizer.recreate_scene(step)
 plots.plot_step_comparison(
-    optimizer.mesh_before(step, obj_i),
+    optimizer.mesh_before,
     optimizer.mesh_after(step, obj_i),
     optimizer.cat_mesh(step, obj_i),
     # other_meshes=optimizer.violating_meshes(step),

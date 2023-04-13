@@ -213,36 +213,40 @@ def create_packed_scene(
     return plotter
 
 
+def plot_simulation_scene(plotter, meshes, cat_meshes, container):
+    for i in range(len(meshes)):
+        try:
+            plotter.add_mesh(meshes[i], opacity=0.95, color="red", cmap='bwr', scalars="collisions")
+            plotter.add_mesh(cat_meshes[i], opacity=0.6, color="yellow")
+        except KeyError:
+            plotter.add_mesh(meshes[i], opacity=0.8, color="blue")
+            plotter.add_mesh(cat_meshes[i], opacity=0.4, color="greenyellow")
+    plotter.add_mesh(container, color="white", opacity=0.3)
+
+
 def generate_gif(optimizer, save_path, title="Optimization"):
     plotter = pv.Plotter(notebook=False, off_screen=True)
     plotter.open_gif(save_path)
     plotter.add_title(title)
 
-    def add_cat_cells(optimizer, plotter, i):
-        for cells in optimizer.cat_meshes(i):
-            plotter.add_mesh(cells, opacity=0.5, color="yellow")
-
+    meshes, cat_meshes, container = optimizer.recreate_scene(0)
     for i in range(0, optimizer.idx):
+        prev_meshes = meshes
+        meshes, cat_meshes, container = optimizer.recreate_scene(i)
         plotter.clear()
-        plotter.add_text(f"step {i}", position="upper_right")
-        plotter.add_text(optimizer.status(i).table_str, position="upper_left")
-        for j in optimizer.meshes_before(i):
-            plotter.add_mesh(j, opacity=0.5, color="red")
-        add_cat_cells(optimizer, plotter, i)
-        plotter.add_mesh(optimizer.container0, color="white", opacity=0.3)
-        plotter.write_frame()
-        plotter.clear()
+        plot_simulation_scene(plotter, prev_meshes, cat_meshes, container)
 
         plotter.add_text(f"step {i}", position="upper_right")
         plotter.add_text(optimizer.status(i).table_str, position="upper_left")
-        add_cat_cells(optimizer, plotter, i)
-        plotter.add_mesh(optimizer.container0, color="white", opacity=0.3)
-        for j in optimizer.meshes_after(i):
-            plotter.add_mesh(j, opacity=0.5, color="red")
+
+        plotter.write_frame()
+        plotter.clear()
+
+        plot_simulation_scene(plotter, meshes, cat_meshes, container)
+        plotter.add_text(f"step {i}", position="upper_right")
+        plotter.add_text(optimizer.status(i).table_str, position="upper_left")
         plotter.write_frame()
 
-    camera_position = plotter.camera_position
-    camera_position
     focus_point = [0, 0, 0]
 
     num_frames = 100

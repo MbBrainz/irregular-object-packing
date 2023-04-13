@@ -1,9 +1,9 @@
 from copy import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 from numpy import concatenate, ndarray
-from pandas import DataFrame
 from pyvista import PolyData
+from tabulate import tabulate
 from trimesh import transform_points
 
 from irregular_object_packing.mesh.collision import compute_all_collisions
@@ -33,8 +33,8 @@ class IterationData:
     """The number of objects that have succesfully been scaled to the current limit."""
     sample_rate: int
     """The sample rate of the mesh."""
-    container_violations: list = field(default_factory=list)
     cat_violations: list = field(default_factory=list)
+    container_violations: list = field(default_factory=list)
     collisions: list = field(default_factory=list)
 
     @property
@@ -232,8 +232,14 @@ class OptimizerData:
     def _report(self, iteration=None):
         if iteration is None:
             iteration = self.idx
-        df = DataFrame(
-            data=[self._tf_arrays(i) for i in range(self.idx)],
-            columns=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"],
+        tabulate(
+            [self._tf_arrays(i) for i in range(self.idx)],
+            headers=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"],
         )
-        return df
+
+    def print_report(self, notebook=False):
+        tabulate(
+            [self.status(i) for i in range(self.idx)],  # type: ignore
+            headers=[field.name for field in fields(IterationData)],
+            tablefmt="html" if notebook else "grid"
+        )

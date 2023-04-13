@@ -4,18 +4,17 @@ import numpy as np
 from pyvista import PolyData
 
 
-def compute_collision(mesh, with_mesh, set_contacts) -> int | None:
+def compute_collision(mesh: PolyData, with_mesh, set_contacts) -> int | None:
     contact_mesh, n_contacts = mesh.collision(with_mesh, 0, cell_tolerance=1e-6)
     if n_contacts > 0:
 
         if set_contacts:
             mask = np.zeros(mesh.n_cells, dtype=bool)
             mask[contact_mesh["ContactCells"]] = True
-            if 'collisions' in mesh.cell_arrays:
-                mesh['collisions'] = np.logical_or(mesh['collisions'], mask)
-            else:
-                mesh['collisions'] = mask
-            mesh["collisions"] = mask
+            try :
+                mesh["collisions"] = np.logical_or(mesh["collisions"], mask)
+            except KeyError:
+                mesh["collisions"] = mask
         return n_contacts
     return None
 
