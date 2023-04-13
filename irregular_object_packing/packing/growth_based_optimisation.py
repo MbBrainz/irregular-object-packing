@@ -365,12 +365,12 @@ class Optimizer(OptimizerData):
 
     def log_violations(self, violations):
         if len(violations[0]) > 0:
-            self.log(f"! collision found {violations[0]}", LOG_LVL_ERROR,)
+            self.log(f"! cat violation found {violations[0]}", LOG_LVL_ERROR,)
         if len(violations[1]) > 0:
-            self.log(f"! cat boundary violation {violations[1]}", LOG_LVL_WARNING)
+            self.log(f"! container violation found {violations[1]}", LOG_LVL_WARNING)
         if len(violations[2]) > 0:
-            self.log(f"! container violations {violations[2]}", LOG_LVL_ERROR)
-        sleep(0.5)
+            self.log(f"! collisiond found {violations[2]}", LOG_LVL_ERROR)
+        sleep(0.5)  # for easier spotting in the terminal
 
     @staticmethod
     def default_setup() -> "Optimizer":
