@@ -250,11 +250,10 @@ class Optimizer(OptimizerData):
         self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
         self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
         self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
-        avg_mesh_area = self.shape.area / self.shape.n_faces
-        self.padding = avg_mesh_area**(0.5) / 4
         self.log(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]", LOG_LVL_INFO)
         self.log(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
-        self.log(f"new_padding: {self.padding}", LOG_LVL_INFO)
+        # self.padding = avg_mesh_area**(0.5) / 4 # This doenst help
+        # self.log(f"new_padding: {self.padding}", LOG_LVL_INFO)
 
     def run(self):
         # self.setup()
@@ -491,11 +490,11 @@ plotter = plots.plot_step_single(meshes[obj_i], cat_meshes[obj_i], cat_opacity=0
 # %%
 # store cat mesh in file
 obj_i, step = 10, 5
-# issue_name = f"cat_penetrate_{int(time())}"
+issue_name = f"cat_penetrate_{int(time())}"
 cat_mesh = optimizer.cat_mesh(step, obj_i)
 cat_filename = f"cat[o{obj_i}i{step}].stl"
 obj_filename = f"obj[o{obj_i}i{step}].stl"
-# mkdir(f"../dump/issue_reports/{issue_name}")
+mkdir(f"../dump/issue_reports/{issue_name}")
 folder_dir = f"../dump/issue_reports/{issue_name}/"
 cat_mesh.save(folder_dir + cat_filename)
 meshes[obj_i].save(folder_dir + obj_filename)
