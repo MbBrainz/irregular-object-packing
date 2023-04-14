@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pyvista as pv
 import trimesh
+from IPython.display import HTML, display
 from pyvista import PolyData
 from scipy.optimize import minimize
 from tqdm.auto import tqdm
@@ -249,8 +250,11 @@ class Optimizer(OptimizerData):
         self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
         self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
         self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
+        avg_mesh_area = self.shape.area / self.shape.n_faces
+        self.padding = avg_mesh_area**(0.5) / 4
         self.log(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]", LOG_LVL_INFO)
         self.log(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
+        self.log(f"new_padding: {self.padding}", LOG_LVL_INFO)
 
     def run(self):
         # self.setup()
@@ -376,7 +380,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.4
+        mesh_volume = 0.3
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -388,16 +392,18 @@ class Optimizer(OptimizerData):
         print_mesh_info(original_mesh, "original mesh")
 
         settings = SimSettings(
-            itn_max=20,
-            n_scaling_steps=2,
+            itn_max=100,
+            n_scaling_steps=8,
             r=0.3,
-            final_scale=0.4,
+            final_scale=0.8,
             log_lvl=LOG_LVL_INFO,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3),
             # padding=1e-3,
             # sample_rate=1000,
             dynamic_simplification=True,
+            alpha=0.25,
+            beta=0.5,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -448,6 +454,9 @@ optimizer.run()
 reload(plots)
 save_path = f"../dump/collisions_{time()}"
 plots.generate_gif(optimizer , save_path + ".gif")
+# %%
+
+display(HTML(f'<img src="{save_path}.gif"/>'))
 
 # %%
 
@@ -462,28 +471,42 @@ def plot_step(optimizer, step):
     return plotter
 
 
-plot_step(optimizer, 19)
+plot_step(optimizer, 6)
 
 
 # %%
-obj_i, step = 0, 5
+obj_i, step = 10, 5
 meshes, cat_meshes, container = optimizer.recreate_scene(step)
-plots.plot_step_comparison(
-    optimizer.mesh_before,
-    optimizer.mesh_after(step, obj_i),
-    optimizer.cat_mesh(step, obj_i),
-    # other_meshes=optimizer.violating_meshes(step),
-)
+# plots.plot_step_comparison(
+#     optimizer.mesh_before,
+#     optimizer.mesh_after(step, obj_i),
+#     optimizer.cat_mesh(step, obj_i),
+#     # other_meshes=optimizer.violating_meshes(step),
+# )
 # %%
 reload(plots)
-plots.plot_step_single(optimizer.mesh_before(step, obj_i), optimizer.cat_mesh(step, obj_i), cat_opacity=1)
+
+plotter = plots.plot_step_single(meshes[obj_i], cat_meshes[obj_i], cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap")
 
 # %%
 # store cat mesh in file
-issue_name = "cat_incorrect1"
+obj_i, step = 10, 5
+# issue_name = f"cat_penetrate_{int(time())}"
 cat_mesh = optimizer.cat_mesh(step, obj_i)
-filename = f"{issue_name}-cat[o{obj_i}i{step}].stl"
-cat_mesh.save("../dump/" + filename)
+cat_filename = f"cat[o{obj_i}i{step}].stl"
+obj_filename = f"obj[o{obj_i}i{step}].stl"
+# mkdir(f"../dump/issue_reports/{issue_name}")
+folder_dir = f"../dump/issue_reports/{issue_name}/"
+cat_mesh.save(folder_dir + cat_filename)
+meshes[obj_i].save(folder_dir + obj_filename)
+# %%
+
+# %%
+
+tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
+tetmesh.save(folder_dir + f"tetmesh[i{step}].vtk")
+filtered_tetmesh.save(folder_dir + f"filtered_tetmesh[i{step}].vtk")
+
 
 # %%
 

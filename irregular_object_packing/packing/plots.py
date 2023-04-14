@@ -121,8 +121,10 @@ def plot_step_comparison(
 def plot_step_single(
     mesh,
     cat_cell_mesh_1,
+    mesh_opacity=0.9,
     cat_opacity=0.4,
     plotter=None,
+    clipped=False,
     title="Title",
 ):
     if plotter is None:
@@ -132,12 +134,22 @@ def plot_step_single(
         notebook=True
     )  # replace with the filename/path of your first mesh
     plotter.add_title(title)
-    open_edges = cat_cell_mesh_1.extract_feature_edges(
+    cat_cell_mesh_1.extract_feature_edges(
         boundary_edges=True, feature_edges=False, manifold_edges=False
     )
-    plotter.add_mesh(open_edges, color="black", line_width=1, opacity=0.8)
-    plotter.add_mesh(cat_cell_mesh_1, color="yellow", opacity=cat_opacity)
-    plotter.add_mesh(mesh, color="red", opacity=0.8)
+    if clipped:
+        try:
+            plotter.add_mesh_clip_plane(mesh, opacity=mesh_opacity, color="red", cmap='bwr', scalars="collisions", point_size=10, show_vertices=True, show_edges=True)
+        except KeyError:
+            plotter.add_mesh(mesh, opacity=mesh_opacity, color="blue")
+        plotter.add_mesh_clip_plane(cat_cell_mesh_1, opacity=cat_opacity, color="yellow", show_edges=True, show_vertices=True, point_size=5)
+    else:
+        try:
+            plotter.add_mesh(mesh, opacity=mesh_opacity, color="red", cmap='bwr', scalars="collisions", point_size=10, show_vertices=True, show_edges=True)
+        except KeyError:
+            plotter.add_mesh(mesh, opacity=mesh_opacity, color="blue")
+        plotter.add_mesh(cat_cell_mesh_1, opacity=cat_opacity, color="yellow", show_edges=True, show_vertices=True, point_size=5)
+    # plotter.add_mesh(open_edges, color="black", line_width=1, opacity=0.8)
     plotter.show()
 
     return plotter
