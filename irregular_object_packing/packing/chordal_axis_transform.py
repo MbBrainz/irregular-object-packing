@@ -235,8 +235,8 @@ def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
     bc_point = data.point_id((most[1].vertex + least[0].vertex) / 2)
     bd_point = data.point_id((most[1].vertex + least[1].vertex) / 2)
 
-    most_face_c = [acd_point, ac_point, bcd_point, bc_point]
-    most_face_d = [acd_point, ad_point, bcd_point, bd_point]
+    most_face_c = [acd_point, bcd_point, bc_point, ac_point]
+    most_face_d = [acd_point, bcd_point, bd_point, ad_point]
     n_mfc = compute_face_unit_normal(
         data.get_face(most_face_c), most[0].vertex
     )  # can be both most[0] and most[1]

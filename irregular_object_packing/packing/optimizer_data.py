@@ -188,11 +188,13 @@ class OptimizerData:
 
     def recreate_scene(self, iteration: int):
         """Recreate the scene at the given iteration."""
-        meshes = self.meshes_after(iteration)
+        meshes_before = self.meshes_before(iteration)
+        meshes_after = self.meshes_after(iteration)
         cat_meshes = self.cat_meshes(iteration)
-        compute_all_collisions(meshes, cat_meshes, self.container0, set_contacts=True)
+        compute_all_collisions(meshes_before, cat_meshes, self.container0, set_contacts=True)
+        compute_all_collisions(meshes_after, cat_meshes, self.container0, set_contacts=True)
 
-        return meshes, cat_meshes, self.container0
+        return meshes_before, meshes_after, cat_meshes, self.container0
 
     def final_meshes_after(self):
         """Get the meshes of all objects with the most recent transformation."""
@@ -238,8 +240,11 @@ class OptimizerData:
         )
 
     def print_report(self, notebook=False):
-        tabulate(
+        table = tabulate(
             [self.status(i) for i in range(self.idx)],  # type: ignore
             headers=[field.name for field in fields(IterationData)],
-            tablefmt="html" if notebook else "grid"
+            tablefmt="html" if notebook else "grid",
+            showindex=True,
         )
+        print(table)
+        return table

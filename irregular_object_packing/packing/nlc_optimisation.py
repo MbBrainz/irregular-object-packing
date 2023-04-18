@@ -149,28 +149,27 @@ def local_constraint_for_point_with_padding(
         face_coords = [np.array(points[p_id]) - obj_coord for p_id in face_p_ids]
 
         # NOTE: Any point on the surface of the object can be used as q_j
-        q_j = face_coords[0] # q_j = np.mean(face_coords, axis=0) -> not necessary
+        q_j = face_coords[0]  # q_j = np.mean(face_coords, axis=0) -> not necessary
 
         # NOTE: The normal vector has unit length [./utils.py:196], no need to divide
         condition = np.dot(transformed_v_i - q_j, n_face)
-
 
         # Return negative value if point is inside surface plus margin,
         dist = condition - padding
         constraints.append(dist)
 
-        # NOTE: alternative implementation: (currently allows point inside margin only)
-        # MARGIN: Compute distance to surface
-        # dist = abs(condition) - padding
-        # if dist < 0:
-        #     dist = 0
-        # # positive value otherwise
-        # if condition < 0:
-        #     constraints.append(-dist)
-        # else:
-        #     constraints.append(dist)
-        # # constraints.append(condition)
     return constraints
+    # NOTE: alternative implementation: (currently allows point inside margin only)
+    # MARGIN: Compute distance to surface
+    # dist = abs(condition) - padding
+    # if dist < 0:
+    #     dist = 0
+    # # positive value otherwise
+    # if condition < 0:
+    #     constraints.append(-dist)
+    # else:
+    #     constraints.append(dist)
+    # # constraints.append(condition)
 
 
 def local_constraint_for_point(
@@ -270,6 +269,8 @@ def local_constraints_from_cat(
 
     # [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
     items = cat_data.cat_faces[obj_id].items()
+    cat_cell = cat_data.cat_cells[obj_id]
+    _all_faces = [cat_cell] * len(items)
 
     v, sets_of_faces = [*zip(*items, strict=True)]
     return local_constraint_multiple_points(
@@ -284,6 +285,8 @@ def local_constraints_from_cat(
 # -----------------------------------------------------------------------------
 # Visual Tests
 # -----------------------------------------------------------------------------
+
+
 def test_nlcp_facets():
     # Define points
     points = {
@@ -341,7 +344,7 @@ def test_nlcp_facets():
         objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
     )
     T = construct_transform_matrix(res.x)
-    ## %%
+    # %%
     # Print the results
     print("Optimal solution:")
     print_transform_array(res.x)
@@ -351,7 +354,7 @@ def test_nlcp_facets():
     print(transform_v(points[10], T))
     print(transform_v(points[11], T))
 
-    ## %%
+    # %%
     # Create a 3D plot
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection

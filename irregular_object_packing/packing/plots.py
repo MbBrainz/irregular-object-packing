@@ -121,11 +121,13 @@ def plot_step_comparison(
 def plot_step_single(
     mesh,
     cat_cell_mesh_1,
+    container=None,
     mesh_opacity=0.9,
     cat_opacity=0.4,
     plotter=None,
     clipped=False,
     title="Title",
+    c_kwargs={}, m_kwargs={}, cat_kwargs={},
 ):
     if plotter is None:
         plotter = pv.Plotter()
@@ -139,16 +141,19 @@ def plot_step_single(
     )
     if clipped:
         try:
-            plotter.add_mesh_clip_plane(mesh, opacity=mesh_opacity, color="red", cmap='bwr', scalars="collisions", point_size=10, show_vertices=True, show_edges=True)
+            plotter.add_mesh_clip_plane(mesh, opacity=mesh_opacity, color="red", cmap='bwr', scalars="collisions", **m_kwargs)
         except KeyError:
             plotter.add_mesh(mesh, opacity=mesh_opacity, color="blue")
-        plotter.add_mesh_clip_plane(cat_cell_mesh_1, opacity=cat_opacity, color="yellow", show_edges=True, show_vertices=True, point_size=5)
+        plotter.add_mesh_clip_plane(cat_cell_mesh_1, opacity=cat_opacity, color="yellow", **cat_kwargs)
     else:
         try:
-            plotter.add_mesh(mesh, opacity=mesh_opacity, color="red", cmap='bwr', scalars="collisions", point_size=10, show_vertices=True, show_edges=True)
+            plotter.add_mesh(mesh, opacity=mesh_opacity, color="red", cmap='bwr', scalars="collisions", **m_kwargs)
         except KeyError:
-            plotter.add_mesh(mesh, opacity=mesh_opacity, color="blue")
-        plotter.add_mesh(cat_cell_mesh_1, opacity=cat_opacity, color="yellow", show_edges=True, show_vertices=True, point_size=5)
+            plotter.add_mesh(mesh, opacity=mesh_opacity, color="blue", **m_kwargs)
+        plotter.add_mesh(cat_cell_mesh_1, opacity=cat_opacity, color="yellow", **cat_kwargs)
+
+    if container is not None:
+        plotter.add_mesh(container, opacity=0.3, **c_kwargs)
     # plotter.add_mesh(open_edges, color="black", line_width=1, opacity=0.8)
     plotter.show()
 
@@ -225,15 +230,16 @@ def create_packed_scene(
     return plotter
 
 
-def plot_simulation_scene(plotter, meshes, cat_meshes, container):
+def plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={}, m_kwargs={}, cat_kwargs={},
+                          ):
     for i in range(len(meshes)):
         try:
-            plotter.add_mesh(meshes[i], opacity=0.95, color="red", cmap='bwr', scalars="collisions")
-            plotter.add_mesh(cat_meshes[i], opacity=0.6, color="yellow")
+            plotter.add_mesh(meshes[i], opacity=0.95, color="red", cmap='bwr', scalars="collisions", **m_kwargs)
+            plotter.add_mesh(cat_meshes[i], opacity=0.6, color="yellow", **cat_kwargs)
         except KeyError:
-            plotter.add_mesh(meshes[i], opacity=0.8, color="blue")
-            plotter.add_mesh(cat_meshes[i], opacity=0.4, color="greenyellow")
-    plotter.add_mesh(container, color="white", opacity=0.3)
+            plotter.add_mesh(meshes[i], opacity=0.8, color="blue", **m_kwargs)
+            plotter.add_mesh(cat_meshes[i], opacity=0.4, color="greenyellow", **cat_kwargs)
+    plotter.add_mesh(container, color="white", opacity=0.3, **c_kwargs)
 
 
 def generate_gif(optimizer, save_path, title="Optimization"):

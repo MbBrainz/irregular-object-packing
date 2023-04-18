@@ -100,7 +100,7 @@ def resample_mesh_by_triangle_area(example_mesh: pv.PolyData, target_mesh: pv.Po
     target_avg_area = compute_average_triangle_area(target_mesh)
 
     # Calculate the desired number of triangles in the target mesh
-    target_num_triangles = int(target_mesh.n_faces * (example_avg_area / target_avg_area))
+    target_num_triangles = int(target_mesh.n_faces * (target_avg_area / example_avg_area))
 
     # Use the decimation algorithm to reduce the number of triangles in the target mesh
     resampled_mesh = resample_pyvista_mesh(target_mesh, target_faces=target_num_triangles)

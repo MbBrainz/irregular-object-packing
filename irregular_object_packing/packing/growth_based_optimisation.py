@@ -161,10 +161,10 @@ class Optimizer(OptimizerData):
         self.log(
             f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG
         )
+        self.log(f"Setup with settings: \n{self.settings}", LOG_LVL_INFO)
         self.log(f"Number of objects: {self.n_objs}", LOG_LVL_INFO)
 
         object_rotations = np.random.uniform(-np.pi, np.pi, (self.n_objs, 3))
-        self.padding = 0.01
 
         # SET TRANSFORM DATA
         self.tf_arrays = np.empty((self.n_objs, 7))
@@ -250,6 +250,9 @@ class Optimizer(OptimizerData):
         self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
         self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
         self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
+        assert self.shape.is_manifold
+        assert self.container.is_manifold
+
         self.log(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]", LOG_LVL_INFO)
         self.log(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
         # self.padding = avg_mesh_area**(0.5) / 4 # This doenst help
@@ -353,7 +356,16 @@ class Optimizer(OptimizerData):
         cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
         self.log_violations((cat_viols, con_viols, collisions))
 
+        violating_ids = set([i for i, v in cat_viols] + [i for i, v in con_viols])
+
+        self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
+        for id in violating_ids:
+            self.reduce_scale(id)
+
         self.update_data(ib, i, (cat_viols, con_viols, collisions))
+
+    def reduce_scale(self, id):
+        self.tf_arrays[id][0] *= 0.95
 
     def check_closed_cells(self):
         cat_cells = [
@@ -379,7 +391,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.3
+        mesh_volume = 0.2
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -401,7 +413,7 @@ class Optimizer(OptimizerData):
             # padding=1e-3,
             # sample_rate=1000,
             dynamic_simplification=True,
-            alpha=0.25,
+            alpha=0.2,
             beta=0.5,
         )
         plotter = None
@@ -459,23 +471,25 @@ display(HTML(f'<img src="{save_path}.gif"/>'))
 
 # %%
 
+reload(plots)
+
 
 def plot_step(optimizer, step):
     plotter = pv.Plotter()
     meshes, cat_meshes, container = optimizer.recreate_scene(step)
-    plots.plot_simulation_scene(plotter, meshes, cat_meshes, container)
+    plots.plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": True, "edge_color": "purple"})
     plotter.add_text(optimizer.status(step).table_str, position="upper_left")
 
     plotter.show()
     return plotter
 
 
-plot_step(optimizer, 6)
+plot_step(optimizer, 33)
 
 
 # %%
-obj_i, step = 10, 5
-meshes, cat_meshes, container = optimizer.recreate_scene(step)
+obj_i, step = 6, 31
+meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
 # plots.plot_step_comparison(
 #     optimizer.mesh_before,
 #     optimizer.mesh_after(step, obj_i),
@@ -484,8 +498,13 @@ meshes, cat_meshes, container = optimizer.recreate_scene(step)
 # )
 # %%
 reload(plots)
-
-plotter = plots.plot_step_single(meshes[obj_i], cat_meshes[obj_i], cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap")
+obj_i = 6
+plotter = plots.plot_step_single(
+    meshes_before[obj_i], cat_meshes[obj_i], container=container, cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
+    c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
+    m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
+    cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
+)
 
 # %%
 # store cat mesh in file
@@ -534,4 +553,5 @@ for ai in a:
         print(f"{ai} {bi}`")
         ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
 ax.legend()
+
 # %%

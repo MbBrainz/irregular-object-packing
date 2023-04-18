@@ -2,6 +2,7 @@
 import unittest
 
 import numpy as np
+import pyvista
 
 from irregular_object_packing.packing.cat import CatData, TetPoint
 from irregular_object_packing.packing.chordal_axis_transform import (
@@ -12,18 +13,20 @@ from irregular_object_packing.packing.chordal_axis_transform import (
 )
 from irregular_object_packing.packing.utils import (
     compute_face_unit_normal,
-    split_quadrilateral_to_triangles,
 )
 from irregular_object_packing.tests.test_helpers import sort_surfaces
+
+# this will show plots during tests.
+VISUALIZE = True
 
 
 class TestCreateCatFaces(unittest.TestCase):
     def setUp(self) -> None:
         self.vertices = {
-            "a": (0, 0, 0),
-            "b": (9, 0, 0),
-            "c": (0, 9, 0),
-            "d": (0, 0, 9),
+            "a": (0.0, 0.0, 0.0),
+            "b": (9.0, 0.0, 0.0),
+            "c": (0.0, 9.0, 0.0),
+            "d": (0.0, 0.0, 9.0),
             "abcd": (2.25, 2.25, 2.25),
             "ab": (4.5, 0.0, 0.0),
             "ac": (0.0, 4.5, 0.0),
@@ -59,6 +62,8 @@ class TestCreateCatFaces(unittest.TestCase):
         self.c = TetPoint(np.array(self.data.point(2)), 2, obj_ids[2])
         self.d = TetPoint(np.array(self.data.point(3)), 3, obj_ids[3])
 
+        self.object_ids = obj_ids
+
     def assertCatFacesEqual(self, cat_faces1, cat_faces2):
         self.assertEqual(len(cat_faces1), len(cat_faces2))
         for p_id, faces1 in cat_faces1.items():
@@ -75,6 +80,10 @@ class TestCreateCatFaces(unittest.TestCase):
     @property
     def points(self):
         return [self.a, self.b, self.c, self.d]
+
+    @property
+    def main_vertices(self):
+        return [p.vertex for p in self.points]
 
     @property
     def abcd(self):
@@ -199,7 +208,19 @@ class TestCreateCatFaces(unittest.TestCase):
 
         create_faces_4(self.data, self.points)
 
+        if VISUALIZE is True:
+            self.visualize_cat_test_result()
+
         self.compare_results(self.data, expected_faces)
+
+    def visualize_cat_test_result(self):
+        plotter = pyvista.Plotter()
+        plotter.add_mesh(pyvista.PolyData(self.main_vertices))
+        colors = ["red", "green", "blue", "yellow"]
+        for i, key in enumerate(set(self.object_ids)):
+            # if
+            plotter.add_mesh(pyvista.PolyData(*face_coord_to_points_and_faces(self.data, key)).explode(), color=colors[i], show_edges=True)
+        plotter.show()
 
     def test_create_faces_3(self):
         self.set_object_ids([0, 0, 1, 2])
@@ -211,43 +232,48 @@ class TestCreateCatFaces(unittest.TestCase):
                 0: [
                     (face, compute_face_unit_normal(self.data.get_face(face), self.a.vertex))
                     for face in [
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ac,
-                                self.middle_bc,
-                                self.middle_acd,
-                                self.middle_bcd,
-                            ]
-                        ),
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ad,
-                                self.middle_bd,
-                                self.middle_acd,
-                                self.middle_bcd,
-                            ]
-                        ),
+                        # *split_quadrilateral_to_triangles(
+                        [
+                            self.middle_ac,
+                            self.middle_bc,
+                            self.middle_acd,
+                            self.middle_bcd,
+                        ]
+
+                        # )
+                        ,
+                        # *split_quadrilateral_to_triangles(
+                        [
+                            self.middle_ad,
+                            self.middle_bd,
+                            self.middle_acd,
+                            self.middle_bcd,
+                        ]
+                        # )
+                        ,
                     ]
                 ],
                 1: [
                     (face, compute_face_unit_normal(self.data.get_face(face), self.b.vertex))
                     for face in [
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ac,
-                                self.middle_bc,
-                                self.middle_acd,
-                                self.middle_bcd,
-                            ]
-                        ),
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ad,
-                                self.middle_bd,
-                                self.middle_acd,
-                                self.middle_bcd,
-                            ]
-                        ),
+                        # *split_quadrilateral_to_triangles(
+                        [
+                            self.middle_ac,
+                            self.middle_bc,
+                            self.middle_acd,
+                            self.middle_bcd,
+                        ]
+                        # )
+                        ,
+                        # *split_quadrilateral_to_triangles(
+                        [
+                            self.middle_ad,
+                            self.middle_bd,
+                            self.middle_acd,
+                            self.middle_bcd,
+                        ]
+                        # )
+                        ,
                     ]
                 ],
             },
@@ -256,14 +282,15 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_unit_normal(self.data.get_face(face), self.c.vertex))
                     for face in [
                         [self.middle_cd, self.middle_acd, self.middle_bcd],
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ac,
-                                self.middle_bc,
-                                self.middle_acd,
-                                self.middle_bcd,
-                            ]
-                        ),
+                        # *split_quadrilateral_to_triangles(
+                        [
+                            self.middle_ac,
+                            self.middle_bc,
+                            self.middle_acd,
+                            self.middle_bcd,
+                        ]
+                        # )
+                        ,
                     ]
                 ],
             },
@@ -272,14 +299,15 @@ class TestCreateCatFaces(unittest.TestCase):
                     (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
                     for face in [
                         [self.middle_cd, self.middle_acd, self.middle_bcd],
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ad,
-                                self.middle_bd,
-                                self.middle_acd,
-                                self.middle_bcd,
-                            ]
-                        ),
+                        # *split_quadrilateral_to_triangles(
+                        [
+                            self.middle_ad,
+                            self.middle_bd,
+                            self.middle_acd,
+                            self.middle_bcd,
+                        ]
+                        # )
+                        ,
                     ]
                 ],
             },
@@ -287,6 +315,8 @@ class TestCreateCatFaces(unittest.TestCase):
 
         create_faces_3(self.data, occ, self.points)
 
+        if VISUALIZE is True:
+            self.visualize_cat_test_result()
         self.compare_results(self.data, expected_faces)
 
 # NOTE: This test has been manually checked using debug mode and is correct.
@@ -313,27 +343,25 @@ class TestCreateCatFaces(unittest.TestCase):
                 0: [
                     (face, compute_face_unit_normal(self.data.get_face(face), self.a.vertex))
                     for face in [
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ac,
-                                self.middle_bc,
-                                self.middle_ad,
-                                self.middle_bd,
-                            ]
-                        ),
+                        [
+                            self.middle_ac,
+                            self.middle_bc,
+                            self.middle_ad,
+                            self.middle_bd,
+                        ]
+                        ,
                     ]
                 ],
                 1: [
                     (face, compute_face_unit_normal(self.data.get_face(face), self.b.vertex))
                     for face in [
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ac,
-                                self.middle_bc,
-                                self.middle_ad,
-                                self.middle_bd,
-                            ]
-                        ),
+                        [
+                            self.middle_ac,
+                            self.middle_bc,
+                            self.middle_ad,
+                            self.middle_bd,
+                        ]
+                        ,
                     ]
                 ],
             },
@@ -341,33 +369,34 @@ class TestCreateCatFaces(unittest.TestCase):
                 2: [
                     (face, compute_face_unit_normal(self.data.get_face(face), self.c.vertex))
                     for face in [
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ac,
-                                self.middle_bc,
-                                self.middle_ad,
-                                self.middle_bd,
-                            ]
-                        ),
+                        [
+                            self.middle_ac,
+                            self.middle_bc,
+                            self.middle_ad,
+                            self.middle_bd,
+                        ]
+                        ,
                     ]
                 ],
                 3: [
                     (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
                     for face in [
-                        *split_quadrilateral_to_triangles(
-                            [
-                                self.middle_ac,
-                                self.middle_bc,
-                                self.middle_ad,
-                                self.middle_bd,
-                            ]
-                        ),
+                        [
+                            self.middle_ac,
+                            self.middle_bc,
+                            self.middle_ad,
+                            self.middle_bd,
+                        ]
+                        ,
                     ]
                 ],
             },
         }
 
         create_faces_2(self.data, occ, self.points)
+        if VISUALIZE is True:
+            self.visualize_cat_test_result()
+
         self.compare_results(self.data, expected_faces)
 
     def test_create_faces_2_abbb(self):
@@ -398,6 +427,9 @@ class TestCreateCatFaces(unittest.TestCase):
         }
 
         create_faces_2(self.data, occ, self.points)
+        if VISUALIZE is True:
+            self.visualize_cat_test_result()
+
         self.compare_results(self.data, expected_faces)
 
     def test_face_coord_to_points_and_faces_3_points(self):
@@ -417,7 +449,7 @@ class TestCreateCatFaces(unittest.TestCase):
             self.assertTrue(np.array_equal(points[i], expected_points[i]))
         self.assertTrue(np.array_equal(faces, expected_faces))
 
-    @unittest.skip("Change in implementation. function mainly needed for visualiation.")
+    @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_face_coord_to_points_and_faces_4_points(self):
         face = [0, 1, 2, 3]
         # self.data.add_point()
@@ -453,7 +485,7 @@ class TestCreateCatFaces(unittest.TestCase):
     #         self.assertTrue(np.array_equal(points[i], expected_points[i]))
     #     self.assertTrue(np.array_equal(faces, expected_faces))
 
-    @unittest.skip("Change in implementation. function mainly needed for visualiation.")
+    @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_face_coord_to_points_and_faces_3_points_2_faces(self):
         self.set_object_ids([0, 0, 0, 0])
         face = ([0, 1, 2], [0.0, 0.0, 1.0])
@@ -470,7 +502,7 @@ class TestCreateCatFaces(unittest.TestCase):
             self.assertTrue(np.array_equal(points[i], expected_points[i]))
         self.assertTrue(np.array_equal(faces, expected_faces))
 
-    @unittest.skip("Change in implementation. function mainly needed for visualiation.")
+    @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_faces_with_3_and_4_points(self):
         faces = [
             [
