@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from time import sleep
 
+from importlib import reload
 import numpy as np
 import pandas as pd
 import pyvista as pv
@@ -112,6 +113,8 @@ class SimSettings:
     """Whether to use dynamic simplification."""
     alpha: float = 0.05
     beta: float = 0.1
+    upscale_factor: float = 1.0
+    """The upscale factor for the object mesh."""
 
 
 class Optimizer(OptimizerData):
@@ -230,7 +233,7 @@ class Optimizer(OptimizerData):
 
     def sample_rate_mesh(self, scale_factor):
         if self.settings.dynamic_simplification:
-            return int(mesh_simplification_condition(scale_factor, self.settings.alpha, self.settings.beta) * self.shape0.n_faces)
+            return int(mesh_simplification_condition(scale_factor, self.settings.alpha, self.settings.beta) * self.shape0.n_faces * self.settings.upscale_factor)
         return self.settings.sample_rate  # currently simple
 
     # def container_sample_rate(self, scale_factor):
@@ -386,7 +389,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.2
+        mesh_volume = 0.61
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -399,9 +402,9 @@ class Optimizer(OptimizerData):
 
         settings = SimSettings(
             itn_max=100,
-            n_scaling_steps=8,
+            n_scaling_steps=9,
             r=0.3,
-            final_scale=0.8,
+            final_scale=1,
             log_lvl=LOG_LVL_INFO,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3),
@@ -410,6 +413,7 @@ class Optimizer(OptimizerData):
             dynamic_simplification=True,
             alpha=0.2,
             beta=0.5,
+            upscale_factor=1.5,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -448,60 +452,61 @@ class Optimizer(OptimizerData):
 #     optimizer.setup()s
 # %%
 
-# # # %%
-# # optimizer = Optimizer.simple_shapes_setup()
-# optimizer = Optimizer.default_setup()
-# optimizer.setup()
 # # %%
-# optimizer.run()
+# optimizer = Optimizer.simple_shapes_setup()
+optimizer = Optimizer.default_setup()
+optimizer.setup()
+# %%
+optimizer.run()
 
-# # %%
+# %%
 
-# reload(plots)
-# save_path = f"../dump/scale_fix_{time()}"
-# plots.generate_gif(optimizer , save_path + ".gif")
-# # %%
+reload(plots)
+save_path = f"../dump/scale_fix_upscale_max_{time()}"
+plots.generate_gif(optimizer , save_path + ".gif")
+# %%
 
 # display(HTML(f'<img src="{save_path}.gif"/>'))
 
 # # %%
 
-# reload(plots)
+reload(plots)
 
 
-# def plot_step(optimizer, step):
-#     plotter = pv.Plotter()
-#     meshes, cat_meshes, container = optimizer.recreate_scene(step)
-#     plots.plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": True, "edge_color": "purple"})
-#     plotter.add_text(optimizer.status(step).table_str, position="upper_left")
+def plot_step(optimizer, step):
+    plotter = pv.Plotter()
+    _, meshes, cat_meshes, container = optimizer.recreate_scene(step)
+    plots.plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": True, "edge_color": "purple"})
+    plotter.add_text(optimizer.status(step).table_str, position="upper_left")
 
-#     plotter.show()
-#     return plotter
+    plotter.show()
+    return plotter
 
 
-# plot_step(optimizer, 33)
+step = 259
+plot_step(optimizer, step)
 
 
 # # %%
 # obj_i, step = 6, 31
-# meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
+meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
 # # plots.plot_step_comparison(
 # #     optimizer.mesh_before,
 # #     optimizer.mesh_after(step, obj_i),
 # #     optimizer.cat_mesh(step, obj_i),
 # #     # other_meshes=optimizer.violating_meshes(step),
 # # )
-# # %%
+# %%
 # reload(plots)
-# obj_i = 6
-# plotter = plots.plot_step_single(
-#     meshes_before[obj_i], cat_meshes[obj_i], container=container, cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
-#     c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
-#     m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
-#     cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
-# )
+obj_i, step = 1, 259
+plotter = plots.plot_step_single(
+    meshes_before[obj_i], cat_meshes[obj_i], container=container, cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
+    c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
+    m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
+    cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
+)
 
-# # %%
+# %%
 # # store cat mesh in file
 # obj_i, step = 10, 5
 # issue_name = f"cat_penetrate_{int(time())}"
@@ -550,3 +555,5 @@ class Optimizer(OptimizerData):
 # ax.legend()
 
 # # %%
+
+# %%
