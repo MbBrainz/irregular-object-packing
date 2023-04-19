@@ -28,7 +28,7 @@ def create_plot(
         # object_mesh = pv.PolyData(object_meshes[i])
         object_mesh = pv.wrap(object_meshes[i])
         # object_mesh.transform(np.eye(4), object_locations[i])
-        plotter.add_mesh(object_mesh.decimate(0.1), color="r", opacity=0.7)
+        plotter.add_mesh(object_mesh.decimate(0.1), color="r", opacity=0.7) # noqa E501
 
         plotter.add_mesh(object_cells[i], color="y", opacity=0.3)
 
@@ -118,6 +118,13 @@ def plot_step_comparison(
     return plotter
 
 
+def none_to_dict(obj):
+    if obj is None:
+        return {}
+    else:
+        return obj
+
+
 def plot_step_single(
     mesh,
     cat_cell_mesh_1,
@@ -127,8 +134,10 @@ def plot_step_single(
     plotter=None,
     clipped=False,
     title="Title",
-    c_kwargs={}, m_kwargs={}, cat_kwargs={},
+    c_kwargs=None, m_kwargs=None, cat_kwargs=None,
 ):
+    c_kwargs, m_kwargs, cat_kwargs = [none_to_dict(d) for d in [c_kwargs, m_kwargs, cat_kwargs]]
+
     if plotter is None:
         plotter = pv.Plotter()
 
@@ -219,7 +228,7 @@ def create_packed_scene(
         new_mesh = new_mesh.scale(mesh_scale)
         new_mesh = new_mesh.translate(coord)
 
-        colors.append(trimesh.visual.random_color())
+        colors.append(trimesh.visual.random_color()) # noqa E501
         objects.append(new_mesh)
 
     plotter = pv.Plotter()
@@ -230,8 +239,10 @@ def create_packed_scene(
     return plotter
 
 
-def plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={}, m_kwargs={}, cat_kwargs={},
+def plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs=None, m_kwargs=None, cat_kwargs=None,
                           ):
+    c_kwargs, m_kwargs, cat_kwargs = [none_to_dict(d) for d in [c_kwargs, m_kwargs, cat_kwargs]]
+
     for i in range(len(meshes)):
         try:
             plotter.add_mesh(meshes[i], opacity=0.95, color="red", cmap='bwr', scalars="collisions", **m_kwargs)
@@ -247,10 +258,10 @@ def generate_gif(optimizer, save_path, title="Optimization"):
     plotter.open_gif(save_path)
     plotter.add_title(title)
 
-    meshes, cat_meshes, container = optimizer.recreate_scene(0)
+    _, after_meshes, cat_meshes, container = optimizer.recreate_scene(0)
     for i in range(0, optimizer.idx):
-        prev_meshes = meshes
-        meshes, cat_meshes, container = optimizer.recreate_scene(i)
+        prev_meshes = after_meshes
+        _, after_meshes, cat_meshes, container = optimizer.recreate_scene(i)
         plotter.clear()
         plot_simulation_scene(plotter, prev_meshes, cat_meshes, container)
 
@@ -260,7 +271,7 @@ def generate_gif(optimizer, save_path, title="Optimization"):
         plotter.write_frame()
         plotter.clear()
 
-        plot_simulation_scene(plotter, meshes, cat_meshes, container)
+        plot_simulation_scene(plotter, after_meshes, cat_meshes, container)
         plotter.add_text(f"step {i}", position="upper_right")
         plotter.add_text(optimizer.status(i).table_str, position="upper_left")
         plotter.write_frame()
