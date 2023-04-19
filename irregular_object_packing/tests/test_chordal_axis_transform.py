@@ -17,7 +17,7 @@ from irregular_object_packing.packing.utils import (
 from irregular_object_packing.tests.test_helpers import sort_surfaces
 
 # this will show plots during tests.
-VISUALIZE = True
+VISUALIZE = False
 
 
 class TestCreateCatFaces(unittest.TestCase):

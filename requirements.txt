@@ -14,3 +14,4 @@ networkx
 pandas
 parameterized
 black
+scikit-learn

@@ -1,19 +1,15 @@
 # %%
 from dataclasses import dataclass
-from importlib import reload
-from time import sleep, time
+from time import sleep
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyvista as pv
 import trimesh
-from IPython.display import HTML, display
 from pyvista import PolyData
 from scipy.optimize import minimize
 from tqdm.auto import tqdm
 
-import irregular_object_packing.packing.plots as plots
 from irregular_object_packing.mesh.collision import (
     compute_all_collisions,
     compute_container_violations,
@@ -37,7 +33,6 @@ from irregular_object_packing.packing.optimizer_data import (
     IterationData,
     OptimizerData,
 )
-from irregular_object_packing.tools.profile import pprofile
 
 # pv.set_jupyter_backend("panel")
 LOG_LVL_ERROR = 0
@@ -453,105 +448,105 @@ class Optimizer(OptimizerData):
 #     optimizer.setup()s
 # %%
 
+# # # %%
+# # optimizer = Optimizer.simple_shapes_setup()
+# optimizer = Optimizer.default_setup()
+# optimizer.setup()
 # # %%
-# optimizer = Optimizer.simple_shapes_setup()
-optimizer = Optimizer.default_setup()
-optimizer.setup()
-# %%
-optimizer.run()
+# optimizer.run()
 
-# %%
+# # %%
 
-reload(plots)
-save_path = f"../dump/collisions_{time()}"
-plots.generate_gif(optimizer , save_path + ".gif")
-# %%
+# reload(plots)
+# save_path = f"../dump/scale_fix_{time()}"
+# plots.generate_gif(optimizer , save_path + ".gif")
+# # %%
 
-display(HTML(f'<img src="{save_path}.gif"/>'))
+# display(HTML(f'<img src="{save_path}.gif"/>'))
 
-# %%
+# # %%
 
-reload(plots)
+# reload(plots)
 
 
-def plot_step(optimizer, step):
-    plotter = pv.Plotter()
-    meshes, cat_meshes, container = optimizer.recreate_scene(step)
-    plots.plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": True, "edge_color": "purple"})
-    plotter.add_text(optimizer.status(step).table_str, position="upper_left")
+# def plot_step(optimizer, step):
+#     plotter = pv.Plotter()
+#     meshes, cat_meshes, container = optimizer.recreate_scene(step)
+#     plots.plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": True, "edge_color": "purple"})
+#     plotter.add_text(optimizer.status(step).table_str, position="upper_left")
 
-    plotter.show()
-    return plotter
-
-
-plot_step(optimizer, 33)
+#     plotter.show()
+#     return plotter
 
 
-# %%
-obj_i, step = 6, 31
-meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
-# plots.plot_step_comparison(
-#     optimizer.mesh_before,
-#     optimizer.mesh_after(step, obj_i),
-#     optimizer.cat_mesh(step, obj_i),
-#     # other_meshes=optimizer.violating_meshes(step),
+# plot_step(optimizer, 33)
+
+
+# # %%
+# obj_i, step = 6, 31
+# meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
+# # plots.plot_step_comparison(
+# #     optimizer.mesh_before,
+# #     optimizer.mesh_after(step, obj_i),
+# #     optimizer.cat_mesh(step, obj_i),
+# #     # other_meshes=optimizer.violating_meshes(step),
+# # )
+# # %%
+# reload(plots)
+# obj_i = 6
+# plotter = plots.plot_step_single(
+#     meshes_before[obj_i], cat_meshes[obj_i], container=container, cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
+#     c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
+#     m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
+#     cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
 # )
-# %%
-reload(plots)
-obj_i = 6
-plotter = plots.plot_step_single(
-    meshes_before[obj_i], cat_meshes[obj_i], container=container, cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
-    c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
-    m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
-    cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
-)
 
-# %%
-# store cat mesh in file
-obj_i, step = 10, 5
-issue_name = f"cat_penetrate_{int(time())}"
-cat_mesh = optimizer.cat_mesh(step, obj_i)
-cat_filename = f"cat[o{obj_i}i{step}].stl"
-obj_filename = f"obj[o{obj_i}i{step}].stl"
-mkdir(f"../dump/issue_reports/{issue_name}")
-folder_dir = f"../dump/issue_reports/{issue_name}/"
-cat_mesh.save(folder_dir + cat_filename)
-meshes[obj_i].save(folder_dir + obj_filename)
-# %%
+# # %%
+# # store cat mesh in file
+# obj_i, step = 10, 5
+# issue_name = f"cat_penetrate_{int(time())}"
+# cat_mesh = optimizer.cat_mesh(step, obj_i)
+# cat_filename = f"cat[o{obj_i}i{step}].stl"
+# obj_filename = f"obj[o{obj_i}i{step}].stl"
+# mkdir(f"../dump/issue_reports/{issue_name}")
+# folder_dir = f"../dump/issue_reports/{issue_name}/"
+# cat_mesh.save(folder_dir + cat_filename)
+# meshes[obj_i].save(folder_dir + obj_filename)
+# # %%
 
-# %%
+# # %%
 
-tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
-tetmesh.save(folder_dir + f"tetmesh[i{step}].vtk")
-filtered_tetmesh.save(folder_dir + f"filtered_tetmesh[i{step}].vtk")
+# tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
+# tetmesh.save(folder_dir + f"tetmesh[i{step}].vtk")
+# filtered_tetmesh.save(folder_dir + f"filtered_tetmesh[i{step}].vtk")
 
 
-# %%
-
-
-@pprofile
-def profile_optimizer():
-    optimizer.run()
-
-
-profile_optimizer()
 # # %%
 
 
-# %%
+# @pprofile
+# def profile_optimizer():
+#     optimizer.run()
 
 
-fig, ax = plt.subplots()
+# profile_optimizer()
+# # # %%
 
-a = [0.05, 0.15, 0.25]
-b = [0.1, 0.2, 0.3, 0.5]
 
-x = np.linspace(0, 1, 100)
+# # %%
 
-for ai in a:
-    for bi in b:
-        print(f"{ai} {bi}`")
-        ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
-ax.legend()
 
-# %%
+# fig, ax = plt.subplots()
+
+# a = [0.05, 0.15, 0.25]
+# b = [0.1, 0.2, 0.3, 0.5]
+
+# x = np.linspace(0, 1, 100)
+
+# for ai in a:
+#     for bi in b:
+#         print(f"{ai} {bi}`")
+#         ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
+# ax.legend()
+
+# # %%

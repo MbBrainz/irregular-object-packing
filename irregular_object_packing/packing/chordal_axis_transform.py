@@ -495,6 +495,10 @@ def main():
     plotter.add_arrows(np.array(centerpoints), np.array(normal), mag=0.5, color="y")
 
     plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="r", opacity=0.7)
+    for i in range(len(boxes)):
+        if i != box_idx:
+            plotter.add_mesh(cat_boxes[i], show_edges=True, color="yellow", opacity=0.3)
+
     # plotter.add_mesh(cat_boxes[1], show_edges=True, color="orange", opacity=0.5)
     plot_boxes = [box1, box2, box3, box4]
     for box in plot_boxes:
