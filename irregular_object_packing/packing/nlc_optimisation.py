@@ -1,45 +1,67 @@
 # %%
+import itertools
+import numba
+from numba.typed.typedlist import List
+from numba.typed.typeddict import Dict
+from numba import jit, vectorize, float32
+
+from numpy import dtype, ndarray
 import numpy as np
+
+from numpy.typing import NDArray
 from scipy.optimize import minimize
 
 from irregular_object_packing.packing.chordal_axis_transform import CatData
 from irregular_object_packing.packing.utils import (
     print_transform_array,
 )
-
-
 # Define the objective function to be maximized
+NO_PYTHON = True
+
+
+@jit(nopython=NO_PYTHON, debug=True)
 def objective(x):
-    f, _theta, _t = x[0], x[1:4], x[4:]
-    return -f  # maximize f
+    """ Objective function to be minimized.
+    returns negative of f(x) so its maximized instead of minimized.
+        f, _theta, _t = x[0], x[1:4], x[4:]
+    """
+    return -x[0]  # maximize f
 
 
-def rotation_matrix(rx, ry, rz):
+@jit(numba.float64[:, :](numba.float64[:]), nopython=NO_PYTHON, debug=True)
+def rotation_matrix(theta):
     """Rotation matrix for rotations around the x-, y-, and z-axis.
 
     Parameters
     ----------
-    rx : float
-        Rotation angle around the x-axis [rad].
-    ry : float
-        Rotation angle around the y-axis [rad].
-    rz : float
-        Rotation angle around the z-axis [rad].
+    theta: (3,) array of (rx, ry, rz)
+        rx : float
+            Rotation angle around the x-axis [rad].
+        ry : float
+            Rotation angle around the y-axis [rad].
+        rz : float
+            Rotation angle around the z-axis [rad].
 
     Returns
     -------
     R : (3,3) array
         Rotation matrix.
     """
-    cx, cy, cz = np.cos(rx), np.cos(ry), np.cos(rz)
-    sx, sy, sz = np.sin(rx), np.sin(ry), np.sin(rz)
-    R_x = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])
-    R_y = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
-    R_z = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
-    return R_x @ R_y @ R_z
+
+    cosine = np.cos(theta)
+    sine = np.sin(theta)
+
+    R = np.array([
+        [cosine[1] * cosine[2], -cosine[1] * sine[2] * cosine[0] + sine[1] * sine[0], cosine[1] * sine[2] * sine[0] + sine[1] * cosine[0]],
+        [sine[2], cosine[2] * cosine[0], -cosine[2] * sine[0]],
+        [-sine[1] * cosine[2], sine[1] * sine[2] * cosine[0] + cosine[1] * sine[0], -sine[1] * sine[2] * sine[0] + cosine[1] * cosine[0]]
+    ], dtype=np.float64)
+
+    return R
 
 
-def construct_transform_matrix(x, translation=True):
+@jit(numba.float64[:, :](numba.float64, numba.float64[:], numba.float64[:]), nopython=NO_PYTHON, debug=True)
+def construct_transform_matrix(f, theta, t):
     """Transforms parameters to transformation matrix.
 
     Parameters
@@ -65,22 +87,21 @@ def construct_transform_matrix(x, translation=True):
            [0., 0., 0., 1.]])
     """
     # Extract parameters
-    f, theta, t = x[0], x[1:4], x[4:]
     # Construct identity transformation matrix
-    T = np.eye(4)
+    T = np.eye(4, dtype=np.float64)
     # Compute rotation matrix
-    R = rotation_matrix(*theta)
+    R = rotation_matrix(theta)
     # Scale rotation matrix
     f = f ** (1 / 3)
-    S = np.diag([f, f, f])
+    S = np.diag(np.full(3, f, dtype=np.float64))
     # Compute final transformation matrix
     T[:3, :3] = R @ S
-    if translation:
-        T[:3, 3] = t
+    T[:3, 3] = t
 
     return T
 
 
+@jit(numba.float64[:](numba.float64[:], numba.float64[:, :]), nopython=NO_PYTHON, debug=True)
 def transform_v(v_i, T: np.ndarray):
     """Transforms vector v_i with transformation matrix T.
 
@@ -104,18 +125,23 @@ def transform_v(v_i, T: np.ndarray):
     >>> transform_v(v_i, T)
     array([0., 0., 0.])
     """
-    transformed_v_i = T @ np.hstack((v_i, 1))  # transform v_i
+    stacked_vi = np.ascontiguousarray(np.hstack((v_i, np.array([1.0], dtype=np.float64))))  # add 1 to v_i to make it homogeneous 
+    transformed_v_i = T @ stacked_vi  # transform v_i
 
     # Normalize the resulting homogeneous vector to get the transformed 3D coordinate
-    norm_v = transformed_v_i[:-1] / transformed_v_i[-1]
+    norm_v = transformed_v_i[:3] / transformed_v_i[3]
 
     return norm_v
 
 
-def local_constraint_for_point_with_padding(
-    v_id, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), padding=0.0
+@jit(nopython=NO_PYTHON, debug=True)
+def local_constraint_for_point(
+    v_id, transform_matrix, faces: np.ndarray[int], normals: np.ndarray[float], points, obj_coord=np.zeros(3), padding=0.0
 ):
     """Compute conditions for a single point.
+    NOTE: the point has already been rotated and
+    scaled to according to the last iteration. Therefore the bounds for
+    rotation, scaling and translation are around zero
 
     Parameters
     ----------
@@ -123,8 +149,10 @@ def local_constraint_for_point_with_padding(
         ID of the point for which the conditions are computed.
     transform_matrix: numpy.ndarray
         Matrix that transforms a point.
-    faces: list
+    faces: ndarray[int]
         List of lists of point IDs.
+    face_normals: ndarray[float]
+        List of face normals.
     points: dict
         Dictionary of point IDs and their coordinates.
     obj_coord : numpy.ndarray
@@ -136,17 +164,17 @@ def local_constraint_for_point_with_padding(
         List of conditions for a single point.
     """
     # translate the point to the local coordinate system of the object
-    # NOTE: This will be a point that has already been rotated and
-    # scaled to according to the last iteration. Therefore the bounds for
-    # rotation, scaling and translation are around zero
-    v_i = np.array(points[v_id]) - obj_coord
+    v_i = points[v_id] - obj_coord
     # apply the transformation matrix to the point
     transformed_v_i = transform_v(v_i, transform_matrix)
 
-    constraints = []
-    for _i, (face_p_ids, n_face) in enumerate(faces):
+    constraints = np.empty(len(faces), dtype=np.float64)
+    for i in range(len(faces)):
+        face_p_ids = faces[i]
+        n_face = normals[i]
+
         # translate the points of the faces to the local coordinate system of the object
-        face_coords = [np.array(points[p_id]) - obj_coord for p_id in face_p_ids]
+        face_coords = [points[p_id] - obj_coord for p_id in face_p_ids]
 
         # NOTE: Any point on the surface of the object can be used as q_j
         q_j = face_coords[0]  # q_j = np.mean(face_coords, axis=0) -> not necessary
@@ -156,76 +184,19 @@ def local_constraint_for_point_with_padding(
 
         # Return negative value if point is inside surface plus margin,
         dist = condition - padding
-        constraints.append(dist)
-
-    return constraints
-    # NOTE: alternative implementation: (currently allows point inside margin only)
-    # MARGIN: Compute distance to surface
-    # dist = abs(condition) - padding
-    # if dist < 0:
-    #     dist = 0
-    # # positive value otherwise
-    # if condition < 0:
-    #     constraints.append(-dist)
-    # else:
-    #     constraints.append(dist)
-    # # constraints.append(condition)
-
-
-def local_constraint_for_point(
-    v_id, transform_matrix, faces, points: dict, obj_coord=np.zeros(3), padding=0.0
-):
-    """Compute conditions for a single point relative to the local coordinate system of
-    the object. This is done by translating `v_i` and the points of the facets to the
-    local coordinate system before computing the optimization conditions.
-
-    Parameters
-    ----------
-    v_id : int
-        ID of the point for which the conditions are computed.
-    transform_matrix: numpy.ndarray
-        Matrix that transforms a point.
-    facets: list
-        List of lists of point IDs.
-    points: dict
-        Dictionary of point IDs and their coordinates.
-    obj_coord : numpy.ndarray
-        Coordinates of the object center.
-
-    Returns
-    -------
-    list
-        List of constraints for a single point.
-    """
-
-    # translate the point to the local coordinate system of the object
-    # NOTE: This will be a point that has already been rotated and
-    # scaled to according to the last iteration. Therefore the bounds for
-    # rotation, scaling and translation are around zero
-    v_i = np.array(points[v_id]) - obj_coord
-    # apply the transformation matrix to the point
-    transformed_v_i = transform_v(v_i, transform_matrix)
-
-    constraints = []
-    for _i, (face_p_ids, n_face) in enumerate(faces):
-        # translate the points of the facet to the local coordinate system of the object
-        face_coords = [np.array(points[p_id]) - obj_coord for p_id in face_p_ids]
-        q_j = face_coords[
-            0
-        ]  # first point in facet is q_j (can be any point of the facet)
-        q_j = np.mean(face_coords, axis=0)
-        condition = np.dot(transformed_v_i - q_j, n_face) / np.linalg.norm(n_face)
-        constraints.append(condition)
+        constraints[i] = dist
 
     return constraints
 
 
+@jit(nopython=NO_PYTHON, debug=True)
 def local_constraint_multiple_points(
-    tf_arr: list[float],
-    v: list[int],
-    sets_of_faces: list[list[int]],
-    points: dict,
-    obj_coords,
+    tf_arr: ndarray[float],
+    v: ndarray[int],
+    sets_of_faces: list[ndarray[int]],
+    sets_of_normals: list[ndarray[float]],
+    points: Dict,
+    obj_coords: ndarray[float],
     padding=0.0,
 ):
     """Compute conditions for a list of point with corresponding facets_sets.
@@ -236,8 +207,8 @@ def local_constraint_multiple_points(
         ID of the point for which the conditions are computed.
     tf_arr: numpy.ndarray
         array with global transformation parameters.
-    facets: dict[list]
-        list of facets per ID in v defined by lists of point IDs.
+    sets_of_faces: dict[list]
+        np.array in the shape of 
     points: dict
         Dictionary of point IDs and their coordinates.
     obj_coord : numpy.ndarray
@@ -248,36 +219,56 @@ def local_constraint_multiple_points(
     list
         List of conditions for all the points.
     """
-    constraint_func = local_constraint_for_point
-    if padding != 0.0:
-        constraint_func = local_constraint_for_point_with_padding
-    transform_matrix = construct_transform_matrix(tf_arr)
-    constraints = []  # list of constraints
-    for i, v_i in enumerate(v):
-        constraints += constraint_func(
-            v_i, transform_matrix, sets_of_faces[i], points, obj_coords, padding=padding
-        )
+    transform_matrix = construct_transform_matrix(tf_arr[0], tf_arr[1:4], tf_arr[4:])
+    constraints = List()  # list of constraints
 
-    return constraints
+    for i in range(len(v)):
+        faces = sets_of_faces[i]  # assumes each face has 3 points
+        normals = sets_of_normals[i]
+        constraints.append(
+            local_constraint_for_point(
+                v[i], transform_matrix, faces, normals, points, obj_coords, padding=padding
+            )
+        )
+    return [item for sublist in constraints for item in sublist]
+
+    # return np.concatenate(constraints).flat
+
+
+def make_dict_typed(d: dict) -> Dict:
+    """Convert a dictionary to a typed dictionary."""
+    nd = Dict.empty(
+        key_type=numba.types.int64,
+        value_type=numba.types.float64[:]
+    )
+
+    for k, v in d.items():
+        nd[k] = np.array(v, dtype='f8')
+
+    return nd
 
 
 def local_constraints_from_cat(
     tf_arr: list[float], obj_id: int, cat_data: CatData, padding=0.0
 ):
-    """Compute the conditions for one object."""
-    # item will be in the form
+    """Compute the conditions for one object.
+    item will be in the form: 
+    - [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
 
-    # [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
+    """
+
     items = cat_data.cat_faces[obj_id].items()
     cat_cell = cat_data.cat_cells[obj_id]
     _all_faces = [cat_cell] * len(items)
-
+    face_normal_sets = cat_data.face_normals[obj_id]
+    points = make_dict_typed(cat_data.points)
     v, sets_of_faces = [*zip(*items, strict=True)]
     return local_constraint_multiple_points(
-        tf_arr,
-        v,
+        np.array(tf_arr, dtype=np.float64),
+        np.array(v, dtype=np.int64),
         sets_of_faces,
-        cat_data.points,
+        face_normal_sets,
+        points,
         cat_data.object_coords[obj_id],
         padding,
     )
@@ -300,42 +291,61 @@ def test_nlcp_facets():
         7: np.array([1, 1, 0], dtype=np.float64),
         8: np.array([-1, 1, 0], dtype=np.float64),
         # points to test
-        9: np.array([0, 0, 0.9]),
-        10: np.array([0, 0.9, 0.0]),
-        11: np.array([0.9, 0.0, 0.0]),
+        9: np.array([0, 0, 0.9], dtype=np.float64),
+        10: np.array([0, 0.9, 0.0], dtype=np.float64),
+        11: np.array([0.9, 0.0, 0.0], dtype=np.float64),
     }
 
     # Define facets (face, normal)
-    facets = [
-        (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
-        (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
-        (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
-        (np.array([2, 3, 7, 6]), np.array([-1, 0, 0])),
-        (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
-        (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
-    ]
+    faces = np.array([
+        [1, 2, 3], 
+        [5, 6, 7], 
+        [1, 2, 6], 
+        [2, 3, 7], 
+        [3, 4, 8], 
+        [4, 1, 5], 
+    ], dtype=np.int64)
 
-    # quick
-    def get_face_coords(facet, points):
-        return [points[p_id] for p_id in facet[0]]
+    face_normals = np.array([
+        [0, 0, -1],
+        [0, 0, 1],
+        [0, 1, 0],
+        [-1, 0, 0],
+        [0, -1, 0],
+        [+1, 0, 0],
+    ], dtype=np.float64)
 
-    x0 = np.array([1, 0.01, 0.01, 0.01, 0.1, 0.1, 0.1])
+    x0 = np.array([1, 0.01, 0.01, 0.01, 0.1, 0.1, 0.1], dtype=np.float64)
 
-    v = [9, 10, 11]
-    facets_sets = [facets, facets, facets]
+    v = np.array([9, 10, 11], dtype=np.int64)
+    faces_sets = List([faces, faces, faces])
+    face_normal_sets = List([face_normals, face_normals, face_normals])
 
     r_bound = (-1 / 12 * np.pi, 1 / 12 * np.pi)
     t_bound = (0, None)
     bounds = [(0.1, None), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+
+    points = make_dict_typed(points)
+
+    constraints = local_constraint_multiple_points(
+        x0,
+        v,
+        faces_sets,
+        face_normal_sets,
+        points,
+        obj_coords=np.array([0, 0, 0], dtype=np.float64),
+        padding=0.0,
+    )
 
     constraint_dict = {
         "type": "ineq",
         "fun": local_constraint_multiple_points,
         "args": (
             v,
-            facets_sets,
+            faces_sets,
+            face_normal_sets,
             points,
-            np.array([0, 0, 0]),
+            np.array([0, 0, 0], dtype=np.float64),
             0.1,
         ),
     }
@@ -343,8 +353,8 @@ def test_nlcp_facets():
     res = minimize(
         objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
     )
-    T = construct_transform_matrix(res.x)
-    # %%
+    T = construct_transform_matrix(res.x[0], res.x[1:4], res.x[4:7])
+
     # Print the results
     print("Optimal solution:")
     print_transform_array(res.x)
@@ -354,7 +364,6 @@ def test_nlcp_facets():
     print(transform_v(points[10], T))
     print(transform_v(points[11], T))
 
-    # %%
     # Create a 3D plot
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -363,7 +372,11 @@ def test_nlcp_facets():
     ax = fig.add_subplot(111)
 
     # Plot the faces with opacity = 0.5
-    for face in facets:
+    # quick
+    def get_face_coords(face, points):
+        return [points[p_id] for p_id in face]
+
+    for face in faces:
         face = get_face_coords(face, points)
 
         collection = Poly3DCollection(
