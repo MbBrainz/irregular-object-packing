@@ -1,4 +1,5 @@
 # %%
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib import reload
 from time import sleep, time
@@ -141,6 +142,7 @@ class Optimizer(OptimizerData):
             self.settings.final_scale,
             num=self.settings.n_scaling_steps + 1,
         )[1:]
+        self.executor = ThreadPoolExecutor()
         self.pbar1 = None
         self.pbar2 = None
         self.pbar3 = None
@@ -290,9 +292,16 @@ class Optimizer(OptimizerData):
         self.compute_cat_cells()
 
         # GROWTH-BASED OPTIMISATION
+
+        tasks = []
+
         for obj_id, previous_tf_array in enumerate(self.tf_arrays):
-            self.pbar2.set_postfix(obj_id=obj_id)
-            self.local_optimisation(obj_id, previous_tf_array, scale_bound)
+            task = self.executor.submit(self.local_optimisation, obj_id, previous_tf_array, scale_bound)
+            tasks.append(task)
+
+        for task in tasks:
+            task.result()  # Wait for the tasks to complete
+            self.pbar1.update(1)
 
     def local_optimisation(self, obj_id, previous_tf_array, max_scale):
         tf_arr = optimal_local_transform(
