@@ -1,6 +1,6 @@
 # %%
 from dataclasses import dataclass
-from time import sleep
+from time import sleep, time
 
 from importlib import reload
 import numpy as np
@@ -34,6 +34,7 @@ from irregular_object_packing.packing.optimizer_data import (
     IterationData,
     OptimizerData,
 )
+from irregular_object_packing.packing import plots
 
 # pv.set_jupyter_backend("panel")
 LOG_LVL_ERROR = 0
@@ -320,9 +321,10 @@ class Optimizer(OptimizerData):
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
         obj_points = [
             trimesh.transform_points(
-                self.shape.points.copy(), nlc.construct_transform_matrix(transform_data)
+                self.shape.points.copy(), 
+                nlc.construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:])
             )
-            for transform_data in self.tf_arrays
+            for tf_array in self.tf_arrays
         ]
 
         # COMPUTE CAT CELLS
@@ -389,7 +391,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.61
+        mesh_volume = 0.51
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -408,12 +410,12 @@ class Optimizer(OptimizerData):
             log_lvl=LOG_LVL_INFO,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3),
-            # padding=1e-3,
+            padding=1e-6,
             # sample_rate=1000,
             dynamic_simplification=True,
-            alpha=0.2,
+            alpha=0.1,
             beta=0.5,
-            upscale_factor=1.5,
+            upscale_factor=1,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)

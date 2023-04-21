@@ -1,5 +1,4 @@
 # %%
-import itertools
 import numba
 from numba.typed.typedlist import List
 from numba.typed.typeddict import Dict
@@ -16,7 +15,7 @@ from irregular_object_packing.packing.utils import (
     print_transform_array,
 )
 # Define the objective function to be maximized
-NO_PYTHON = True
+NO_PYTHON = False
 
 
 @jit(nopython=NO_PYTHON, debug=True)
@@ -222,12 +221,12 @@ def local_constraint_multiple_points(
     transform_matrix = construct_transform_matrix(tf_arr[0], tf_arr[1:4], tf_arr[4:])
     constraints = List()  # list of constraints
 
-    for i in range(len(v)):
+    for i, vi in enumerate(v):
         faces = sets_of_faces[i]  # assumes each face has 3 points
         normals = sets_of_normals[i]
         constraints.append(
             local_constraint_for_point(
-                v[i], transform_matrix, faces, normals, points, obj_coords, padding=padding
+                vi, transform_matrix, faces, normals, points, obj_coords, padding=padding
             )
         )
     return [item for sublist in constraints for item in sublist]
@@ -258,16 +257,29 @@ def local_constraints_from_cat(
     """
 
     items = cat_data.cat_faces[obj_id].items()
-    cat_cell = cat_data.cat_cells[obj_id]
-    _all_faces = [cat_cell] * len(items)
-    face_normal_sets = cat_data.face_normals[obj_id]
     points = make_dict_typed(cat_data.points)
-    v, sets_of_faces = [*zip(*items, strict=True)]
+
+    v, faces = [*zip(*items, strict=True)]
+    _, face_normals = [*zip(*cat_data.cat_normals[obj_id].items())]
+    assert len(v) == len(faces) == len(face_normals)
+
+    # Convert to numba compatible datatypes
+    point_list = List()
+    face_normals_list = List()
+    faces_list = List()
+
+    for i in range(len(faces)):
+        if len(faces[i]) == 0:
+            continue
+        point_list.append(v[i])
+        faces_list.append(np.array(faces[i], dtype=np.int64))
+        face_normals_list.append(np.array(face_normals[i], dtype=np.float64))
+
     return local_constraint_multiple_points(
         np.array(tf_arr, dtype=np.float64),
-        np.array(v, dtype=np.int64),
-        sets_of_faces,
-        face_normal_sets,
+        np.array(point_list, dtype=np.int64),
+        faces_list,
+        face_normals_list,
         points,
         cat_data.object_coords[obj_id],
         padding,

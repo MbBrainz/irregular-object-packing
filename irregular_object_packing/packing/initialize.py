@@ -1,5 +1,6 @@
 """Initialization phase of the packing algorithm."""
 # %%
+from math import ceil
 from typing import List
 
 import numpy as np
@@ -95,7 +96,7 @@ def init_coordinates(
         else:
             skipped += 1
 
-    return objects_coords, skipped # type: ignore
+    return objects_coords, skipped  # type: ignore
 
 
 def coord_is_correct(
@@ -111,7 +112,7 @@ def coord_is_correct(
             for i in object_coords
         ]
         # positive for inside mesh, negative for outside
-        distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0] # type: ignore
+        distance_to_container = trimesh.proximity.signed_distance(container, [coord])[0]  # type: ignore
         distance_arr.append(distance_to_container > min_distance_between_meshes / 2)
 
         if np.alltrue(distance_arr):
@@ -149,6 +150,7 @@ def filter_coords(
             skipped += 1
     return skipped, objects_coords
 
+
 def generate_sample_points(mesh: PolyData, container: PolyData, grid_spacing: float, min_distance: float, bounds=None) -> np.ndarray:
     """
     Generate sample points based on a structured grid within a specific mesh.
@@ -173,11 +175,12 @@ def generate_sample_points(mesh: PolyData, container: PolyData, grid_spacing: fl
     # Clip the grid to the mesh
     sample_points: PolyData = structured_grid.clip_surface(container)
     points = []
-    for p in sample_points.points: # type: ignore
-        if trimesh.proximity.signed_distance(pyvista_to_trimesh(container), [p])[0] > min_distance / 2: # type: ignore
+    for p in sample_points.points:  # type: ignore
+        if trimesh.proximity.signed_distance(pyvista_to_trimesh(container), [p])[0] > min_distance / 2:  # type: ignore
             points.append(p)
 
     return np.array(points)
+
 
 def estimate_grid_spacing(volume, num_grid_points):
     if volume <= 0 or num_grid_points <= 0:
@@ -192,12 +195,14 @@ def estimate_grid_spacing(volume, num_grid_points):
     # Calculate the grid dimensions
     return cube_root
 
+
 def objective_function(spacing, target_volume, min_distance, mesh, container):
     grid_points = generate_sample_points(mesh, container, spacing, min_distance)
     objective = np.abs(len(grid_points) * mesh.volume - target_volume)
     return -objective
 
-def find_optimal_grid_spacing( mesh: PolyData, container: PolyData, coverage_rate:float, min_distance:float) -> float:
+
+def find_optimal_grid_spacing(mesh: PolyData, container: PolyData, coverage_rate: float, min_distance: float) -> float:
     target_volume = container.volume * coverage_rate
     n_objects = np.ceil(target_volume / mesh.volume)
     spacing0 = estimate_grid_spacing(container.volume, n_objects)
@@ -226,7 +231,7 @@ def grid_initialisation(
     mesh: PolyData,
     coverage_rate: float = 0.3,
     f_init: float = 0.1,
-    ) -> np.ndarray:
+) -> np.ndarray:
     """Generates a grid of points within the bounds of the bounding box."""
     # Init
     max_dim_mesh = get_max_radius(mesh) * 2

@@ -61,22 +61,24 @@ class CatData:
         self.points = {}
         self.point_ids = {}
         self.cat_faces = {}
+        self.cat_normals = {}
         self.cat_cells = {}
         self.object_coords = object_coords
 
         for obj_id in range(len(point_sets)):
             self.cat_cells[obj_id] = []
             self.cat_faces[obj_id] = {}
+            self.cat_normals[obj_id] = {}
 
             for point in point_sets[obj_id]:
                 self.add_obj_point(obj_id, point)
 
     def point_id(self, point: np.ndarray) -> int:
-        point = tuple(point)
+        t_point = tuple(point)
         n_points = len(self.points)
-        p_id = self.point_ids.get(point, n_points)
+        p_id = self.point_ids.get(t_point, n_points)
         if p_id == n_points:
-            self.add_point(point, p_id)
+            self.new_point(t_point)
 
         return p_id
 
@@ -85,36 +87,32 @@ class CatData:
 
     def new_point(self, point: tuple) -> int:
         p_id = len(self.points)
-        self.add_point(point, p_id)
+        self.points[p_id] = point
+        self.point_ids[point] = p_id
         return p_id
 
     def add_obj_point(self, obj_id: int, point: tuple) -> None:
         p_id = self.new_point(point)
         self.cat_faces[obj_id][p_id] = []
-
-    def add_point(self, point: tuple, p_id: int) -> None:
-        self.points[p_id] = point
-        self.point_ids[point] = p_id
+        self.cat_normals[obj_id][p_id] = []
 
     def add_cat_face_to_cell(self, obj_id: int, face: list[int]) -> None:
         self.cat_cells[obj_id].append(face)
 
-    def add_cat_face_to_point(self, point: TetPoint, face: list[int]) -> None:
-        self.cat_faces[point.obj_id][point.p_id].append(face)
+    def add_cat_face_to_point(self, point: TetPoint, face: list[int], normal: np.ndarray) -> None:
+        self.cat_faces[point.obj_id][point.p_id].append(np.array(face[:3]))
+        self.cat_normals[point.obj_id][point.p_id].append(normal)
 
     def add_cat_faces_to_cell(self, obj_id: int, faces: list[list[int]]) -> None:
         """A cell is defined by a list of faces which together make up the CAT cell."""
         for face in faces:
-            assert isinstance(face, tuple), f"face is not a tuple: {face}"
             self.add_cat_face_to_cell(obj_id, face)
 
     def add_cat_faces_to_point(
-        self, point: TetPoint, faces: list[tuple[list[int], np.ndarray]]
-    ) -> None:
-        for face in faces:
-            assert isinstance(face, tuple), f"face is not a tuple: {face}"
-
-            self.add_cat_face_to_point(point, face)
+        self, point: TetPoint, faces: list[list[int]], normals: list[np.ndarray]
+    ) -> None:  
+        for i in range(len(faces)):
+            self.add_cat_face_to_point(point, faces[i], normals[i])
 
     def get_face(self, face: list[int]) -> list[np.ndarray]:
         return [np.array(self.point(p_id)) for p_id in face]

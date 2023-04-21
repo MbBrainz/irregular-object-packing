@@ -82,15 +82,16 @@ class OptimizerData:
         return self._data[index]["iterationData"]
 
     def _get_mesh(self, index: int, obj_id: int, mesh: PolyData) -> PolyData:
+        tf_array = self._tf_arrays(index)[obj_id]
         return mesh.transform(
-            construct_transform_matrix(self._tf_arrays(index)[obj_id]),
+            construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]),
             inplace=False,
         )
 
     def _get_meshes(self, index: int, mesh: PolyData) -> list[PolyData]:
         return [
             mesh.transform(
-                construct_transform_matrix(tf_array),
+                construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]),
                 inplace=False,
             )
             for tf_array in self._tf_arrays(index)
@@ -173,7 +174,8 @@ class OptimizerData:
         container = resample_mesh_by_triangle_area(self.shape, self.container0)
 
         list_of_obj_points = [
-            transform_points(shape.points.copy(), construct_transform_matrix(tf_array))
+            transform_points(shape.points.copy(),
+                             construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]))
             for tf_array in self._tf_arrays(iteration - 1)]
 
         pc = PolyData(concatenate(list_of_obj_points + [container.points]))
@@ -200,7 +202,7 @@ class OptimizerData:
         """Get the meshes of all objects with the most recent transformation."""
 
         return [self.shape.transform(
-                construct_transform_matrix(tf_array), inplace=False,
+                construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]), inplace=False,
                 )
                 for tf_array in self.tf_arrays]
 
@@ -208,7 +210,7 @@ class OptimizerData:
         """Get the meshes of all objects at the final iteration, before the
         optimisation."""
         return [self.shape.transform(
-            construct_transform_matrix(tf_array), inplace=False,
+            construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]), inplace=False,
         )
             for tf_array in self.tf_arrays]
 
