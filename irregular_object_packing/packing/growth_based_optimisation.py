@@ -301,7 +301,7 @@ class Optimizer(OptimizerData):
 
         for task in tasks:
             task.result()  # Wait for the tasks to complete
-            self.pbar1.update(1)
+            self.pbar3.update(1)
 
     def local_optimisation(self, obj_id, previous_tf_array, max_scale):
         tf_arr = optimal_local_transform(
