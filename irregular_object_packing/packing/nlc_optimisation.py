@@ -1,21 +1,19 @@
 # %%
 import numba
-from numba.typed.typedlist import List
-from numba.typed.typeddict import Dict
-from numba import jit, vectorize, float32
-
-from numpy import dtype, ndarray
 import numpy as np
-
-from numpy.typing import NDArray
+from numba import jit
+from numba.typed.typeddict import Dict
+from numba.typed.typedlist import List
+from numpy import ndarray
 from scipy.optimize import minimize
 
 from irregular_object_packing.packing.chordal_axis_transform import CatData
 from irregular_object_packing.packing.utils import (
     print_transform_array,
 )
+
 # Define the objective function to be maximized
-NO_PYTHON = False
+NO_PYTHON = True
 
 
 @jit(nopython=NO_PYTHON, debug=True)
@@ -27,7 +25,7 @@ def objective(x):
     return -x[0]  # maximize f
 
 
-@jit(numba.float64[:, :](numba.float64[:]), nopython=NO_PYTHON, debug=True)
+@jit(numba.float64[:, :](numba.float64[:]), nopython=NO_PYTHON, debug=True, fastmath=True)
 def rotation_matrix(theta):
     """Rotation matrix for rotations around the x-, y-, and z-axis.
 
@@ -56,10 +54,10 @@ def rotation_matrix(theta):
         [-sine[1] * cosine[2], sine[1] * sine[2] * cosine[0] + cosine[1] * sine[0], -sine[1] * sine[2] * sine[0] + cosine[1] * cosine[0]]
     ], dtype=np.float64)
 
-    return R
+    return R.copy()
 
 
-@jit(numba.float64[:, :](numba.float64, numba.float64[:], numba.float64[:]), nopython=NO_PYTHON, debug=True)
+@ jit(numba.float64[: , :](numba.float64, numba.float64[:], numba.float64[:]), nopython=NO_PYTHON, debug=True, fastmath=True)
 def construct_transform_matrix(f, theta, t):
     """Transforms parameters to transformation matrix.
 
@@ -97,10 +95,10 @@ def construct_transform_matrix(f, theta, t):
     T[:3, :3] = R @ S
     T[:3, 3] = t
 
-    return T
+    return np.copy(T)
 
 
-@jit(numba.float64[:](numba.float64[:], numba.float64[:, :]), nopython=NO_PYTHON, debug=True)
+@ jit(numba.float64[:](numba.float64[:], numba.float64[: , :]), nopython=NO_PYTHON, debug=True)
 def transform_v(v_i, T: np.ndarray):
     """Transforms vector v_i with transformation matrix T.
 
@@ -124,18 +122,21 @@ def transform_v(v_i, T: np.ndarray):
     >>> transform_v(v_i, T)
     array([0., 0., 0.])
     """
-    stacked_vi = np.ascontiguousarray(np.hstack((v_i, np.array([1.0], dtype=np.float64))))  # add 1 to v_i to make it homogeneous 
-    transformed_v_i = T @ stacked_vi  # transform v_i
+    contiguous_vi = np.ones(4, dtype=np.float64)
+    contiguous_vi[: 3] = v_i
+    transformed_v_i = T @ contiguous_vi  # transform v_i
 
     # Normalize the resulting homogeneous vector to get the transformed 3D coordinate
-    norm_v = transformed_v_i[:3] / transformed_v_i[3]
+    norm_v = transformed_v_i[: 3] / transformed_v_i[3]
 
     return norm_v
 
 
-@jit(nopython=NO_PYTHON, debug=True)
+@ jit(nopython=NO_PYTHON, debug=True)
 def local_constraint_for_point(
     v_id, transform_matrix, faces: np.ndarray[int], normals: np.ndarray[float], points, obj_coord=np.zeros(3), padding=0.0
+
+
 ):
     """Compute conditions for a single point.
     NOTE: the point has already been rotated and
@@ -207,7 +208,7 @@ def local_constraint_multiple_points(
     tf_arr: numpy.ndarray
         array with global transformation parameters.
     sets_of_faces: dict[list]
-        np.array in the shape of 
+        np.array in the shape of
     points: dict
         Dictionary of point IDs and their coordinates.
     obj_coord : numpy.ndarray
@@ -251,7 +252,7 @@ def local_constraints_from_cat(
     tf_arr: list[float], obj_id: int, cat_data: CatData, padding=0.0
 ):
     """Compute the conditions for one object.
-    item will be in the form: 
+    item will be in the form:
     - [(vi, [facet_j, facet_j+1, ...]), (vi+1, [facet_k, facet_k+1, ...)]
 
     """
@@ -310,12 +311,12 @@ def test_nlcp_facets():
 
     # Define facets (face, normal)
     faces = np.array([
-        [1, 2, 3], 
-        [5, 6, 7], 
-        [1, 2, 6], 
-        [2, 3, 7], 
-        [3, 4, 8], 
-        [4, 1, 5], 
+        [1, 2, 3],
+        [5, 6, 7],
+        [1, 2, 6],
+        [2, 3, 7],
+        [3, 4, 8],
+        [4, 1, 5],
     ], dtype=np.int64)
 
     face_normals = np.array([
@@ -339,7 +340,7 @@ def test_nlcp_facets():
 
     points = make_dict_typed(points)
 
-    constraints = local_constraint_multiple_points(
+    local_constraint_multiple_points(
         x0,
         v,
         faces_sets,

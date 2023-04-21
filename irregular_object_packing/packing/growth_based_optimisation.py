@@ -1,8 +1,8 @@
 # %%
 from dataclasses import dataclass
+from importlib import reload
 from time import sleep, time
 
-from importlib import reload
 import numpy as np
 import pandas as pd
 import pyvista as pv
@@ -29,12 +29,12 @@ from irregular_object_packing.mesh.utils import print_mesh_info
 from irregular_object_packing.packing import chordal_axis_transform as cat
 from irregular_object_packing.packing import initialize as init
 from irregular_object_packing.packing import nlc_optimisation as nlc
+from irregular_object_packing.packing import plots
 from irregular_object_packing.packing.cat import CatData
 from irregular_object_packing.packing.optimizer_data import (
     IterationData,
     OptimizerData,
 )
-from irregular_object_packing.packing import plots
 
 # pv.set_jupyter_backend("panel")
 LOG_LVL_ERROR = 0
@@ -321,7 +321,7 @@ class Optimizer(OptimizerData):
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
         obj_points = [
             trimesh.transform_points(
-                self.shape.points.copy(), 
+                self.shape.points.copy(),
                 nlc.construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:])
             )
             for tf_array in self.tf_arrays
@@ -356,7 +356,7 @@ class Optimizer(OptimizerData):
         cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
         self.log_violations((cat_viols, con_viols, collisions))
 
-        violating_ids = set([i for i, v in cat_viols] + [i for i, v in con_viols])
+        violating_ids = set([i for i, v in cat_viols if v >= 10] + [i for i, v in con_viols])
 
         self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
         for id in violating_ids:
@@ -415,7 +415,7 @@ class Optimizer(OptimizerData):
             dynamic_simplification=True,
             alpha=0.1,
             beta=0.5,
-            upscale_factor=1,
+            upscale_factor=1.5,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -464,7 +464,7 @@ optimizer.run()
 # %%
 
 reload(plots)
-save_path = f"../dump/scale_fix_upscale_max_{time()}"
+save_path = f"../dump/scale_fix_upscale_max_numba_{time()}"
 plots.generate_gif(optimizer , save_path + ".gif")
 # %%
 
