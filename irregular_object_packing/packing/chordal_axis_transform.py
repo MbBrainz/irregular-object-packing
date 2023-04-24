@@ -11,13 +11,13 @@
 # %%
 import numpy as np
 import pyvista as pv
+import tetgen
 
 from irregular_object_packing.packing.cat import CatData, TetPoint
 
 # from utils import angle_between, sort_points_clockwise
 from irregular_object_packing.packing.utils import (
     compute_face_unit_normal,
-    split_quadrilateral_to_triangles,
 )
 
 
@@ -188,12 +188,12 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
         n_mface = n_lface * -1
 
         data.add_cat_face_to_cell(least[0].obj_id, face)
-        data.add_cat_face_to_point(least[0], face, n_lface)
-
         data.add_cat_face_to_cell(most[0].obj_id, face)
+
+        data.add_cat_face_to_point(least[0], face, n_lface)
         data.add_cat_face_to_point(most[0], face, n_mface)
-        data.add_cat_face_to_point(most[0], face, n_mface)
-        data.add_cat_face_to_point(most[0], face, n_mface)
+        data.add_cat_face_to_point(most[1], face, n_mface)
+        data.add_cat_face_to_point(most[2], face, n_mface)
     else:
         # raise Exception("This should not happen")
         pass
@@ -454,45 +454,67 @@ def main():
     box2 = pv.Cube(center=(1, 1, 0), x_length=1, y_length=1, z_length=1)
     box3 = pv.Cube(center=(1, -1, 0), x_length=1, y_length=1, z_length=1)
     box4 = pv.Cube(center=(-1, 1, 0), x_length=1, y_length=1, z_length=1)
+    box5 = pv.Cube(center=(0, 0, 0), x_length=0.9, y_length=2, z_length=1)
 
     box = pv.Cube(center=(0, 0, 0), x_length=1, y_length=1, z_length=1)
-    boxes = [box1, box2, box3, box4]
+    boxes = [box1, box2, box3, box4, box5]
+    boxes = [box.triangulate() for box in boxes]
     # boxes = [box]
 
-    container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=3)
+    container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=3).triangulate()
 
-    pc = pv.PolyData(np.concatenate([box.points for box in boxes]))
-    pc.delaunay_3d()
-    data = compute_cat_cells([box.points for box in boxes], container.points, [0, 0, 0])
+    constrained_mesh = container.copy()
+    for box in boxes:
+        constrained_mesh += box
+
+    tet = tetgen.TetGen(constrained_mesh)
+    tet.tetrahedralize(order=1, mindihedral=0, minratio=0, steinerleft=0, quality=False)
+
+
+    tetmesh = tet.grid
+
+    obj_point_sets = [set(map(tuple, obj)) for obj in [box.points for box in boxes]] + [
+        set(map(tuple, container.points))
+    ]
+
+    # Each cat cell is a list of faces, each face is a list of points
+    data = compute_cat_faces(tetmesh, obj_point_sets, [0, 0, 0] * len(boxes))
+
+    # pc = pv.PolyData(np.concatenate([box.points for box in boxes]))
+    # pc.delaunay_3d()
+    # data = compute_cat_cells([box.points for box in boxes], container.points, [0, 0, 0])
 
     cat_boxes = [
         pv.PolyData(*face_coord_to_points_and_faces(data, i)) for i in range(len(boxes))
     ]
 
-    box_idx = 0
-    # all_faces = list(itertools.chain.from_iterable(data.cat_cells[box_idx]))
-
-    centerpoints = []
-    normal = []
-    for face in data.cat_cells[box_idx]:
-        centerpoints.append(np.mean(data.get_face(face[0]), axis=0))
-        normal.append(face[1])
-
     plotter = pv.Plotter()
-    plotter.add_arrows(np.array(centerpoints), np.array(normal), mag=0.5, color="y")
+    box_idx = 4
+    # all_faces = list(itertools.chain.from_iterable(data.cat_cells[box_idx]))
+    # centerpoints = []
+    # normal = []
+    # for face in data.cat_cells[box_idx]:
+    #     centerpoints.append(np.mean(data.get_face(face), axis=0))
+    #     normal.append(face[1])
 
-    plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="r", opacity=0.7)
-    for i in range(len(boxes)):
-        if i != box_idx:
-            plotter.add_mesh(cat_boxes[i], show_edges=True, color="yellow", opacity=0.3)
+    # plotter.add_arrows(np.array(centerpoints), np.array(normal), mag=0.5, color="y")
 
-    # plotter.add_mesh(cat_boxes[1], show_edges=True, color="orange", opacity=0.5)
-    plot_boxes = [box1, box2, box3, box4]
+    # plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="r", opacity=0.7)
+    # for i in range(len(boxes)):
+    #     if i != box_idx:
+    #         plotter.add_mesh(cat_boxes[i], show_edges=True, color="yellow", opacity=0.3)
+
+    plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="orange", opacity=0.5)
+    plot_boxes = [box1, box2, box3, box4, box5]
+    plot_boxes = [box5]
     for box in plot_boxes:
         plotter.add_mesh(box, show_edges=True, color="b")
 
+    # plotter.add_mesh_clip_plane(tet.grid, show_edges=True, color="g", opacity=0.2)
+
     plotter.show()
     # plot_shapes(boxes, container, tetmesh.explode(), cat_boxes, (0, 0, 10))
+    # plotter.add_mesh(constrained_mesh)
 
 
 if __name__ == "__main__":
