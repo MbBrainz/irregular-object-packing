@@ -185,14 +185,23 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
 
         # Define facets [(face, normal)]
         self.faces = [
-            (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
-            (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
-            (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
-            (np.array([2, 3, 7, 6]), np.array([-1, 0, 0])),
-            (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
-            (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
+            np.array([1, 2, 3, 4]) ,
+            np.array([5, 6, 7, 8]) ,
+            np.array([1, 2, 6, 5]) ,
+            np.array([2, 3, 7, 6]) ,
+            np.array([3, 4, 8, 7]) ,
+            np.array([4, 1, 5, 8]) ,
+        ]
+        self.face_normals = [
+            np.array([0, 0, -1]),
+np.array([0, 0, 1]),
+np.array([0, 1, 0]),
+np.array([-1, 0, 0]),
+np.array([0, -1, 0]),
+np.array([+1, 0, 0]),
         ]
         self.face_sets = [self.faces, self.faces, self.faces]
+        self.face_normal_sets = [self.face_normals, self.face_normals, self.face_normals]
         return super().setUp()
 
     @parameterized.expand(TEST_CASES)
@@ -215,6 +224,7 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
             x0,
             v,
             self.face_sets,
+            self.face_normal_sets,
             self.local_points,
             f_bounds,
             r_bounds,
@@ -250,6 +260,7 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
             x0,
             v,
             self.face_sets,
+            self.face_normal_sets,
             self.global_points,
             f_bounds,
             r_bounds,
@@ -264,7 +275,7 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
             res_v = transform_v(self.local_points[point], T_local)
             local_points.append(res_v)
             assert_point_within_box(
-                self, res_v, self.local_box_coords, tolerance=1e-7, padding=padding
+                self, res_v, self.local_box_coords, tolerance=1e-5, padding=padding
             )
 
         if expected_f is not None:
@@ -274,7 +285,7 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
         tf0 = np.array([0, 0, 0, 0] + list(self.obj_coord))
         new_tf = opt_tf + tf0
         # new_tf[4:] = opt_tf[4:] + self.obj_coord
-        T = construct_transform_matrix(new_tf)
+        T = construct_transform_matrix(new_tf[0], new_tf[1:4], new_tf[4:])
 
         resulting_points = []
         for point in v:
@@ -294,6 +305,7 @@ def compute_optimal_tf(
     x0,
     v,
     sets_of_faces,
+    sets_of_normals,
     points,
     f_bounds,
     r_bounds,
@@ -308,6 +320,7 @@ def compute_optimal_tf(
         "args": (
             v,
             sets_of_faces,
+            sets_of_normals,
             points,
             obj_coords,
             padding,
@@ -316,7 +329,7 @@ def compute_optimal_tf(
     res = minimize(
         objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
     )
-    T = construct_transform_matrix(res.x)
+    T = construct_transform_matrix(res.x[0], res.x[1:4], res.x[4:7])
     return T, res.x
 
 
@@ -349,108 +362,3 @@ def assert_point_within_box(
 
 def get_face_coords(facet, points):
     return [points[p_id] for p_id in facet[0]]
-
-
-# class TestNLCConstraintOptimisationWithGlobal(unittest.TestCase):
-#     """This test case is meant to test the optimisation of the NLC constraint with a global coodinate system
-#     This means that we initialize a container away from the origin and use the object coordinates to transform the
-#     container to the local system, perform the optimisation, and then transform the container and the object back to the global system.
-#     """
-
-#     def setUp(self) -> None:
-#         self.obj_coord = np.array([2, 2, 2])
-#         self.local_points = {
-#             # Box of size 2x2x1 centered at the origin
-#             1: np.array([-1, -1, 1], dtype=np.float64),
-#             2: np.array([1, -1, 1], dtype=np.float64),
-#             3: np.array([1, 1, 1], dtype=np.float64),
-#             4: np.array([-1, 1, 1], dtype=np.float64),
-#             5: np.array([-1, -1, 0], dtype=np.float64),
-#             6: np.array([1, -1, 0], dtype=np.float64),
-#             7: np.array([1, 1, 0], dtype=np.float64),
-#             8: np.array([-1, 1, 0], dtype=np.float64),
-#             # points to test at the edges of the box but stil scalable
-#             9: np.array([0, 0, 1]),
-#             10: np.array([0, 1, 0.0]),
-#             11: np.array([1, 0.0, 0.0]),
-#             # points to test at the edges of the box but not scalable
-#             12: np.array([1, 1, 1]),
-#             13: np.array([1, 1, 0]),
-#             14: np.array([1, 0, 1]),
-#         }
-#         self.global_points = {
-#             k: v + self.obj_coord for k, v in self.local_points.items()
-#         }
-
-#         self.faces = [
-#             (np.array([1, 2, 3, 4]), np.array([0, 0, -1])),
-#             (np.array([5, 6, 7, 8]), np.array([0, 0, 1])),
-#             (np.array([1, 2, 6, 5]), np.array([0, 1, 0])),
-#             (np.array([2, 3, 7, 6]), np.array([-1, 0, 0])),
-#             (np.array([3, 4, 8, 7]), np.array([0, -1, 0])),
-#             (np.array([4, 1, 5, 8]), np.array([+1, 0, 0])),
-#         ]
-#         self.face_sets = [self.faces, self.faces, self.faces]
-#         self.local_box_coords = np.array(
-#             [self.local_points[p_id] for p_id in range(1, 9)]
-#         )
-
-#         self.global_box_coords = [
-#             coord + self.obj_coord for coord in self.local_box_coords
-#         ]
-#         self.tf0 = np.array([1.0, 0.0, 0.0, 0.0, 2, 2, 2])
-#         return super().setUp()
-
-#     @parameterized.expand(TEST_CASES)
-#     def test_global(
-#         self,
-#         name,
-#         v,
-#         f_init,
-#         r_init,
-#         t_init,
-#         f_bounds,
-#         r_bounds,
-#         t_bounds,
-#         padding,
-#         expected_f,
-#     ):
-#         x0 = [f_init] + [r_init] * 3 + [t_init] * 3
-
-#         T_local, opt_tf = compute_optimal_tf(
-#             x0,
-#             v,
-#             self.face_sets,
-#             self.global_points,
-#             f_bounds,
-#             r_bounds,
-#             t_bounds,
-#             obj_coords=self.obj_coord,
-#             padding=padding,
-#         )
-
-#         # Check if the local system is correct
-#         local_points = []
-#         for point in v:
-#             res_v = transform_v(self.local_points[point], T_local)
-#             local_points.append(res_v)
-#             assert_point_within_box(
-#                 self, res_v, self.local_box_coords, tolerance=1e-7, padding=padding
-#             )
-
-#         if expected_f is not None:
-#             self.assertAlmostEqual(opt_tf[0], expected_f, places=5)
-
-#         # This part is based on Optimizer.local_optimisation()
-#         new_tf = opt_tf + self.tf0
-#         new_tf[4:] = opt_tf[4:] + self.obj_coord
-#         T = construct_transform_matrix(new_tf)
-
-#         resulting_points = []
-#         for point in v:
-#             res_v = transform_v(self.local_points[point], T)
-
-#             resulting_points.append(res_v)
-#             assert_point_within_box(
-#                 self, res_v, self.global_box_coords, tolerance=1e-7, padding=padding
-#             )

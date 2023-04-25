@@ -396,7 +396,7 @@ def face_coord_to_points_and_faces(data: CatData, obj_id: int):
             # if face_len != 3:
             #     raise NotImplementedError("Only triangular faces are supported")
 
-            if face[i] not in points.keys():
+            if data.point(face[i]) not in points.keys():
                 points[data.point(face[i])] = counter
                 cat_points.append(data.point(face[i]))
                 counter += 1

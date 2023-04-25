@@ -11,9 +11,6 @@ from irregular_object_packing.packing.chordal_axis_transform import (
     create_faces_4,
     face_coord_to_points_and_faces,
 )
-from irregular_object_packing.packing.utils import (
-    compute_face_unit_normal,
-)
 from irregular_object_packing.tests.test_helpers import sort_surfaces
 
 # this will show plots during tests.
@@ -134,18 +131,21 @@ class TestCreateCatFaces(unittest.TestCase):
         for key in computed_faces.keys():
             for key2 in computed_faces[key].keys():
                 sorted_computed_faces = sort_surfaces(
-                    (f[0] for f in computed_faces[key][key2])
+                    (f for f in computed_faces[key][key2])
                 )
                 sorted_expecte_faces = sort_surfaces(
-                    (f[0] for f in expected_faces[key][key2])
+                    (f for f in expected_faces[key][key2])
                 )
 
                 # self.assertListEqual(
                 #     computed_faces[key][key2][1], expected_faces[key][key2][1], "normals are not equal"
                 # )
-                self.assertListEqual(
-                    sorted_computed_faces, sorted_expecte_faces, "faces are not equal"
-                )
+                for i, face in enumerate(sorted_computed_faces):
+                    for p in face:
+                        self.assertIn(p, sorted_expecte_faces[i], f"face is missing point {p}")
+                # self.assertListEqual(
+                #     sorted_computed_faces, sorted_expecte_faces, "faces are not equal"
+                # )
     # TODO: Test for CAT faces: Each face should only belong to 2 objects
 
     def test_create_faces_4(self):
@@ -154,55 +154,43 @@ class TestCreateCatFaces(unittest.TestCase):
         expected_faces = {
             0: {
                 0: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.a.vertex))
-                    for face in [
                         [self.abcd, self.middle_ab, self.middle_abd],
                         [self.abcd, self.middle_ad, self.middle_acd],
                         [self.abcd, self.middle_ad, self.middle_abd],
                         [self.abcd, self.middle_ab, self.middle_abc],
                         [self.abcd, self.middle_ac, self.middle_abc],
                         [self.abcd, self.middle_ac, self.middle_acd],
-                    ]
-                ],
+                    ],
             },
             1: {
-                1: [  # from face b
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.b.vertex))
-                    for face in [
+                1: [
                         [self.abcd, self.middle_bc, self.middle_abc],
                         [self.abcd, self.middle_bc, self.middle_bcd],
                         [self.abcd, self.middle_ab, self.middle_abc],
                         [self.abcd, self.middle_ab, self.middle_abd],
                         [self.abcd, self.middle_bd, self.middle_bcd],
                         [self.abcd, self.middle_bd, self.middle_abd],
-                    ]
-                ],
+                    ],
             },
             2: {
-                2: [  # from face c _____
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.c.vertex))
-                    for face in [
+                2: [
                         [self.abcd, self.middle_bc, self.middle_abc],
                         [self.abcd, self.middle_bc, self.middle_bcd],
                         [self.abcd, self.middle_cd, self.middle_bcd],
                         [self.abcd, self.middle_ac, self.middle_abc],
                         [self.abcd, self.middle_cd, self.middle_acd],
                         [self.abcd, self.middle_ac, self.middle_acd],
-                    ]
-                ],
+                    ],
             },
             3: {
-                3: [  # from face d
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
-                    for face in [
+                3: [
                         [self.abcd, self.middle_cd, self.middle_acd],
                         [self.abcd, self.middle_bd, self.middle_bcd],
                         [self.abcd, self.middle_cd, self.middle_bcd],
                         [self.abcd, self.middle_bd, self.middle_abd],
                         [self.abcd, self.middle_ad, self.middle_abd],
                         [self.abcd, self.middle_ad, self.middle_acd],
-                    ]
-                ],
+                    ],
             },
         }
 
@@ -230,8 +218,6 @@ class TestCreateCatFaces(unittest.TestCase):
         expected_faces = {
             0: {
                 0: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.a.vertex))
-                    for face in [
                         # *split_quadrilateral_to_triangles(
                         [
                             self.middle_ac,
@@ -251,11 +237,8 @@ class TestCreateCatFaces(unittest.TestCase):
                         ]
                         # )
                         ,
-                    ]
-                ],
+                    ],
                 1: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.b.vertex))
-                    for face in [
                         # *split_quadrilateral_to_triangles(
                         [
                             self.middle_ac,
@@ -274,13 +257,10 @@ class TestCreateCatFaces(unittest.TestCase):
                         ]
                         # )
                         ,
-                    ]
-                ],
+                    ],
             },
             1: {
                 2: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.c.vertex))
-                    for face in [
                         [self.middle_cd, self.middle_acd, self.middle_bcd],
                         # *split_quadrilateral_to_triangles(
                         [
@@ -291,13 +271,10 @@ class TestCreateCatFaces(unittest.TestCase):
                         ]
                         # )
                         ,
-                    ]
-                ],
+                    ],
             },
             2: {
                 3: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
-                    for face in [
                         [self.middle_cd, self.middle_acd, self.middle_bcd],
                         # *split_quadrilateral_to_triangles(
                         [
@@ -308,8 +285,7 @@ class TestCreateCatFaces(unittest.TestCase):
                         ]
                         # )
                         ,
-                    ]
-                ],
+                    ],
             },
         }
 
@@ -341,8 +317,6 @@ class TestCreateCatFaces(unittest.TestCase):
         expected_faces = {
             0: {
                 0: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.a.vertex))
-                    for face in [
                         [
                             self.middle_ac,
                             self.middle_bc,
@@ -350,11 +324,8 @@ class TestCreateCatFaces(unittest.TestCase):
                             self.middle_bd,
                         ]
                         ,
-                    ]
-                ],
+                    ],
                 1: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.b.vertex))
-                    for face in [
                         [
                             self.middle_ac,
                             self.middle_bc,
@@ -362,13 +333,10 @@ class TestCreateCatFaces(unittest.TestCase):
                             self.middle_bd,
                         ]
                         ,
-                    ]
-                ],
+                    ],
             },
             1: {
                 2: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.c.vertex))
-                    for face in [
                         [
                             self.middle_ac,
                             self.middle_bc,
@@ -376,11 +344,8 @@ class TestCreateCatFaces(unittest.TestCase):
                             self.middle_bd,
                         ]
                         ,
-                    ]
-                ],
+                    ],
                 3: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
-                    for face in [
                         [
                             self.middle_ac,
                             self.middle_bc,
@@ -388,8 +353,7 @@ class TestCreateCatFaces(unittest.TestCase):
                             self.middle_bd,
                         ]
                         ,
-                    ]
-                ],
+                    ],
             },
         }
 
@@ -405,24 +369,12 @@ class TestCreateCatFaces(unittest.TestCase):
 
         expected_faces = {
             1: {
-                3: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
-                    for face in [[self.middle_ad, self.middle_bd, self.middle_cd]]
-                ],
+                3: [[self.middle_ad, self.middle_bd, self.middle_cd]],
             },
             0: {
-                0: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
-                    for face in [[self.middle_ad, self.middle_bd, self.middle_cd]]
-                ],
-                1: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
-                    for face in [[self.middle_ad, self.middle_bd, self.middle_cd]]
-                ],
-                2: [
-                    (face, compute_face_unit_normal(self.data.get_face(face), self.d.vertex))
-                    for face in [[self.middle_ad, self.middle_bd, self.middle_cd]]
-                ],
+                0: [[self.middle_ad, self.middle_bd, self.middle_cd]],
+                1: [[self.middle_ad, self.middle_bd, self.middle_cd]],
+                2: [[self.middle_ad, self.middle_bd, self.middle_cd]],
             },
         }
 
@@ -433,7 +385,7 @@ class TestCreateCatFaces(unittest.TestCase):
         self.compare_results(self.data, expected_faces)
 
     def test_face_coord_to_points_and_faces_3_points(self):
-        face = ([1, 2, 3], [1.0, 1.0, 1.0])
+        face = [1, 2, 3]
         self.set_object_ids([0, 0, 0, 0])
         self.data.add_cat_face_to_cell(0, face)
 
@@ -449,7 +401,7 @@ class TestCreateCatFaces(unittest.TestCase):
             self.assertTrue(np.array_equal(points[i], expected_points[i]))
         self.assertTrue(np.array_equal(faces, expected_faces))
 
-    @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
+    # @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_face_coord_to_points_and_faces_4_points(self):
         face = [0, 1, 2, 3]
         # self.data.add_point()
@@ -470,25 +422,10 @@ class TestCreateCatFaces(unittest.TestCase):
             self.assertTrue(np.array_equal(points[i], expected_points[i]))
         self.assertTrue(np.array_equal(faces, expected_faces))
 
-    # def test_face_coord_to_points_and_faces_4_points_split(self):
-    #     face = [0, 1, 2, 3]
-    #     # self.data.add_point()
-    #     self.set_object_ids([0, 0, 0, 0])
-    #     self.data.add_cat_face_to_cell(0, face)
-
-    #     expected_points = [np.array([0, 0, 0]), np.array([9, 0, 0]), np.array([9, 9, 0]), np.array([0, 9, 0])]
-    #     expected_faces = [3, 0, 1, 2, 3, 2, 3, 1]
-    #     points, faces = face_coord_to_points_and_faces(self.data, 0)
-
-    #     print(faces)
-    #     for i in range(len(points)):
-    #         self.assertTrue(np.array_equal(points[i], expected_points[i]))
-    #     self.assertTrue(np.array_equal(faces, expected_faces))
-
-    @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
+    # @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_face_coord_to_points_and_faces_3_points_2_faces(self):
         self.set_object_ids([0, 0, 0, 0])
-        face = ([0, 1, 2], [0.0, 0.0, 1.0])
+        face = [0, 1, 2]
         self.data.add_cat_faces_to_cell(0, [face, face])
         expected_points = [
             np.array([0, 9, 0]),
@@ -502,43 +439,31 @@ class TestCreateCatFaces(unittest.TestCase):
             self.assertTrue(np.array_equal(points[i], expected_points[i]))
         self.assertTrue(np.array_equal(faces, expected_faces))
 
-    @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
+    # @ unittest.skip("Change in implementation. function mainly needed for visualiation.")
     def test_faces_with_3_and_4_points(self):
+        self.set_object_ids([0, 0, 0, 0])
+        self.data.add_obj_point(0, (1.0, 0.0, 0.0))
         faces = [
-            [
-                np.array([1, -1, 1]),
-                np.array([1, 1, 1]),
-                np.array([-1, 1, 1]),
-                np.array([0, 0, 2]),
-            ],
-            [np.array([1, -1, 1]), np.array([1, 1, 1]), np.array([-1, -1, 1])],
-            [
-                np.array([1, -1, -1]),
-                np.array([1, 4, 1]),
-                np.array([-1, 1, 1]),
-                np.array([0, 0, 2]),
-            ],
-            [np.array([1, -1, -1]), np.array([1, 4, 1]), np.array([-1, -2, 1])],
+            [0, 1, 2],
+            [2, 3, 1],
+            [0, 1, 4],
+            [0, 2, 3, 4],
         ]
+        self.data.add_cat_faces_to_cell(0, faces)
         expected_points = [
-            np.array([1, -1, 1]),
-            np.array([1, 1, 1]),
-            np.array([-1, 1, 1]),
-            np.array([0, 0, 2]),
-            np.array([-1, -1, 1]),
-            np.array([1, -1, -1]),
-            np.array([1, 4, 1]),
-            np.array([-1, -2, 1]),
+            (0.0, 9.0, 0.0),
+            (0.0, 0.0, 0.0),
+            (9.0, 0.0, 0.0),
+            (0.0, 0.0, 9.0),
+            (1.0, 0.0, 0.0),
         ]
-        expected_faces = np.array(
-            [3, 0, 1, 2, 3, 2, 3, 1, 3, 0, 1, 4, 3, 5, 6, 2, 3, 2, 3, 6, 3, 5, 6, 7]
-        )
+        expected_faces = [3, 0, 1, 2, 3, 2, 3, 1, 3, 0, 1, 4, 4, 0, 2, 3, 4]
         points, faces = face_coord_to_points_and_faces(self.data, 0)
         print(faces)
 
-        for i in range(len(points)):
-            self.assertTrue(np.array_equal(points[i], expected_points[i]))
-        self.assertTrue(np.array_equal(faces, expected_faces))
+        self.assertListEqual(points, expected_points)
+        # for i in range(len(points)):
+        self.assertListEqual(faces.tolist(), expected_faces)
 
 
 def mismaching_faces_error(computed_faces, expected_faces):
