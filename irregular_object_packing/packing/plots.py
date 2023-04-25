@@ -28,7 +28,7 @@ def create_plot(
         # object_mesh = pv.PolyData(object_meshes[i])
         object_mesh = pv.wrap(object_meshes[i])
         # object_mesh.transform(np.eye(4), object_locations[i])
-        plotter.add_mesh(object_mesh.decimate(0.1), color="r", opacity=0.7) # noqa E501
+        plotter.add_mesh(object_mesh.decimate(0.1), color="r", opacity=0.7)  # noqa E501
 
         plotter.add_mesh(object_cells[i], color="y", opacity=0.3)
 
@@ -128,13 +128,15 @@ def none_to_dict(obj):
 def plot_step_single(
     mesh,
     cat_cell_mesh_1,
+    other_meshs=None,
     container=None,
+    tetmesh=None,
     mesh_opacity=0.9,
     cat_opacity=0.4,
     plotter=None,
     clipped=False,
     title="Title",
-    c_kwargs=None, m_kwargs=None, cat_kwargs=None,
+    c_kwargs=None, m_kwargs=None, cat_kwargs=None, oms_kwargs=None,
 ):
     c_kwargs, m_kwargs, cat_kwargs = [none_to_dict(d) for d in [c_kwargs, m_kwargs, cat_kwargs]]
 
@@ -163,7 +165,13 @@ def plot_step_single(
 
     if container is not None:
         plotter.add_mesh(container, opacity=0.3, **c_kwargs)
-    # plotter.add_mesh(open_edges, color="black", line_width=1, opacity=0.8)
+
+    if tetmesh is not None:
+        plotter.add_mesh_clip_box(tetmesh, opacity=0.3, show_edges=True, edge_color="green")
+
+    for i in range(len(other_meshs)) if other_meshs is not None else []:
+        plotter.add_mesh(other_meshs[i], opacity=0.4, **none_to_dict(oms_kwargs[i]))
+
     plotter.show()
 
     return plotter
@@ -228,7 +236,7 @@ def create_packed_scene(
         new_mesh = new_mesh.scale(mesh_scale)
         new_mesh = new_mesh.translate(coord)
 
-        colors.append(trimesh.visual.random_color()) # noqa E501
+        colors.append(trimesh.visual.random_color())  # noqa E501
         objects.append(new_mesh)
 
     plotter = pv.Plotter()

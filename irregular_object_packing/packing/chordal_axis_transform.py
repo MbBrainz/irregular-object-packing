@@ -21,10 +21,30 @@ from irregular_object_packing.packing.utils import (
 )
 
 
+def compute_cdt(meshes: list[pv.PolyData], tetgen_kwargs) -> pv.PolyData:
+    """Compute the constrained Delaunay triangulation of the meshes
+
+    Args:
+        meshes (list[pv.PolyData]): list of meshes
+
+    Returns:
+        pv.PolyData: constrained Delaunay triangulation
+    """
+    mesh_sum = pv.PolyData()
+    for mesh in meshes:
+        mesh_sum += mesh
+
+    mesh = tetgen.TetGen(mesh_sum)
+
+    mesh.tetrahedralize(order=1, **tetgen_kwargs)
+
+    return mesh.grid
+
 def compute_cat_cells(
-    object_points_list: list[np.ndarray],
-    container_points: np.ndarray,
+    object_meshes: list[pv.PolyData],
+    container: pv.PolyData,
     obj_coords: list[np.ndarray],
+    tetgen_kwargs: dict,
 ):
     """Compute the CAT cells of the objects in the list and the container. First a
     Tetrahedral mesh is created from the pointcloud of all the objects points and the
@@ -38,15 +58,13 @@ def compute_cat_cells(
     Returns:
         - dictionary of the CAT cells for each object.
     """
-    assert len(object_points_list) != 0, "No objects to pack"
 
-    pc = pv.PolyData(np.concatenate((object_points_list + [container_points])))
-    tetmesh = pc.delaunay_3d()
+    tetmesh = compute_cdt(object_meshes + [container], tetgen_kwargs)
 
     # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
     # NOTE: Each set in the list might contain points from different objects.
-    obj_point_sets = [set(map(tuple, obj)) for obj in object_points_list] + [
-        set(map(tuple, container_points))
+    obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
+        set(map(tuple, container.points))
     ]
 
     # Each cat cell is a list of faces, each face is a list of points
@@ -126,7 +144,8 @@ def compute_cat_faces(
                     )
 
         # sort occ on value
-        assert len(tet_points) == 4, f"tet_points: {tet_points}"  # lil check
+        if len(tet_points) != 4: continue
+
         occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
         n_objs = len(occ)
 
@@ -467,22 +486,24 @@ def main():
     for box in boxes:
         constrained_mesh += box
 
+    # This uses Constrained Delaunay triangulation -> forces the input edges to be part of the triangulation
     tet = tetgen.TetGen(constrained_mesh)
     tet.tetrahedralize(order=1, mindihedral=0, minratio=0, steinerleft=0, quality=False)
-
-
     tetmesh = tet.grid
-
     obj_point_sets = [set(map(tuple, obj)) for obj in [box.points for box in boxes]] + [
         set(map(tuple, container.points))
     ]
 
     # Each cat cell is a list of faces, each face is a list of points
     data = compute_cat_faces(tetmesh, obj_point_sets, [0, 0, 0] * len(boxes))
+    # # Or use comyute_cat_cells instead:
+    # data = compute_cat_cells(list(boxes), container, [0, 0, 0], {})
 
-    # pc = pv.PolyData(np.concatenate([box.points for box in boxes]))
-    # pc.delaunay_3d()
-    # data = compute_cat_cells([box.points for box in boxes], container.points, [0, 0, 0])
+    ### Old wrong way: Unconstrained Delaunay triangulation
+    # # pc = pv.PolyData(np.concatenate([box.points for box in boxes]))
+    # # pc.delaunay_3d()
+
+
 
     cat_boxes = [
         pv.PolyData(*face_coord_to_points_and_faces(data, i)) for i in range(len(boxes))

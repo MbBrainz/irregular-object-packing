@@ -41,7 +41,7 @@ def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
         new_mesh = upsample_pv_mesh(mesh, target_faces)
 
     # Smooth the mesh
-    new_mesh = new_mesh.smooth(n_iter=10)
+    new_mesh = new_mesh.smooth(n_iter=10).clean()
     return new_mesh
 
 

@@ -7,7 +7,6 @@ from time import sleep, time
 import numpy as np
 import pandas as pd
 import pyvista as pv
-import trimesh
 from pyvista import PolyData
 from scipy.optimize import minimize
 from tqdm.auto import tqdm
@@ -133,7 +132,6 @@ class Optimizer(OptimizerData):
         self.cat_data = CatData.default()
         self.tf_arrays = np.empty(0)
         self.object_coords = np.empty(0)
-        self.prev_tf_arrays = np.empty(0)
         self.plotter: pv.Plotter = plotter
         self.objects = None
         self.padding = 0.0
@@ -146,11 +144,22 @@ class Optimizer(OptimizerData):
         self.pbar1 = None
         self.pbar2 = None
         self.pbar3 = None
+        self.i_b = 0
+        self.i = 0
 
+    @property
+    def max_scale(self):
+        return self.scaling_barrier_list[self.i_b]
+
+    @ property
+    def start_scale(self):
+        return self.scaling_barrier_list[self.i_b - 1] if self.i_b > 0 else self.settings.init_f
     # ----------------------------------------------------------------------------------------------
     # SETUP functions
     # ----------------------------------------------------------------------------------------------
     def setup(self):
+                # init current state
+
         self.curr_sample_rate = self.shape0.n_faces
         self.object_coords, skipped = init.init_coordinates(
             container=self.container,
@@ -169,7 +178,6 @@ class Optimizer(OptimizerData):
 
         # SET TRANSFORM DATA
         self.tf_arrays = np.empty((self.n_objs, 7))
-        self.prev_tf_arrays = np.empty((self.n_objs, 7))
 
         for i in range(self.n_objs):
             tf_arr_i = np.array(
@@ -197,10 +205,10 @@ class Optimizer(OptimizerData):
 
     def setup_pbars(self):
         self.pbar1 = tqdm(
-            range(self.settings.n_scaling_steps), desc="scaling \t", position=0
+            range(self.settings.n_scaling_steps), desc="scaling \t", position=0, leave=True
         )
-        self.pbar2 = tqdm(range(self.settings.itn_max), desc="Iteration\t", position=1)
-        self.pbar3 = tqdm(range(self.n_objs), desc="Object\t", position=2)
+        self.pbar2 = tqdm(range(self.settings.itn_max), desc="Iteration\t", position=1, leave=True)
+        self.pbar3 = tqdm(range(self.n_objs), desc="Object\t", position=2, leave=True)
 
     # ----------------------------------------------------------------------------------------------
     # Helper functions
@@ -239,15 +247,12 @@ class Optimizer(OptimizerData):
             return int(mesh_simplification_condition(scale_factor, self.settings.alpha, self.settings.beta) * self.shape0.n_faces * self.settings.upscale_factor)
         return self.settings.sample_rate  # currently simple
 
-    # def container_sample_rate(self, scale_factor):
-    #     return self.sample_rate_mesh(scale_factor) * self.n_objs
 
-    def resample_meshes(self, scale_factor):
+    def resample_meshes(self, scale_factor=None):
         self.log("resampling meshes", LOG_LVL_DEBUG)
+        if scale_factor is None:
+            scale_factor = self.max_scale
 
-        # self.container = resample_pyvista_mesh(
-        #     self.container0, container_sample_rate
-        # )
         self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
         self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
         self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
@@ -259,26 +264,28 @@ class Optimizer(OptimizerData):
         # self.padding = avg_mesh_area**(0.5) / 4 # This doenst help
         # self.log(f"new_padding: {self.padding}", LOG_LVL_INFO)
 
-    def run(self):
+    def run(self, start_idx=0):
         # self.setup()
         self.setup_pbars()
 
-        for i_b in range(0, self.settings.n_scaling_steps):
-            self.resample_meshes(self.scaling_barrier_list[i_b])
+        for i_b in range(start_idx, self.settings.n_scaling_steps):
+            self.i_b = i_b
+            self.resample_meshes(self.max_scale)
             self.log(f"Starting scaling step {i_b}")
-            self.pbar1.set_postfix(ƒ_max=f"{self.scaling_barrier_list[i_b]:.2f}")
+            self.pbar1.set_postfix(ƒ_max=f"{self.max_scale:.3f}")
             self.pbar2.reset()
 
             for i in range(self.settings.itn_max):
+                self.i = i
                 self.log(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
                 self.pbar3.reset()
                 self.pbar3.set_postfix(total=self.idx)
-                self.iteration(self.scaling_barrier_list[i_b])
+                self.iteration()
 
                 # administrative stuff
-                self.process_iteration(i_b, i)
+                self.process_iteration()
                 self.pbar2.update()
-                if self.terminate_step(i_b):
+                if self.step_should_terminate():
                     break
 
             self.pbar1.update()
@@ -286,22 +293,22 @@ class Optimizer(OptimizerData):
     # ----------------------------------------------------------------------------------------------
     # Optimisation
     # ----------------------------------------------------------------------------------------------
-    def iteration(self, scale_bound):
+    def iteration(self):
         """Perform a single iteration of the optimisation."""
+
+
         # DOWN SAMPLE MESHES
         self.compute_cat_cells()
 
         # GROWTH-BASED OPTIMISATION
 
         tasks = []
-
         for obj_id, previous_tf_array in enumerate(self.tf_arrays):
-            task = self.executor.submit(self.local_optimisation, obj_id, previous_tf_array, scale_bound)
+            task = self.executor.submit(self.local_optimisation, obj_id, previous_tf_array, self.max_scale)
             tasks.append(task)
 
         for task in tasks:
             task.result()  # Wait for the tasks to complete
-            self.pbar3.update(1)
 
     def local_optimisation(self, obj_id, previous_tf_array, max_scale):
         tf_arr = optimal_local_transform(
@@ -324,25 +331,45 @@ class Optimizer(OptimizerData):
         self.object_coords[obj_id] = new_tf[4:]
         self.pbar3.update()
 
-    def compute_cat_cells(self):
+    def compute_cat_cells(self, kwargs=None):
         self.log("Computing CAT cells")
+        if kwargs is None: kwargs = {
+            "steinerleft": 0,
+        }
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
-        obj_points = [
-            trimesh.transform_points(
-                self.shape.points.copy(),
-                nlc.construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:])
-            )
+        object_meshes = [
+            self.shape.copy().transform(nlc.construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:]))
             for tf_array in self.tf_arrays
+        ]
+        try:
+            # Compute the CDT
+            tetmesh = cat.compute_cdt(object_meshes + [self.container], kwargs)
+        except RuntimeError as e:
+            self.log(f"RuntimeError: {e}")
+            self.log("Trying again with more steiner points (steinerleft=10)")
+            kwargs["steinerleft"] = 10
+            tetmesh = cat.compute_cdt(object_meshes + [self.container], kwargs)
+
+
+        tetmesh = cat.compute_cdt(object_meshes + [self.container], kwargs)
+
+        # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
+        # NOTE: Each set in the list might contain points from different objects.
+        obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
+            set(map(tuple, self.container.points))
         ]
 
         # COMPUTE CAT CELLS
-        self.cat_data = cat.compute_cat_cells(
-            obj_points, self.container.points, self.object_coords
+        self.cat_data = cat.compute_cat_faces(
+            tetmesh, obj_point_sets, self.object_coords
         )
 
-    def terminate_step(self, i_b):
-        are_scaled = [arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrays]
+    def step_should_terminate(self):
+        """Returns true if all objects are scaled to the current max scale."""
+
+
+        are_scaled = [arr[0] >= self.max_scale for arr in self.tf_arrays]
         count = 0
         for i in range(self.n_objs):
             if are_scaled[i]:
@@ -359,13 +386,20 @@ class Optimizer(OptimizerData):
     # VALIDITY CHECKS
     # ----------------------------------------------------------------------------------------------
 
-    def process_iteration(self, ib, i):
+    def process_iteration(self):
+        i, ib = self.i, self.i_b
         p_meshes = self.final_meshes_after()
         cat_meshes = self.final_cat_meshes()
         cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
         self.log_violations((cat_viols, con_viols, collisions))
 
-        violating_ids = set([i for i, v in cat_viols if v >= 10] + [i for i, v in con_viols])
+        violating_ids = set()
+        for ((obj_ida, obj_idb), _) in collisions:
+            violating_ids.add(obj_ida)
+            violating_ids.add(obj_idb)
+
+        for (obj_id, _) in con_viols:
+            violating_ids.add(obj_id)
 
         self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
         for id in violating_ids:
@@ -400,7 +434,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.51
+        mesh_volume = 0.5
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -413,18 +447,18 @@ class Optimizer(OptimizerData):
 
         settings = SimSettings(
             itn_max=100,
-            n_scaling_steps=9,
+            n_scaling_steps=8,
             r=0.3,
-            final_scale=1,
+            final_scale=0.8,
             log_lvl=LOG_LVL_INFO,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3),
-            padding=1e-6,
-            # sample_rate=1000,
+            padding=1E-3 * mesh_volume**(1 / 3),
+            # padding=1e-7,
             dynamic_simplification=True,
             alpha=0.1,
             beta=0.5,
-            upscale_factor=1.5,
+            upscale_factor=1,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -432,7 +466,7 @@ class Optimizer(OptimizerData):
 
     @staticmethod
     def simple_shapes_setup() -> "Optimizer":
-        mesh_volume = 2
+        mesh_volume = 0.8
 
         container_volume = 10
 
@@ -450,7 +484,7 @@ class Optimizer(OptimizerData):
             sample_rate=600,
             log_lvl=LOG_LVL_ERROR,
             init_f=0.1,
-            padding=1e-5,
+            padding=0,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -470,10 +504,11 @@ optimizer.setup()
 # %%
 optimizer.run()
 
-# %%
+
+#%%
 
 reload(plots)
-save_path = f"../dump/scale_fix_upscale_max_numba_{time()}"
+save_path = f"../dump/cdt_fix_{time()}"
 plots.generate_gif(optimizer , save_path + ".gif")
 # %%
 
@@ -487,20 +522,20 @@ reload(plots)
 def plot_step(optimizer, step):
     plotter = pv.Plotter()
     _, meshes, cat_meshes, container = optimizer.recreate_scene(step)
-    plots.plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": True, "edge_color": "purple"})
+    plots.plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": False, "edge_color": "purple"})
     plotter.add_text(optimizer.status(step).table_str, position="upper_left")
-
     plotter.show()
     return plotter
 
 
-step = 259
+step = 75
 plot_step(optimizer, step)
 
 
 # # %%
 # obj_i, step = 6, 31
 meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
+_, tetmesh, _ = optimizer.reconstruct_delaunay(step)
 # # plots.plot_step_comparison(
 # #     optimizer.mesh_before,
 # #     optimizer.mesh_after(step, obj_i),
@@ -508,13 +543,20 @@ meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(st
 # #     # other_meshes=optimizer.violating_meshes(step),
 # # )
 # %%
-# reload(plots)
-obj_i, step = 1, 259
+reload(plots)
+obj_i = 3
 plotter = plots.plot_step_single(
-    meshes_before[obj_i], cat_meshes[obj_i], container=container, cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
-    c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
+    meshes_before[obj_i], cat_meshes[obj_i],
+    # container=container,
+    cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
+    # other_meshs=[meshes_before[5], ],
+    # tetmesh=tetmesh,
+    # c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
     m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
     cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
+    oms_kwargs=[
+        {"show_edges": True, "color": "w", "edge_color": "red", "show_vertices": True, "point_size": 1, }
+    ],
 )
 
 # %%
