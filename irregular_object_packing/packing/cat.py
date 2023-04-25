@@ -110,7 +110,7 @@ class CatData:
 
     def add_cat_faces_to_point(
         self, point: TetPoint, faces: list[list[int]], normals: list[np.ndarray]
-    ) -> None:  
+    ) -> None:
         for i in range(len(faces)):
             self.add_cat_face_to_point(point, faces[i], normals[i])
 

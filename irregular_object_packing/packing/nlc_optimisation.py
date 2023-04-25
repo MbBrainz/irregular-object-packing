@@ -261,7 +261,7 @@ def local_constraints_from_cat(
     points = make_dict_typed(cat_data.points)
 
     v, faces = [*zip(*items, strict=True)]
-    _, face_normals = [*zip(*cat_data.cat_normals[obj_id].items())]
+    _, face_normals = [*zip(*cat_data.cat_normals[obj_id].items(), strict=True)]
     assert len(v) == len(faces) == len(face_normals)
 
     # Convert to numba compatible datatypes

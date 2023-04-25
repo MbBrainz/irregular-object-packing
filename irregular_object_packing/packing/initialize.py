@@ -1,6 +1,5 @@
 """Initialization phase of the packing algorithm."""
 # %%
-from math import ceil
 from typing import List
 
 import numpy as np
