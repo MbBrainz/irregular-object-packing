@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib import reload
+from os import mkdir
 from time import sleep, time
 
 import numpy as np
@@ -186,7 +187,7 @@ class Optimizer(OptimizerData):
             self.tf_arrays[i] = tf_arr_i
 
         self.update_data(-1, -1)
-        objects = self.final_meshes_after()
+        objects = self.current_meshes()
         overlaps = compute_object_collisions(objects)
         if len(overlaps) > 0:
             raise ValueError(
@@ -264,7 +265,7 @@ class Optimizer(OptimizerData):
         # self.padding = avg_mesh_area**(0.5) / 4 # This doenst help
         # self.log(f"new_padding: {self.padding}", LOG_LVL_INFO)
 
-    def run(self, start_idx=0):
+    def run(self, start_idx=0, Ni=-1):
         # self.setup()
         self.setup_pbars()
 
@@ -280,12 +281,17 @@ class Optimizer(OptimizerData):
                 self.log(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
                 self.pbar3.reset()
                 self.pbar3.set_postfix(total=self.idx)
-                self.iteration()
+                if self.iteration() is False:
+                    continue
 
                 # administrative stuff
                 self.process_iteration()
                 self.pbar2.update()
                 if self.step_should_terminate():
+                    break
+
+
+                if Ni != -1 and self.idx >= Ni:
                     break
 
             self.pbar1.update()
@@ -298,7 +304,16 @@ class Optimizer(OptimizerData):
 
 
         # DOWN SAMPLE MESHES
-        self.compute_cat_cells()
+        try:
+            self.compute_cat_cells()
+        except RuntimeError as e:
+            self.store_state(self.current_meshes() + [self.container], f"errorstate_{self.idx}.stl")
+            self.log(f"RuntimeError: {e}")
+            self.log("Scaling down and trying again...")
+            for i in range(self.n_objs):
+                self.reduce_scale(i, scale=0.99)
+            return False
+
 
         # GROWTH-BASED OPTIMISATION
 
@@ -309,6 +324,7 @@ class Optimizer(OptimizerData):
 
         for task in tasks:
             task.result()  # Wait for the tasks to complete
+        return True
 
     def local_optimisation(self, obj_id, previous_tf_array, max_scale):
         tf_arr = optimal_local_transform(
@@ -338,24 +354,12 @@ class Optimizer(OptimizerData):
         }
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
-        object_meshes = [
-            self.shape.copy().transform(nlc.construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:]))
-            for tf_array in self.tf_arrays
-        ]
-        try:
-            # Compute the CDT
-            tetmesh = cat.compute_cdt(object_meshes + [self.container], kwargs)
-        except RuntimeError as e:
-            self.log(f"RuntimeError: {e}")
-            self.log("Trying again with more steiner points (steinerleft=10)")
-            kwargs["steinerleft"] = 10
-            tetmesh = cat.compute_cdt(object_meshes + [self.container], kwargs)
+        object_meshes = self.current_meshes()
 
-
+        # Compute the CDT
         tetmesh = cat.compute_cdt(object_meshes + [self.container], kwargs)
 
         # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
-        # NOTE: Each set in the list might contain points from different objects.
         obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
             set(map(tuple, self.container.points))
         ]
@@ -364,6 +368,7 @@ class Optimizer(OptimizerData):
         self.cat_data = cat.compute_cat_faces(
             tetmesh, obj_point_sets, self.object_coords
         )
+
 
     def step_should_terminate(self):
         """Returns true if all objects are scaled to the current max scale."""
@@ -377,7 +382,7 @@ class Optimizer(OptimizerData):
                 self.log(f"Object {i} has reached the scaling barrier", LOG_LVL_DEBUG)
 
         self.log(f"{count}/{self.n_objs} objects have reached the scaling barrier", LOG_LVL_INFO)
-        self.log(f"{self.report()}", LOG_LVL_INFO)
+        self.log(f"scales: {[f'{f[0]:.2f}' for f in self.tf_arrays]}", LOG_LVL_INFO)
         if count == self.n_objs:
             return True
         return False
@@ -388,7 +393,7 @@ class Optimizer(OptimizerData):
 
     def process_iteration(self):
         i, ib = self.i, self.i_b
-        p_meshes = self.final_meshes_after()
+        p_meshes = self.current_meshes()
         cat_meshes = self.final_cat_meshes()
         cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
         self.log_violations((cat_viols, con_viols, collisions))
@@ -401,14 +406,15 @@ class Optimizer(OptimizerData):
         for (obj_id, _) in con_viols:
             violating_ids.add(obj_id)
 
-        self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
-        for id in violating_ids:
-            self.reduce_scale(id)
+        if len(violating_ids) != 0:
+            self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
+            for id in violating_ids:
+                self.reduce_scale(id, scale=0.98)
 
         self.update_data(ib, i, (cat_viols, con_viols, collisions))
 
-    def reduce_scale(self, id):
-        self.tf_arrays[id][0] *= 0.95
+    def reduce_scale(self, id, scale=0.95):
+        self.tf_arrays[id][0] *= scale
 
     def check_closed_cells(self):
         cat_cells = [
@@ -423,18 +429,25 @@ class Optimizer(OptimizerData):
 
     def log_violations(self, violations):
         if len(violations[0]) > 0:
-            self.log(f"! cat violation found {violations[0]}", LOG_LVL_ERROR,)
+            self.log(f"! cat violation found {violations[0]}", LOG_LVL_WARNING,)
         if len(violations[1]) > 0:
             self.log(f"! container violation found {violations[1]}", LOG_LVL_WARNING)
         if len(violations[2]) > 0:
-            self.log(f"! collisiond found {violations[2]}", LOG_LVL_ERROR)
+            self.log(f"! collisiond found {violations[2]}", LOG_LVL_WARNING)
         sleep(0.5)  # for easier spotting in the terminal
+
+    def store_state(self, meshes, name=""):
+        sum = pv.PolyData()
+        for mesh in meshes:
+            sum = sum + mesh
+
+        sum.save(f"../dump/{name}error-{time():.0f}.stl", sum)
 
     @staticmethod
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.5
+        mesh_volume = 0.1
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -449,11 +462,11 @@ class Optimizer(OptimizerData):
             itn_max=100,
             n_scaling_steps=8,
             r=0.3,
-            final_scale=0.8,
+            final_scale=1.0,
             log_lvl=LOG_LVL_INFO,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3),
-            padding=1E-3 * mesh_volume**(1 / 3),
+            padding=1E-2 * mesh_volume**(1 / 3),
             # padding=1e-7,
             dynamic_simplification=True,
             alpha=0.1,
@@ -501,6 +514,9 @@ class Optimizer(OptimizerData):
 # optimizer = Optimizer.simple_shapes_setup()
 optimizer = Optimizer.default_setup()
 optimizer.setup()
+
+# optimizer.run(Ni=1)
+#%%
 # %%
 optimizer.run()
 
@@ -528,14 +544,14 @@ def plot_step(optimizer, step):
     return plotter
 
 
-step = 75
+step = 90
 plot_step(optimizer, step)
 
 
-# # %%
-# obj_i, step = 6, 31
+# %%
+obj_i, step = 1, 89
 meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
-_, tetmesh, _ = optimizer.reconstruct_delaunay(step)
+# _, tetmesh, _ = optimizer.reconstruct_delaunay(step)
 # # plots.plot_step_comparison(
 # #     optimizer.mesh_before,
 # #     optimizer.mesh_after(step, obj_i),
@@ -544,12 +560,11 @@ _, tetmesh, _ = optimizer.reconstruct_delaunay(step)
 # # )
 # %%
 reload(plots)
-obj_i = 3
+obj_i = 10
 plotter = plots.plot_step_single(
-    meshes_before[obj_i], cat_meshes[obj_i],
-    # container=container,
+    meshes_after[obj_i], cat_meshes[obj_i], # container=container,
     cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap",
-    # other_meshs=[meshes_before[5], ],
+    other_meshs=[meshes_after[13], ],
     # tetmesh=tetmesh,
     # c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
     m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
@@ -560,26 +575,32 @@ plotter = plots.plot_step_single(
 )
 
 # %%
+#%%
 # # store cat mesh in file
-# obj_i, step = 10, 5
-# issue_name = f"cat_penetrate_{int(time())}"
-# cat_mesh = optimizer.cat_mesh(step, obj_i)
-# cat_filename = f"cat[o{obj_i}i{step}].stl"
-# obj_filename = f"obj[o{obj_i}i{step}].stl"
-# mkdir(f"../dump/issue_reports/{issue_name}")
-# folder_dir = f"../dump/issue_reports/{issue_name}/"
-# cat_mesh.save(folder_dir + cat_filename)
-# meshes[obj_i].save(folder_dir + obj_filename)
-# # %%
 
-# # %%
+title = "cat_overlap"
+obj_ids, step = [18, 23], 82
 
-# tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
-# tetmesh.save(folder_dir + f"tetmesh[i{step}].vtk")
-# filtered_tetmesh.save(folder_dir + f"filtered_tetmesh[i{step}].vtk")
+def store_issue_files(optimizer, step, title, obj_ids):
+    issue_name = f"issue{title}_{int(time())}"
+    folder_dir = f"../dump/issue_reports/{issue_name}/"
+    mkdir(folder_dir)
+
+    meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
+    tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
+    for obj_i in obj_ids:
+        cat_meshes[obj_i].save(folder_dir + f"cat[o{obj_i}i{step}].stl")
+        meshes_before[obj_i].save(folder_dir + f"obj_before[o{obj_i}i{step}].stl")
+        meshes_after[obj_i].save(folder_dir + f"obj_after[o{obj_i}i{step}].stl")
+
+    tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
+    tetmesh.save(folder_dir + f"tetmesh[i{step}].vtk")
+    filtered_tetmesh.save(folder_dir + f"filtered_tetmesh[i{step}].vtk")
+
+store_issue_files(optimizer, step, title, obj_ids)
 
 
-# # %%
+# %%
 
 
 # @pprofile

@@ -198,8 +198,8 @@ class OptimizerData:
 
         return meshes_before, meshes_after, cat_meshes, self.container0
 
-    def final_meshes_after(self):
-        """Get the meshes of all objects with the most recent transformation."""
+    def current_meshes(self):
+        """Construct mesh objects from the latest self.tf_arrays ."""
 
         return [self.shape.transform(
                 construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]), inplace=False,
