@@ -3,11 +3,20 @@ import unittest
 from dataclasses import astuple, dataclass
 
 import numpy as np
+import tetgen
 from parameterized import parameterized
+from pyvista import PolyData
 from scipy.optimize import minimize
 
+from irregular_object_packing.mesh.transform import scale_and_center_mesh
+from irregular_object_packing.packing.chordal_axis_transform import (
+    compute_cat_faces,
+    face_coord_to_points_and_faces,
+)
 from irregular_object_packing.packing.nlc_optimisation import (
+    compute_optimal_growth,
     construct_transform_matrix,
+    construct_transform_matrix_from_array,
     local_constraint_multiple_points,
     objective,
     transform_v,
@@ -362,3 +371,87 @@ def assert_point_within_box(
 
 def get_face_coords(facet, points):
     return [points[p_id] for p_id in facet[0]]
+
+
+class TestCatBoxOptimization(unittest.TestCase):
+    def setUp(self):
+        self.obj_points = np.array(
+            [
+                [2, 1, 1],
+                [11, 3, 1],
+                [10, 7, 1],
+                [1, 5, 1],
+                [2, 1, 3],
+                [11, 3, 3],
+                [10, 7, 3],
+                [1, 5, 3],
+            ], dtype=np.float64)
+        self.init_center = np.mean(self.obj_points, axis=0)
+        self.obj_faces = np.hstack(np.array([
+            [4, 0, 1, 2, 3],
+            [4, 4, 5, 6, 7],
+            [4, 0, 1, 5, 4],
+            [4, 1, 2, 6, 5],
+            [4, 2, 3, 7, 6],
+            [4, 3, 0, 4, 7],
+        ]), )
+
+        self.container_points = np.array([
+            [0, 0, 0],
+            [15, 0, 0],
+            [15, 10, 0],
+            [0, 10, 0],
+            [0, 0, 4],
+            [15, 0, 4],
+            [15, 10, 4],
+            [0, 10, 4],
+        ], dtype=np.float64)
+        self.container_center = np.mean(self.container_points, axis=0)
+        self.container_faces = self.obj_faces.copy()
+        self.obj = PolyData(self.obj_points, self.obj_faces)
+        self.obj0 = scale_and_center_mesh(self.obj, self.obj.volume)
+        self.container = PolyData(self.container_points, self.container_faces)
+
+        self.tet_input = (self.container + self.obj).triangulate()
+
+        tet = tetgen.TetGen(self.tet_input)
+        tet.tetrahedralize(order=1, mindihedral=0, minratio=0, steinerleft=0, quality=False)
+
+        self.cat_data = compute_cat_faces(
+            tet.grid, [set(map(tuple, self.obj_points)), set(map(tuple, self.container_points))],
+            self.init_center,
+        )
+
+        self.obj_cat_cell = face_coord_to_points_and_faces(self.cat_data, 0)
+        self.previous_transform_array = np.array([1, 0, 0, 0] + list(self.init_center))
+
+    def test_optimize_cat_box(self):
+        new_tf_array = compute_optimal_growth(
+            0,
+            self.previous_transform_array,
+            1,
+            (0, None),
+            1 / 12 * np.pi,
+            None,
+            0,
+            cat_data=self.cat_data,
+        )
+
+        # transform the object
+        new_obj = self.obj0.transform(construct_transform_matrix_from_array(new_tf_array), inplace=False)
+
+        inside = new_obj.select_enclosed_points(self.container, tolerance=1e-8)
+        pts = new_obj.extract_points(inside['SelectedPoints'].view(bool), adjacent_cells=False)
+
+        self.assertEqual(new_obj.n_points, pts.n_points)
+        self.assertEqual(new_obj.n_cells, pts.n_cells)
+        self.assertListEqual(list(pts.points), list(new_obj.points))
+
+        # the new center should be almost equal to the center of the container
+        self.assertAlmostEqual(new_tf_array[4], self.obj_cat_cell[0])
+        self.assertAlmostEqual(new_tf_array[5], self.obj_cat_cell[1])
+        self.assertAlmostEqual(new_tf_array[6], self.obj_cat_cell[2])
+
+
+if __name__ == "__main__":
+    unittest.main()

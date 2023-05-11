@@ -1,6 +1,8 @@
+import pickle
 from copy import copy
 from dataclasses import dataclass, field, fields
 
+import numpy as np
 from numpy import concatenate, ndarray
 from pyvista import PolyData
 from tabulate import tabulate
@@ -18,6 +20,42 @@ from irregular_object_packing.packing.chordal_axis_transform import (
 )
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
 
+STATE_DIRECTORY = "../dump/state/"
+
+
+@dataclass
+class SimConfig:
+    sample_rate: int = 50
+    """The sample rate of the object surface mesh."""
+    max_a: float = 1 / 12 * np.pi
+    """The maximum rotation angle per growth step."""
+    max_t: float = None
+    """The maximum translation per growth step."""
+    init_f: float = 0.1
+    """Final scale."""
+    final_scale: float = 1.0
+    """The initial scale factor."""
+    itn_max: int = 1
+    """The maximum number of iterations per scaling step."""
+    n_scaling_steps: int = 1
+    """The number of scaling steps."""
+    r: float = 0.3
+    """The coverage rate."""
+    plot_intermediate: bool = False
+    """Whether to plot intermediate results."""
+    log_lvl: int = -1
+    """The log level maximum level is 3."""
+    decimate: bool = True
+    """Whether to decimate the object mesh."""
+    padding: float = 0.0
+    """The padding which is added to the inside of the cat cells."""
+    dynamic_simplification: bool = False
+    """Whether to use dynamic simplification."""
+    alpha: float = 0.05
+    beta: float = 0.1
+    upscale_factor: float = 1.0
+    """The upscale factor for the object mesh."""
+
 
 @dataclass
 class IterationData:
@@ -32,7 +70,7 @@ class IterationData:
     n_succes_scale: int
     """The number of objects that have succesfully been scaled to the current limit."""
     sample_rate: int
-    """The sample rate of the mesh."""
+    """The sample rate of the object surface mesh."""
     cat_violations: list = field(default_factory=list)
     container_violations: list = field(default_factory=list)
     collisions: list = field(default_factory=list)
@@ -42,10 +80,35 @@ class IterationData:
         return f"i:\t{self.i},\ni_b:\t{self.i_b},\nfe:\t{self.f_target:.3f},\nsuccess: {self.n_succes_scale}"
 
 
+@dataclass
+class State:
+    shape0: PolyData
+    description: str
+    container0: PolyData
+    settings: SimConfig
+    iteration_data: IterationData
+    tf_arrays: ndarray
+
+    @property
+    def filedir(self):
+        return f"{STATE_DIRECTORY}state-{self.description}-n{len(self.tf_arrays)}_cv{self.container0.volume:.1f}_f{self.iteration_data.f_target}.pickle"
+
+    def write_state(self):
+        with open(self.filedir, "wb") as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load_state(filename: str) -> "State":
+        with open(filename, "rb") as f:
+            data = pickle.load(f)
+
+        return data
+
+
 class OptimizerData:
     """Data structure for conveniently getting per-step meshes from the data generated
     by the optimizer."""
-
+    config: SimConfig
     shape0: PolyData
     shape: PolyData
     container0: PolyData
@@ -53,11 +116,13 @@ class OptimizerData:
     cat_data: CatData
     tf_arrays: ndarray
     previous_tf_arrays: ndarray
-    object_coords: ndarray
+    description: str = "default"
     _data = {}
     _index = -1
 
     def __init__(self):
+        self.i_b = 0
+        self.i = 0
         pass
 
     def __getitem__(self, key):
@@ -103,7 +168,11 @@ class OptimizerData:
 
     @property
     def n_objs(self):
-        return len(self.object_coords)
+        return len(self.tf_arrays)
+
+    @property
+    def object_coords(self):
+        self.tf_arrays[:, 4:]
 
     # ------------------- Public methods -------------------
     def mesh_before(self, iteration: int, obj_id: int):
@@ -171,7 +240,7 @@ class OptimizerData:
         """Construct a delaunay triangulation of the points of the cat cell at the given
         iteration."""
         shape = self.resample_mesh(iteration)
-        container = resample_mesh_by_triangle_area(self.shape, self.container0)
+        container = resample_mesh_by_triangle_area(shape, self.container0)
 
         list_of_obj_points = [
             transform_points(shape.points.copy(),
@@ -198,10 +267,12 @@ class OptimizerData:
 
         return meshes_before, meshes_after, cat_meshes, self.container0
 
-    def current_meshes(self):
+    def current_meshes(self, shape: PolyData = None):
         """Construct mesh objects from the latest self.tf_arrays ."""
+        if shape is None:
+            shape = self.shape
 
-        return [self.shape.transform(
+        return [shape.transform(
                 construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]), inplace=False,
                 )
                 for tf_array in self.tf_arrays]
@@ -250,3 +321,24 @@ class OptimizerData:
         )
         print(table)
         return table
+
+    def write_state(self):
+        """Write the current state to a file."""
+        state = State(
+            container0=self.container0,
+            shape0=self.shape0,
+            description=self.description,
+            settings=self.config,
+            iteration_data=self.status(self.idx),
+            tf_arrays=self.tf_arrays,
+        )
+        with open(state.filedir, "wb") as f:
+            pickle.dump(state, f)  # noqa: F821
+
+    @staticmethod
+    def load_state(filename: str) -> 'State':
+        """Load the current state from a file."""
+        with open(f"{STATE_DIRECTORY}{filename}", "rb") as f:
+            state: State = pickle.load(f)
+
+        return state

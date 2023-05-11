@@ -98,6 +98,10 @@ def construct_transform_matrix(f, theta, t):
     return np.copy(T)
 
 
+def construct_transform_matrix_from_array(tf_array):
+    return construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:])
+
+
 @ jit(numba.float64[:](numba.float64[:], numba.float64[: , :]), nopython=NO_PYTHON, debug=True)
 def transform_v(v_i, T: np.ndarray):
     """Transforms vector v_i with transformation matrix T.
@@ -285,6 +289,61 @@ def local_constraints_from_cat(
         cat_data.object_coords[obj_id],
         padding,
     )
+
+
+def optimal_local_transform(
+    obj_id,
+    cat_data,
+    scale_bound=(0.1, None),
+    max_angle=1 / 12 * np.pi,
+    max_t=None,
+    padding=0.0,
+):
+    """Computes the optimal local transform for a given object id.
+
+    This will return the transformation parameters that maximises scale with
+    respect to a local coordinate system of the object. This is possible due to
+    the `obj_coords`.
+    """
+
+    r_bound = (-max_angle, max_angle)
+    t_bound = (-(max_t or 0), max_t)
+    bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+    x0 = np.array([scale_bound[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+    constraint_dict = {
+        "type": "ineq",
+        "fun": local_constraints_from_cat,
+        "args": (
+            obj_id,
+            cat_data,
+            padding,
+        ),
+    }
+    res = minimize(
+        objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
+    )
+    return res.x
+
+
+def compute_optimal_growth(obj_id, previous_tf_array, max_scale, scale_bound, max_angle, max_t, padding, cat_data):
+    tf_arr = optimal_local_transform(
+        obj_id,
+        cat_data,
+        scale_bound,
+        max_angle,
+        max_t,
+        padding,
+    )
+
+    new_tf = previous_tf_array + tf_arr
+    new_scale = previous_tf_array[0] * tf_arr[0]
+    if new_scale > max_scale:
+        new_scale = max_scale
+
+    new_tf[0] = new_scale
+    return new_tf
+
 
 # -----------------------------------------------------------------------------
 # Visual Tests

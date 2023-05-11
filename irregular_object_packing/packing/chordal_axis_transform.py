@@ -107,13 +107,13 @@ def filter_tetmesh(tetmesh: pv.PolyData, point_sets: list[set[tuple]]):
 
 def compute_cat_faces(
     tetmesh, point_sets: list[set[tuple]], obj_coords: list[np.ndarray]
-):
+) -> CatData:
     """Compute the CAT faces of the tetrahedron mesh, by checking which tetrahedrons
     have points from more than one object and splitting those according to figure 2 from
     the main paper.
 
     args:
-        - tetmesh: a tetrahedron mesh of the container and objects
+        - tetmesh: a tetrahedral mesh of the container and objects
         - point_sets: a list of sets of points, each set contains points from a single object
     """
     data = CatData(point_sets, obj_coords)
@@ -175,7 +175,6 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
         - tet_points: the points in the tetrahedron
     """
     assert len(occ) == 2
-# TODO: add descr
     most = [p for p in tet_points if p.obj_id == occ[0][0]]
     least = [p for p in tet_points if p.obj_id == occ[1][0]]
 
@@ -476,7 +475,7 @@ def main():
     box5 = pv.Cube(center=(0, 0, 0), x_length=0.9, y_length=2, z_length=1)
 
     box = pv.Cube(center=(0, 0, 0), x_length=1, y_length=1, z_length=1)
-    boxes = [box1, box2, box3, box4, box5]
+    boxes = [box1, box2, box3, box4 , box5]
     boxes = [box.triangulate() for box in boxes]
     # boxes = [box]
 
@@ -500,9 +499,10 @@ def main():
     # data = compute_cat_cells(list(boxes), container, [0, 0, 0], {})
 
     ### Old wrong way: Unconstrained Delaunay triangulation
-    # # pc = pv.PolyData(np.concatenate([box.points for box in boxes]))
-    # # pc.delaunay_3d()
+    # pc = pv.PolyData(np.concatenate([box.points for box in boxes]+[container.points]))
+    # tetmesh = pc.delaunay_3d()
 
+    # data = compute_cat_faces(tetmesh, obj_point_sets, [0, 0, 0] * len(boxes))
 
 
     cat_boxes = [
@@ -520,16 +520,16 @@ def main():
 
     # plotter.add_arrows(np.array(centerpoints), np.array(normal), mag=0.5, color="y")
 
-    # plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="r", opacity=0.7)
+    plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="r", opacity=0.7)
     # for i in range(len(boxes)):
     #     if i != box_idx:
     #         plotter.add_mesh(cat_boxes[i], show_edges=True, color="yellow", opacity=0.3)
 
-    plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="orange", opacity=0.5)
-    plot_boxes = [box1, box2, box3, box4, box5]
-    plot_boxes = [box5]
-    for box in plot_boxes:
-        plotter.add_mesh(box, show_edges=True, color="b")
+    # plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="orange", opacity=0.5)
+    # plot_boxes = [box5]
+    # plot_boxes = [box1, box2, box3, box4] #, box5]
+    # for box in plot_boxes:
+    #     plotter.add_mesh(box, show_edges=True, color="b")
 
     # plotter.add_mesh_clip_plane(tet.grid, show_edges=True, color="g", opacity=0.2)
 
