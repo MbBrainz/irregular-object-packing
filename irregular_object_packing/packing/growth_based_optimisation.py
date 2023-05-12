@@ -179,7 +179,7 @@ class Optimizer(OptimizerData):
         return self.config.sample_rate  # currently simple
 
     def resample_meshes(self, scale_factor=None):
-        self.log("resampling meshes")
+        self.log.info("resampling meshes")
         if scale_factor is None:
             scale_factor = self.curr_max_scale
 
@@ -362,11 +362,11 @@ class Optimizer(OptimizerData):
 
     def log_violations(self, violations):
         if len(violations[0]) > 0:
-            self.log.warn(f"! cat violation found {violations[0]}")
+            self.log.warning(f"! cat violation found {violations[0]}")
         if len(violations[1]) > 0:
-            self.log.warn(f"! container violation found {violations[1]}")
+            self.log.warning(f"! container violation found {violations[1]}")
         if len(violations[2]) > 0:
-            self.log.warn(f"! collisions found {violations[2]}")
+            self.log.warning(f"! collisions found {violations[2]}")
         sleep(0.5)  # for easier spotting in the terminal
 
     def store_state(self, meshes, name=""):

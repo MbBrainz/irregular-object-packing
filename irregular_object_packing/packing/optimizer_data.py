@@ -1,4 +1,3 @@
-import logging
 import pickle
 from copy import copy
 from dataclasses import dataclass, field, fields
@@ -44,7 +43,7 @@ class SimConfig:
     """The coverage rate."""
     plot_intermediate: bool = False
     """Whether to plot intermediate results."""
-    log_lvl: logging._Level = 3
+    log_lvl: int = 3
     """The log level maximum level is 3."""
     decimate: bool = True
     """Whether to decimate the object mesh."""
