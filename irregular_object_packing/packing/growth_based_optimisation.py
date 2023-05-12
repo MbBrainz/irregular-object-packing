@@ -1,7 +1,5 @@
 # %%
 from concurrent.futures import ThreadPoolExecutor as PoolExecutor
-from importlib import reload
-from os import mkdir
 from time import sleep, time
 
 import numpy as np
@@ -35,7 +33,6 @@ from irregular_object_packing.packing.optimizer_data import (
     OptimizerData,
     SimConfig,
 )
-from irregular_object_packing.tools.profile import cprofile
 
 # pv.set_jupyter_backend("panel")
 LOG_LVL_ERROR = 0
@@ -201,14 +198,12 @@ class Optimizer(OptimizerData):
             self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
         assert self.shape.is_manifold
         assert self.container.is_manifold
-
         self.log(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]", LOG_LVL_INFO)
         self.log(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
-        # self.padding = avg_mesh_area**(0.5) / 4 # This doenst help
-        # self.log(f"new_padding: {self.padding}", LOG_LVL_INFO)
 
     def run(self, start_idx=None, end_idx=None, Ni=-1):
         try:
+            self.executor = PoolExecutor()
             self._run(start_idx, end_idx, Ni)
         except KeyboardInterrupt:
             self.executor.shutdown(wait=False, cancel_futures=True)
@@ -281,11 +276,11 @@ class Optimizer(OptimizerData):
             obj_id=obj_id,
             previous_tf_array=previous_tf_array,
             max_scale=max_scale,
-            scale_bound = (self.config.init_f, None),
-            max_angle = self.config.max_a,
-            max_t = self.config.max_t * max_scale if self.config.max_t is not None else None,
-            padding = self.config.padding,
-            cat_data = self.cat_data,
+            scale_bound=(self.config.init_f, None),
+            max_angle=self.config.max_a,
+            max_t=self.config.max_t * max_scale if self.config.max_t is not None else None,
+            padding=self.config.padding,
+            cat_data=self.cat_data,
         )
 
         self.tf_arrays[obj_id] = new_tf
@@ -338,23 +333,25 @@ class Optimizer(OptimizerData):
     # ----------------------------------------------------------------------------------------------
     def process_iteration(self):
         i, ib = self.i, self.i_b
-        p_meshes = self.current_meshes()
-        cat_meshes = self.final_cat_meshes()
-        cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
-        self.log_violations((cat_viols, con_viols, collisions))
+        is_correct = False
+        while is_correct is False:
+            p_meshes = self.current_meshes()
+            cat_meshes = self.final_cat_meshes()
+            cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
+            self.log_violations((cat_viols, con_viols, collisions))
+            violating_ids = set()
+            for ((obj_ida, obj_idb), _) in collisions:
+                violating_ids.add(obj_ida)
+                violating_ids.add(obj_idb)
 
-        violating_ids = set()
-        for ((obj_ida, obj_idb), _) in collisions:
-            violating_ids.add(obj_ida)
-            violating_ids.add(obj_idb)
+            for (obj_id, _) in con_viols:
+                violating_ids.add(obj_id)
 
-        for (obj_id, _) in con_viols:
-            violating_ids.add(obj_id)
-
-        if len(violating_ids) != 0:
-            self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
-            for id in violating_ids:
-                self.reduce_scale(id, scale=0.98)
+            is_correct = len(violating_ids) == 0
+            if len(violating_ids) != 0:
+                self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
+                for id in violating_ids:
+                    self.reduce_scale(id, scale=0.98)
 
         self.update_data(ib, i, (cat_viols, con_viols, collisions))
 
@@ -378,7 +375,7 @@ class Optimizer(OptimizerData):
         if len(violations[1]) > 0:
             self.log(f"! container violation found {violations[1]}", LOG_LVL_WARNING)
         if len(violations[2]) > 0:
-            self.log(f"! collisiond found {violations[2]}", LOG_LVL_WARNING)
+            self.log(f"! collisions found {violations[2]}", LOG_LVL_WARNING)
         sleep(0.5)  # for easier spotting in the terminal
 
     def store_state(self, meshes, name=""):
@@ -392,7 +389,7 @@ class Optimizer(OptimizerData):
     def default_setup() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
-        mesh_volume = 0.5
+        mesh_volume = 0.2
         container_volume = 10
 
         loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
@@ -411,10 +408,10 @@ class Optimizer(OptimizerData):
             log_lvl=LOG_LVL_INFO,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3) * 2,
-            # padding=1E-2 * mesh_volume**(1 / 3),
+            padding=1E-4 * mesh_volume**(1 / 3),
             dynamic_simplification=True,
             alpha=0.1,
-            beta=0.1,
+            beta=0.5,
             upscale_factor=1,
         )
         plotter = None
@@ -423,7 +420,7 @@ class Optimizer(OptimizerData):
 
     @staticmethod
     def simple_shapes_setup() -> "Optimizer":
-        mesh_volume = 0.8
+        mesh_volume = 0.2
 
         container_volume = 10
 
@@ -434,7 +431,6 @@ class Optimizer(OptimizerData):
         original_mesh = scale_and_center_mesh(original_mesh, mesh_volume)
         print_mesh_info(original_mesh, "original mesh")
 
-
         settings = SimConfig(
             itn_max=100,
             n_scaling_steps=5,
@@ -443,7 +439,7 @@ class Optimizer(OptimizerData):
             sample_rate=None,
             log_lvl=LOG_LVL_ERROR,
             init_f=0.1,
-            padding=0,
+            # padding=0,
         )
         plotter = None
         optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -461,7 +457,6 @@ optimizer.setup()
 # state_file = "state-cells_in_sphere-n15_cv10.0_f0.7000000000000001.pickle"
 # state_file = "state-cells_in_sphere-n15_cv10.0_f1.0-t1683810762.pickle"
 # optimizer = Optimizer.from_state(state_file)
-# %%
 # %load_ext pyinstrument
 # %%
 # optimizer.run(Ni=2)
@@ -471,10 +466,10 @@ optimizer.run()
 # %%
 
 # reload(plots)
-# save_path = f"../dump/cdt_fix_{time()}"
-# plots.generate_gif(optimizer , save_path + ".gif")
+save_path = f"../dump/full_growth_{optimizer.n_objs}_cells_{time()}"
+plots.generate_gif(optimizer , save_path + ".gif")
 
-reload(plots)
+# reload(plots)
 
 
 def plot_step(optimizer: Optimizer, step, meshes, cat_meshes, container):
@@ -485,31 +480,18 @@ def plot_step(optimizer: Optimizer, step, meshes, cat_meshes, container):
     return plotter
 
 
-step = 49
+step = 0
 meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
-plot_step(optimizer, step, meshes_after, cat_meshes, container )
+plotter = plot_step(optimizer, step, meshes_after, cat_meshes, container)
+plotter.save_graphic(f"{save_path}.pdf")
 
 # %%
 obj_i = 0
 plotter = plots.plot_step_single(
-    meshes_before[obj_i], cat_meshes[obj_i],  # container=container,
-    # meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
-    cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="Non overlapping cells",
-    other_meshs=[meshes_after[2], ],
-    # tetmesh=tetmesh,
-    # c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
-    m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
-    cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
-    oms_kwargs=[
-        {"show_edges": True, "color": "w", "edge_color": "red", "show_vertices": True, "point_size": 1, }
-    ],
-)
-#%%
-plotter = plots.plot_step_single(
-    # meshes_before[obj_i], cat_meshes[obj_i],  # container=container,
     meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
-    cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap and collision",
-    other_meshs=[meshes_after[2], ],
+    # meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
+    cat_opacity=0.6, mesh_opacity=1 , clipped=True, title="cat violation",
+    # other_meshs=[meshes_after[1], ],
     # tetmesh=tetmesh,
     # c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
     m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
@@ -518,60 +500,76 @@ plotter = plots.plot_step_single(
         {"show_edges": True, "color": "w", "edge_color": "red", "show_vertices": True, "point_size": 1, }
     ],
 )
+# # %%
+# plotter = plots.plot_step_single(
+#     # meshes_before[obj_i], cat_meshes[obj_i],  # container=container,
+#     meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
+#     cat_opacity=0.7, mesh_opacity=1 , clipped=True, title="cat overlap and collision",
+#     other_meshs=[meshes_after[2], ],
+#     # tetmesh=tetmesh,
+#     # c_kwargs={"show_edges": True, "edge_color": "purple", "show_vertices": True, "point_size": 10},
+#     m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
+#     cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
+#     oms_kwargs=[
+#         {"show_edges": True, "color": "w", "edge_color": "red", "show_vertices": True, "point_size": 1, }
+#     ],
+# )
 
-# %%
-# # store cat mesh in file
+# # %%
+# # # store cat mesh in file
 
-title = "NLC_opt_too_much"
-obj_ids, step = [10, 13], 89
-
-
-def store_issue_files(optimizer, step, title, obj_ids):
-    issue_name = f"issue{title}_{int(time())}"
-    folder_dir = f"../dump/issue_reports/{issue_name}/"
-    mkdir(folder_dir)
-
-    meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
-    tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
-    for obj_i in obj_ids:
-        cat_meshes[obj_i].save(folder_dir + f"cat[o{obj_i}i{step}].stl")
-        meshes_before[obj_i].save(folder_dir + f"obj_before[o{obj_i}i{step}].stl")
-        meshes_after[obj_i].save(folder_dir + f"obj_after[o{obj_i}i{step}].stl")
-
-    tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
-    tetmesh.save(folder_dir + f"tetmesh[i{step}].vtk")
-    filtered_tetmesh.save(folder_dir + f"filtered_tetmesh[i{step}].vtk")
+# title = "NLC_opt_too_much"
+# obj_ids, step = [10, 13], 89
 
 
-store_issue_files(optimizer, step, title, obj_ids)
+# def store_issue_files(optimizer, step, title, obj_ids):
+#     issue_name = f"issue{title}_{int(time())}"
+#     folder_dir = f"../dump/issue_reports/{issue_name}/"
+#     mkdir(folder_dir)
 
-# %%
+#     meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
+#     tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
+#     for obj_i in obj_ids:
+#         cat_meshes[obj_i].save(folder_dir + f"cat[o{obj_i}i{step}].stl")
+#         meshes_before[obj_i].save(folder_dir + f"obj_before[o{obj_i}i{step}].stl")
+#         meshes_after[obj_i].save(folder_dir + f"obj_after[o{obj_i}i{step}].stl")
+
+#     tetmesh, filtered_tetmesh, _ = optimizer.reconstruct_delaunay(step)
+#     tetmesh.save(folder_dir + f"tetmesh[i{step}].vtk")
+#     filtered_tetmesh.save(folder_dir + f"filtered_tetmesh[i{step}].vtk")
 
 
-@cprofile
-def profile_optimizer():
-    optimizer.run(start_idx=optimizer.i_b, Ni=1)
+# store_issue_files(optimizer, step, title, obj_ids)
 
-
-profile_optimizer()
 # # %%
 
 
-# # %%
+# @cprofile
+# def profile_optimizer():
+#     optimizer.run(start_idx=optimizer.i_b, Ni=1)
 
 
-# fig, ax = plt.subplots()
+# profile_optimizer()
+# # # %%
 
-# a = [0.05, 0.15, 0.25]
-# b = [0.1, 0.2, 0.3, 0.5]
 
-# x = np.linspace(0, 1, 100)
+# # # %%
 
-# for ai in a:
-#     for bi in b:
-#         print(f"{ai} {bi}`")
-#         ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
-# ax.legend()
+
+# # fig, ax = plt.subplots()
+
+# # a = [0.05, 0.15, 0.25]
+# # b = [0.1, 0.2, 0.3, 0.5]
+
+# # x = np.linspace(0, 1, 100)
+
+# # for ai in a:
+# #     for bi in b:
+# #         print(f"{ai} {bi}`")
+# #         ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
+# # ax.legend()
+
+# # # %%
 
 # # %%
 

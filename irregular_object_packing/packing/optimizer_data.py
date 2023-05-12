@@ -164,6 +164,7 @@ class OptimizerData:
 
     @property
     def idx(self):
+        """The index of the latest saved iteration."""
         return self._index - 1
 
     @property

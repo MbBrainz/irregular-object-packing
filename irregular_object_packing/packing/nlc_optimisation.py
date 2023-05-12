@@ -307,9 +307,11 @@ def optimal_local_transform(
     """
 
     r_bound = (-max_angle, max_angle)
-    t_bound = (-(max_t or 0), max_t)
+    t_bound = (-max_t, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
     x0 = np.array([scale_bound[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    # randomize initial guess based on max_angle
+    x0[1:4] = np.random.uniform(-max_angle, max_angle, size=3)
 
     constraint_dict = {
         "type": "ineq",
@@ -328,12 +330,12 @@ def optimal_local_transform(
 
 def compute_optimal_growth(obj_id, previous_tf_array, max_scale, scale_bound, max_angle, max_t, padding, cat_data):
     tf_arr = optimal_local_transform(
-        obj_id,
-        cat_data,
-        scale_bound,
-        max_angle,
-        max_t,
-        padding,
+        obj_id=obj_id,
+        cat_data=cat_data,
+        # scale_bound=scale_bound,
+        max_angle=max_angle,
+        max_t=max_t,
+        padding=padding,
     )
 
     new_tf = previous_tf_array + tf_arr
