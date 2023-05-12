@@ -1,4 +1,5 @@
 # %%
+import logging
 from concurrent.futures import ThreadPoolExecutor as PoolExecutor
 from time import sleep, time
 
@@ -34,17 +35,6 @@ from irregular_object_packing.packing.optimizer_data import (
     SimConfig,
 )
 
-# pv.set_jupyter_backend("panel")
-LOG_LVL_ERROR = 0
-LOG_LVL_WARNING = 1
-LOG_LVL_INFO = 2
-LOG_LVL_DEBUG = 3
-LOG_LVL_NO_LOG = -1
-LOG_PREFIX = ["[ERROR]: ", "[WARNING]: ", "[INFO]: ", "[DEBUG]: "]
-
-
-violations, viol_meshes, n = [], [], 0
-
 
 class Optimizer(OptimizerData):
 
@@ -70,6 +60,8 @@ class Optimizer(OptimizerData):
         self.pbar1 = None
         self.pbar2 = None
         self.pbar3 = None
+        self.log = logging.getLogger(__name__)
+        self.log.setLevel(config.log_lvl)
 
     @property
     def curr_max_scale(self):
@@ -108,11 +100,10 @@ class Optimizer(OptimizerData):
         )
         n_objects = len(object_coords)
         # self.resample_meshes(self.settings.init_f)
-        self.log(
-            f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG
-        )
-        self.log(f"Setup with settings: \n{self.config}", LOG_LVL_INFO)
-        self.log(f"Number of objects: {n_objects}", LOG_LVL_INFO)
+        self.log.debug(
+            f"Skipped {skipped} points to avoid overlap with container")
+        self.log.info(f"Setup with settings: \n{self.config}")
+        self.log.info(f"Number of objects: {n_objects}")
 
         object_rotations = np.random.uniform(-np.pi, np.pi, (n_objects, 3))
 
@@ -154,7 +145,7 @@ class Optimizer(OptimizerData):
     # Helper functions
     # ----------------------------------------------------------------------------------------------
     def update_data(self, i_b, i, viol_data=()):
-        self.log(f"Updating data for {i_b=}, {i=}")
+        self.log.info(f"Updating data for {i_b=}, {i=}")
         iterdata = IterationData(
             i,
             i_b,
@@ -166,15 +157,15 @@ class Optimizer(OptimizerData):
         )
         self.add(self.tf_arrays, self.cat_data, iterdata)
 
-    def log(self, msg, log_lvl=LOG_LVL_INFO):
-        if log_lvl > self.config.log_lvl:
-            return
+    # def log(self, msg, log_lvl=LOG_LVL_INFO):
+    #     if log_lvl > self.config.log_lvl:
+    #         return
 
-        msg = LOG_PREFIX[log_lvl] + msg + f"[i={self.idx}]"
-        if self.pbar1 is None:
-            print(msg)
-        else:
-            self.pbar1.write(msg)
+    #     msg = LOG_PREFIX[log_lvl] + msg + f"[i={self.idx}]"
+    #     if self.pbar1 is None:
+    #         print(msg)
+    #     else:
+    #         self.pbar1.write(msg)
 
     def report(self):
         df = pd.DataFrame(
@@ -188,7 +179,7 @@ class Optimizer(OptimizerData):
         return self.config.sample_rate  # currently simple
 
     def resample_meshes(self, scale_factor=None):
-        self.log("resampling meshes", LOG_LVL_DEBUG)
+        self.log("resampling meshes")
         if scale_factor is None:
             scale_factor = self.curr_max_scale
 
@@ -198,8 +189,8 @@ class Optimizer(OptimizerData):
             self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
         assert self.shape.is_manifold
         assert self.container.is_manifold
-        self.log(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]", LOG_LVL_INFO)
-        self.log(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]", LOG_LVL_INFO)
+        self.log.info(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]")
+        self.log.info(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]")
 
     def run(self, start_idx=None, end_idx=None, Ni=-1):
         try:
@@ -219,13 +210,13 @@ class Optimizer(OptimizerData):
         for i_b in range(start_idx, end_idx):
             self.i_b = i_b
             self.resample_meshes(self.curr_max_scale)
-            self.log(f"Starting scaling step {i_b}")
+            self.log.info(f"Starting scaling step {i_b}")
             self.pbar1.set_postfix(ƒ_max=f"{self.curr_max_scale:.3f}")
             self.pbar2.reset()
 
             for i in range(self.config.itn_max):
                 self.i = i
-                self.log(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
+                self.log.info(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
                 self.pbar3.reset()
                 self.pbar3.set_postfix(total=self.idx)
                 if self.iteration() is False:
@@ -252,15 +243,15 @@ class Optimizer(OptimizerData):
         try:
             self.compute_cat_cells()
         except RuntimeError as e:
-            self.log(f"RuntimeError: {e}")
-            self.log("Scaling down and trying again...")
+            self.log.debug(f"RuntimeError: {e}")
+            self.log.debug("Scaling down and trying again...")
             # self.store_state(self.current_meshes() + [self.container], f"issues/{self.description}{self.idx}")
             for i in range(self.n_objs):
                 self.reduce_scale(i, scale=0.99)
             return False
 
         # GROWTH-BASED OPTIMISATION
-        self.log("optimizing cells...", LOG_LVL_INFO)
+        self.log.info("optimizing cells...")
         tasks = []
         for obj_id, previous_tf_array in enumerate(self.tf_arrays):
             task = self.executor.submit(self.local_optimisation, obj_id, previous_tf_array, self.curr_max_scale)
@@ -287,7 +278,7 @@ class Optimizer(OptimizerData):
         self.pbar3.update()
 
     def compute_cat_cells(self, kwargs=None):
-        self.log("Computing CAT cells")
+        self.log.info("Computing CAT cells")
         if kwargs is None:
             kwargs = {
                 "steinerleft": 0,
@@ -320,10 +311,10 @@ class Optimizer(OptimizerData):
         for i in range(self.n_objs):
             if are_scaled[i]:
                 count += 1
-                self.log(f"Object {i} has reached the scaling barrier", LOG_LVL_DEBUG)
+                self.log.debug(f"Object {i} has reached the scaling barrier")
 
-        self.log(f"{count}/{self.n_objs} objects have reached the scaling barrier", LOG_LVL_INFO)
-        self.log(f"scales: {[f'{f[0]:.2f}' for f in self.tf_arrays]}", LOG_LVL_INFO)
+        self.log.info(f"{count}/{self.n_objs} objects have reached the scaling barrier")
+        self.log.info(f"scales: {[f'{f[0]:.2f}' for f in self.tf_arrays]}")
         if count == self.n_objs:
             return True
         return False
@@ -349,7 +340,7 @@ class Optimizer(OptimizerData):
 
             is_correct = len(violating_ids) == 0
             if len(violating_ids) != 0:
-                self.log("reducing scale for violating objects: " + str(violating_ids), LOG_LVL_INFO)
+                self.log.info("reducing scale for violating objects: " + str(violating_ids))
                 for id in violating_ids:
                     self.reduce_scale(id, scale=0.98)
 
@@ -365,17 +356,17 @@ class Optimizer(OptimizerData):
         ]
         for i, cell in enumerate(cat_cells):
             if not cell.is_manifold:
-                self.log(
-                    f"CAT cell of object {i} is not manifold", log_lvl=LOG_LVL_WARNING
+                self.log.error(
+                    f"CAT cell of object {i} is not manifold"
                 )
 
     def log_violations(self, violations):
         if len(violations[0]) > 0:
-            self.log(f"! cat violation found {violations[0]}", LOG_LVL_WARNING,)
+            self.log.warn(f"! cat violation found {violations[0]}")
         if len(violations[1]) > 0:
-            self.log(f"! container violation found {violations[1]}", LOG_LVL_WARNING)
+            self.log.warn(f"! container violation found {violations[1]}")
         if len(violations[2]) > 0:
-            self.log(f"! collisions found {violations[2]}", LOG_LVL_WARNING)
+            self.log.warn(f"! collisions found {violations[2]}")
         sleep(0.5)  # for easier spotting in the terminal
 
     def store_state(self, meshes, name=""):
@@ -405,7 +396,7 @@ class Optimizer(OptimizerData):
             n_scaling_steps=9,
             r=0.3,
             final_scale=1.0,
-            log_lvl=LOG_LVL_INFO,
+            log_lvl=logging.INFO,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3) * 2,
             padding=1E-4 * mesh_volume**(1 / 3),
@@ -437,7 +428,7 @@ class Optimizer(OptimizerData):
             r=0.3,
             final_scale=1,
             sample_rate=None,
-            log_lvl=LOG_LVL_ERROR,
+            log_lvl=logging.ERROR,
             init_f=0.1,
             # padding=0,
         )
