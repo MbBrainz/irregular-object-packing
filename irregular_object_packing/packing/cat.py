@@ -1,8 +1,10 @@
 import pickle
+from dataclasses import dataclass
 
 import numpy as np
 
 
+@dataclass
 class TetPoint:
     vertex: np.ndarray
     obj_id: int

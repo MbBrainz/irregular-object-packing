@@ -307,7 +307,7 @@ def optimal_local_transform(
     """
 
     r_bound = (-max_angle, max_angle)
-    t_bound = (-max_t, max_t)
+    t_bound = (-max_t if max_t is not None else None, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
     x0 = np.array([scale_bound[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     # randomize initial guess based on max_angle

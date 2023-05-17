@@ -1,4 +1,7 @@
 # %%
+%load_ext autoreload
+%autoreload 2
+# %%
 import logging
 from concurrent.futures import ThreadPoolExecutor as PoolExecutor
 from time import sleep, time
@@ -225,11 +228,12 @@ class Optimizer(OptimizerData):
                 # administrative stuff
                 self.process_iteration()
                 self.pbar2.update()
+
                 if self.step_should_terminate():
                     break
 
                 if Ni != -1 and self.idx >= Ni:
-                    break
+                    return
 
             self.pbar1.update()
 
@@ -249,6 +253,12 @@ class Optimizer(OptimizerData):
             for i in range(self.n_objs):
                 self.reduce_scale(i, scale=0.99)
             return False
+
+        # Check the quality if the cat cells
+        for obj, point_dict in self.cat_data.cat_faces.items():
+            for point, faces in point_dict.items():
+                if len(faces) <= 4:
+                    raise RuntimeError(f"Cat cell has less than 3 faces: {obj}, {point}, {faces}")
 
         # GROWTH-BASED OPTIMISATION
         self.log.info("optimizing cells...")
@@ -281,10 +291,15 @@ class Optimizer(OptimizerData):
         self.log.info("Computing CAT cells")
         if kwargs is None:
             kwargs = {
+                # "nobisect": True,
                 "steinerleft": 0,
-                "minratio": 3.0,
-                "switches": "D1",
+                "minratio": 10.0,
+                "cdt": 1,
+                "quality": False,
+                "opt_scheme": 0,
+                "switches": "O/0",
                 # "verbose": 2,
+                "quiet": True,
             }
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
@@ -297,6 +312,10 @@ class Optimizer(OptimizerData):
         obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
             set(map(tuple, self.container.points))
         ]
+
+        # Check that all points are accounted for
+        assert np.sum([len(obj) for obj in obj_point_sets]) == np.sum([obj.n_points for obj in object_meshes] + [self.container.n_points])
+        assert np.sum([len(obj) for obj in obj_point_sets]) == tetmesh.n_points, "Some points are created by tetmesh"
 
         # COMPUTE CAT CELLS
         self.cat_data = cat.compute_cat_faces(
@@ -424,11 +443,11 @@ class Optimizer(OptimizerData):
 
         settings = SimConfig(
             itn_max=100,
-            n_scaling_steps=5,
+            n_scaling_steps=9,
             r=0.3,
             final_scale=1,
             sample_rate=None,
-            log_lvl=logging.ERROR,
+            log_lvl=logging.WARNING,
             init_f=0.1,
             # padding=0,
         )
@@ -445,12 +464,25 @@ optimizer.setup()
 
 # optimizer.run(Ni=1)
 # %%
+optimizer.compute_cat_cells(kwargs={
+    # "nobisect": True,
+    "minratio": 10.0,
+    "quality": False,
+    "opt_scheme": 0,
+    "verbose": 2,
+    "quiet": False,
+    # "steinerleft": 0, # switch: S
+    # "cdt": 1,  # switch: D
+    # "opt_scheme": 0,  # switch: O/#
+    "switches": "O/1DS0",
+})
+# %%
 # state_file = "state-cells_in_sphere-n15_cv10.0_f0.7000000000000001.pickle"
 # state_file = "state-cells_in_sphere-n15_cv10.0_f1.0-t1683810762.pickle"
 # optimizer = Optimizer.from_state(state_file)
 # %load_ext pyinstrument
 # %%
-# optimizer.run(Ni=2)
+# optimizer.run(Ni=1)
 optimizer.run()
 
 
@@ -458,7 +490,7 @@ optimizer.run()
 
 # reload(plots)
 save_path = f"../dump/full_growth_{optimizer.n_objs}_cells_{time()}"
-plots.generate_gif(optimizer , save_path + ".gif")
+# plots.generate_gif(optimizer , save_path + ".gif")
 
 # reload(plots)
 
@@ -471,10 +503,10 @@ def plot_step(optimizer: Optimizer, step, meshes, cat_meshes, container):
     return plotter
 
 
-step = 0
+step = optimizer.idx
 meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
 plotter = plot_step(optimizer, step, meshes_after, cat_meshes, container)
-plotter.save_graphic(f"{save_path}.pdf")
+# plotter.save_graphic(f"{save_path}.pdf")
 
 # %%
 obj_i = 0
