@@ -535,9 +535,10 @@ def main():
 
     container = pv.Cube(center=(0, 0, 0), x_length=4, y_length=4, z_length=3).triangulate()
 
-    constrained_mesh = container.copy()
+    constrained_mesh = pv.PolyData()
     for box in boxes:
         constrained_mesh += box
+    constrained_mesh += container
 
     # This uses Constrained Delaunay triangulation -> forces the input edges to be part of the triangulation
     tet = tetgen.TetGen(constrained_mesh)
@@ -564,15 +565,17 @@ def main():
     ]
 
     plotter = pv.Plotter()
-    box_idx = 5
+    box_idx = 4
     # all_faces = list(itertools.chain.from_iterable(data.cat_cells[box_idx]))
     # centerpoints = []
-    # normal = []
+    # normal = []dfa
     # for face in data.cat_cells[box_idx]:
     #     centerpoints.append(np.mean(data.get_face(face), axis=0))
     #     normal.append(face[1])
 
     # plotter.add_arrows(np.array(centerpoints), np.array(normal), mag=0.5, color="y")
+    for i in range(len(boxes)):
+        print(f"Cat box {i} is manifold: {cat_boxes[i].is_manifold}")
 
     plotter.add_mesh(cat_boxes[box_idx], show_edges=True, color="r", opacity=0.7)
     for i in range(len(boxes)):
