@@ -258,7 +258,7 @@ class Optimizer(OptimizerData):
         for obj, point_dict in self.cat_data.cat_faces.items():
             for point, faces in point_dict.items():
                 if len(faces) <= 4:
-                    raise RuntimeError(f"Cat cell has less than 3 faces: {obj}, {point}, {faces}")
+                    self.log.warning(f"Cat cell has less than 3 faces: {obj}, {point}, {faces}")
 
         # GROWTH-BASED OPTIMISATION
         self.log.info("optimizing cells...")
@@ -464,7 +464,8 @@ optimizer.setup()
 
 # optimizer.run(Ni=1)
 # %%
-optimizer.compute_cat_cells(kwargs={
+# optimizer.compute_cat_cells(kwargs={
+kwargs={
     # "nobisect": True,
     "minratio": 10.0,
     "quality": False,
@@ -475,7 +476,21 @@ optimizer.compute_cat_cells(kwargs={
     # "cdt": 1,  # switch: D
     # "opt_scheme": 0,  # switch: O/#
     "switches": "O/1DS0",
-})
+}
+object_meshes = optimizer.current_meshes()
+
+# Compute the CDT
+tetmesh = cat.compute_cdt(object_meshes + [optimizer.container], kwargs)
+
+# The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
+obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
+    set(map(tuple, optimizer.container.points))
+]
+
+#%%
+# cat.compute_cat_faces(tetmesh, obj_point_sets, optimizer.object_coords)
+#%%
+cat.compute_cat_faces_new(tetmesh, obj_point_sets, optimizer.tf_arrays[:, 4:])
 # %%
 # state_file = "state-cells_in_sphere-n15_cv10.0_f0.7000000000000001.pickle"
 # state_file = "state-cells_in_sphere-n15_cv10.0_f1.0-t1683810762.pickle"

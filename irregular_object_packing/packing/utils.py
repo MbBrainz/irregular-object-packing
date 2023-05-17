@@ -124,10 +124,11 @@ class Cell:
 
     def __init__(self, point_ids, object_ids, id):
         """Create a cell object by sorting the points by occurrance."""
-        s_point_ids, s_object_ids = sort_by_occurrance(point_ids, object_ids)
+        s_point_ids, s_object_ids, case = sort_by_occurrance(point_ids, object_ids)
         self.points = s_point_ids
         self.objs = s_object_ids
-        self.nobjs = len(np.unique(object_ids))
+        self.case = case
+        self.nobjs = len(self.case)
         self.id = id
 
     def has_vertex(self, vertex_id):
@@ -137,6 +138,13 @@ class Cell:
         return list(zip(self.points, self.objs, strict=True))
 
 
+    def to_pid_oid_v_tuple(self, tetmesh: UnstructuredGrid):
+        return [
+            (self.points[0], self.objs[0], tetmesh.points[self.points[0]]),
+            (self.points[1], self.objs[1], tetmesh.points[self.points[1]]),
+            (self.points[2], self.objs[2], tetmesh.points[self.points[2]]),
+            (self.points[3], self.objs[3], tetmesh.points[self.points[3]]),
+        ]
 
 
 def filter_cells_with_vertex(cells: list[Cell], vertex_id: int) -> list[Cell]:
@@ -191,9 +199,8 @@ def sort_by_occurrance(point_ids: list[int], object_ids: list[int]) -> list[int]
     Returns:
     list[int]: A list of point ids sorted by the number of times they occur in the list of object ids.
     """
-    if len(point_ids) != len(object_ids) or len(object_ids) == 0:
-        raise ValueError("The number of point ids and object ids must be non empty and the same")
-
+    if len(point_ids) != len(object_ids) or len(object_ids) != 4:
+        raise ValueError("The number of point ids and object ids must be lenght 4.")
 
     count_dict = Counter(object_ids)
     combined = list(zip(point_ids, object_ids, strict=True))
@@ -201,4 +208,4 @@ def sort_by_occurrance(point_ids: list[int], object_ids: list[int]) -> list[int]
 
     sorted_point_ids, sorted_object_ids = zip(*combined, strict=True)
 
-    return list(sorted_point_ids), list(sorted_object_ids)
+    return list(sorted_point_ids), list(sorted_object_ids), tuple(sorted(count_dict.values(), reverse=True))

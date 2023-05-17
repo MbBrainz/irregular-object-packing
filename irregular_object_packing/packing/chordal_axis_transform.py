@@ -20,7 +20,6 @@ from irregular_object_packing.packing.cat import CatData, TetPoint
 
 # from utils import angle_between, sort_points_clockwise
 from irregular_object_packing.packing.utils import (
-    Cell,
     cell_to_occ_dict,
     cell_to_tetpoints,
     compute_face_unit_normal,
@@ -126,7 +125,7 @@ def compute_cat_faces_new(tetmesh: pv.UnstructuredGrid, point_sets, obj_coords: 
     rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
 
     for cell in rel_cells:
-        tetpoints = cell_to_tetpoints(cell, data)
+        tetpoints = cell_to_tetpoints(cell, tetmesh)
         occ = cell_to_occ_dict(cell)
         occ = sorted(occ.items(), key=lambda x: x[1], reverse=True)
 
@@ -261,14 +260,14 @@ def create_faces_2(data: CatData, occ, tet_points: list[TetPoint]):
     else:
         raise Exception("This should not happen")
 
-def create_faces_3_from_cell(data: CatData, cell: Cell, tetmesh: pv.UnstructuredGrid):
-    most = [p for p in cell.get_point_object_tuple() if p[1] == cell.unique_objs[0][0]]
-    least = [p for p in cell.points if (p.obj_id == occ[1][0] or p.obj_id == occ[2][0])]
+# def create_faces_3_from_cell(data: CatData, cell: Cell, tetmesh: pv.UnstructuredGrid):
+#     """Create the faces of a tetrahedron with 3 different objects."""
+#     pair_1, pair_2, single1, single2 = cell.to_pid_oid_v_tuple(tetmesh)
+#     abc_point =
 
-    # TODO
 
-    assert len(most) == 2
-    assert len(least) == 2
+#     # TODO
+
 
 def create_faces_3(data: CatData, occ, tet_points: list[TetPoint]):
     """Create the faces of a tetrahedron with 3 different objects.
@@ -525,7 +524,9 @@ def main():
     box2 = pv.Cube(center=(1, 1, 0), x_length=1, y_length=1, z_length=1)
     box3 = pv.Cube(center=(1, -1, 0), x_length=1, y_length=1, z_length=1)
     box4 = pv.Cube(center=(-1, 1, 0), x_length=1, y_length=1, z_length=1)
-    box5 = pv.Cube(center=(0, 0, 0), x_length=0.9, y_length=2, z_length=1)
+    # box5 = pv.Cube(center=(0, 0, 0), x_length=0.9, y_length=2, z_length=1)
+    box5 = pv.Sphere(center=(0, 0, 0), radius=0.4, theta_resolution=20, phi_resolution=20)
+
 
     box = pv.Cube(center=(0, 0, 0), x_length=1, y_length=1, z_length=1)
     boxes = [box1, box2, box3, box4 , box5]
@@ -547,7 +548,7 @@ def main():
     ]
 
     # Each cat cell is a list of faces, each face is a list of points
-    data0 = compute_cat_faces(tetmesh, obj_point_sets, [0, 0, 0] * len(boxes))
+    # data0 = compute_cat_faces(tetmesh, obj_point_sets, [0, 0, 0] * len(boxes))
     data0 = compute_cat_faces_new(tetmesh, obj_point_sets, [0, 0, 0] * len(boxes))
     # # Or use comyute_cat_cells instead:
     # data = compute_cat_cells(list(boxes), container, [0, 0, 0], {})
@@ -563,7 +564,7 @@ def main():
     ]
 
     plotter = pv.Plotter()
-    box_idx = 4
+    box_idx = 5
     # all_faces = list(itertools.chain.from_iterable(data.cat_cells[box_idx]))
     # centerpoints = []
     # normal = []
