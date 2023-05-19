@@ -80,7 +80,6 @@ def split_3(p: np.ndarray):
     return faces_01, faces_01, faces_2, faces_3
 
 
-
 def split_2_3331(p: np.ndarray):
     """Create the faces of a tetrahedron with 3 points from object a and 1 from object b.
 
