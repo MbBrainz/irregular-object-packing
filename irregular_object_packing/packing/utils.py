@@ -62,14 +62,16 @@ def compute_face_unit_normal(points, v_i):
     >>> compute_face_normal(np.array([[0, 0, 0], [0, 0, 1], [1, 0, 0]]), np.array([0, 1, 2]))
     array([0, 1, 0])
     """
-    n_points = len(points)
-    assert 3 <= n_points <= 4, "The number of points should be either 3 or 4."
+    shape = np.shape(points)
+    assert shape[1] == 3, "The points should be 3D."
+    assert 3 <= shape[0]<= 4, "The number of points should be either 3 or 4."
 
     v0 = points[1] - points[0]
     v1 = points[2] - points[0]
     normal = np.cross(v0, v1)
-    if np.dot(normal, v_i - points[0]) < 0:
-        normal *= -1
+
+    normal *= -2 * (np.dot(normal, v_i - points[0]) < 0) + 1
+
     unit_normal = normal / np.linalg.norm(normal)
 
     return unit_normal
@@ -137,6 +139,9 @@ class Cell:
     def get_point_object_tuple(self):
         return list(zip(self.points, self.objs, strict=True))
 
+    def belongs_to_obj(self, obj_id):
+        return obj_id in self.objs
+
 
     def to_pid_oid_v_tuple(self, tetmesh: UnstructuredGrid):
         return [
@@ -175,7 +180,12 @@ def filter_relevant_cells(cells, objects_npoints):
 def cell_to_tetpoints(cell: Cell, tetmesh: UnstructuredGrid):
     tet_points: list[TetPoint] = []
     for i, point in enumerate(cell.points):
-        tet_point = TetPoint(tetmesh.points[point], point, cell.objs[i], cell.id)
+        tet_point = TetPoint(
+            point=tetmesh.points[point],
+            p_id=point,
+            obj_id=cell.objs[i],
+            cell_id=cell.id,
+        )
         tet_points.append(tet_point)
 
     return tet_points

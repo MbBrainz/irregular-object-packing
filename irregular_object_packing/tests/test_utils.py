@@ -2,9 +2,11 @@ import unittest
 
 import numpy as np
 import pyvista as pv
+from parameterized import parameterized
 
 from irregular_object_packing.packing.utils import (
     Cell,
+    compute_face_unit_normal,
     filter_relevant_cells,
     get_cell_arrays,
     get_tetmesh_cell_arrays,
@@ -12,6 +14,31 @@ from irregular_object_packing.packing.utils import (
     sort_by_occurrance,
 )
 
+
+class TestComputeFaceUnitNormal(unittest.TestCase):
+    @parameterized.expand([
+        # 3 points, with point on the positive z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]), np.array([1, 1, 1]), np.array([0, 0, 1])),
+        # 3 points, with point on the negative z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]), np.array([1, 1, -1]), np.array([0, 0, -1])),
+        # 4 points, with point on the positive z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]), np.array([1, 1, 1]), np.array([0, 0, 1])),
+        # 4 points, with point on the negative z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]), np.array([1, 1, -1]), np.array([0, 0, -1])),
+    ])
+    def test_normal_cases(self, points, v_i, expected_normal):
+        result = compute_face_unit_normal(points, v_i)
+        np.testing.assert_array_almost_equal(result, expected_normal)
+
+    @parameterized.expand([
+        # 2D points
+        (np.array([[0, 0], [0, 1], [1, 0]]), np.array([1, 1])),
+        # 5 points
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [0, 0, 1], [1, 1, 1]]), np.array([1, 1, 1])),
+    ])
+    def test_exception_cases(self, points, v_i):
+        with self.assertRaises(AssertionError):
+            compute_face_unit_normal(points, v_i)
 
 class TestMeshFunctions(unittest.TestCase):
 
