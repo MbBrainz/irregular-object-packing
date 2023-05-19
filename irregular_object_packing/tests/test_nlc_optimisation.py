@@ -8,11 +8,11 @@ from parameterized import parameterized
 from pyvista import PolyData
 from scipy.optimize import minimize
 
-from irregular_object_packing.mesh.transform import scale_and_center_mesh
-from irregular_object_packing.packing.chordal_axis_transform import (
+from irregular_object_packing.cat.chordal_axis_transform import (
     compute_cat_faces,
     face_coord_to_points_and_faces,
 )
+from irregular_object_packing.mesh.transform import scale_and_center_mesh
 from irregular_object_packing.packing.nlc_optimisation import (
     compute_optimal_growth,
     construct_transform_matrix,

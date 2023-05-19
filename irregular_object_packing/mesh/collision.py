@@ -56,3 +56,8 @@ def compute_all_collisions(p_meshes, cat_meshes, container, set_contacts=False):
     con_viols = compute_container_violations(p_meshes, container, set_contacts)
     collisions = compute_object_collisions(p_meshes, set_contacts)
     return cat_viols, con_viols, collisions
+
+def compute_outside_points(enclosing_mesh: PolyData, inside_mesh:PolyData) -> PolyData:
+    enclosed = enclosing_mesh.select_enclosed_points(inside_mesh, tolerance=1e-8, inside_out=True)
+    pts = inside_mesh.extract_points(enclosed["SelectedPoints"].view(bool), adjacent_cells=False)
+    return pts

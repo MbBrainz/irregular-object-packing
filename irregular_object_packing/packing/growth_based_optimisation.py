@@ -1,9 +1,7 @@
 # %%
-%load_ext autoreload
-%autoreload 2
-# %%
 import logging
 from concurrent.futures import ThreadPoolExecutor as PoolExecutor
+from concurrent.futures import wait
 from time import sleep, time
 
 import numpy as np
@@ -12,6 +10,10 @@ import pyvista as pv
 from pyvista import PolyData
 from tqdm.auto import tqdm
 
+from irregular_object_packing.cat import chordal_axis_transform as cat
+from irregular_object_packing.cat.cat_data import CatData
+from irregular_object_packing.cat.tetra_cell import filter_relevant_cells
+from irregular_object_packing.cat.utils import get_cell_arrays
 from irregular_object_packing.mesh.collision import (
     compute_all_collisions,
     compute_container_violations,
@@ -27,11 +29,9 @@ from irregular_object_packing.mesh.transform import (
     scale_to_volume,
 )
 from irregular_object_packing.mesh.utils import print_mesh_info
-from irregular_object_packing.packing import chordal_axis_transform as cat
 from irregular_object_packing.packing import initialize as init
 from irregular_object_packing.packing import nlc_optimisation as nlc
 from irregular_object_packing.packing import plots
-from irregular_object_packing.packing.cat import CatData
 from irregular_object_packing.packing.optimizer_data import (
     IterationData,
     OptimizerData,
@@ -197,11 +197,13 @@ class Optimizer(OptimizerData):
 
     def run(self, start_idx=None, end_idx=None, Ni=-1):
         try:
-            self.executor = PoolExecutor()
+            self.executor = PoolExecutor(thread_name_prefix="optimizer")
             self._run(start_idx, end_idx, Ni)
+            self.executor.shutdown(wait=False, cancel_futures=False)
         except KeyboardInterrupt:
-            self.executor.shutdown(wait=False, cancel_futures=True)
+            self.executor.shutdown(wait=False, cancel_futures=False)
             self.write_state()
+        self.log.info("Exiting optimizer.run()")
 
     def _run(self, start_idx=None, end_idx=None, Ni=-1):
         self.setup_pbars()
@@ -229,11 +231,12 @@ class Optimizer(OptimizerData):
                 self.process_iteration()
                 self.pbar2.update()
 
+                if Ni != -1 and self.idx >= Ni:
+                    return
+
                 if self.step_should_terminate():
                     break
 
-                if Ni != -1 and self.idx >= Ni:
-                    return
 
             self.pbar1.update()
 
@@ -245,31 +248,46 @@ class Optimizer(OptimizerData):
 
         # DOWN SAMPLE MESHES
         try:
-            self.compute_cat_cells()
+            self.cat_data = self.compute_cat_cells(new=self.config.new_cat)
         except RuntimeError as e:
             self.log.debug(f"RuntimeError: {e}")
             self.log.debug("Scaling down and trying again...")
-            # self.store_state(self.current_meshes() + [self.container], f"issues/{self.description}{self.idx}")
             for i in range(self.n_objs):
                 self.reduce_scale(i, scale=0.99)
             return False
 
         # Check the quality if the cat cells
         for obj, point_dict in self.cat_data.cat_faces.items():
+            Points_without_faces = []
             for point, faces in point_dict.items():
                 if len(faces) <= 4:
-                    self.log.warning(f"Cat cell has less than 3 faces: {obj}, {point}, {faces}")
+                    Points_without_faces.append(point)
+            if len(Points_without_faces) > 0:
+                self.log.warning(f"obj {obj} has {len(Points_without_faces)} points without faces. ids: {Points_without_faces}")
 
         # GROWTH-BASED OPTIMISATION
         self.log.info("optimizing cells...")
+        if self.config.sequential is False:
+            self.parallel_optimisation()
+        else:
+            for obj_id, previous_tf_array in enumerate(self.tf_arrays):
+                self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array, self.curr_max_scale)
+
+        return True
+
+
+
+
+    def parallel_optimisation(self):
         tasks = []
         for obj_id, previous_tf_array in enumerate(self.tf_arrays):
-            task = self.executor.submit(self.local_optimisation, obj_id, previous_tf_array, self.curr_max_scale)
+            task = self.executor.submit(self.parallel_local_optimisation, obj_id, previous_tf_array, self.curr_max_scale)
             tasks.append(task)
+        wait(tasks)
 
-        for task in tasks:
-            task.result()  # Wait for the tasks to complete
-        return True
+    """workaround for setting the tf_arrays in parallel"""
+    def parallel_local_optimisation(self,obj_id, previous_tf_array, max_scale):
+        self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array, max_scale)
 
     def local_optimisation(self, obj_id, previous_tf_array, max_scale):
 
@@ -283,18 +301,17 @@ class Optimizer(OptimizerData):
             padding=self.config.padding,
             cat_data=self.cat_data,
         )
-
-        self.tf_arrays[obj_id] = new_tf
         self.pbar3.update()
+        return new_tf
 
-    def compute_cat_cells(self, kwargs=None):
+    def compute_cat_cells(self, kwargs=None, new=True) -> CatData:
         self.log.info("Computing CAT cells")
         if kwargs is None:
             kwargs = {
                 # "nobisect": True,
                 "steinerleft": 0,
                 "minratio": 10.0,
-                "cdt": 1,
+                # "cdt": 1,
                 "quality": False,
                 "opt_scheme": 0,
                 "switches": "O/0",
@@ -318,9 +335,14 @@ class Optimizer(OptimizerData):
         assert np.sum([len(obj) for obj in obj_point_sets]) == tetmesh.n_points, "Some points are created by tetmesh"
 
         # COMPUTE CAT CELLS
-        self.cat_data = cat.compute_cat_faces(
-            tetmesh, obj_point_sets, self.tf_arrays[:, 4:]
-        )
+        if new is True:
+            return cat.compute_cat_faces_new(
+                tetmesh, obj_point_sets, self.tf_arrays[:, 4:]
+            )
+        else:
+            return cat.compute_cat_faces(
+                tetmesh, obj_point_sets, self.tf_arrays[:, 4:]
+            )
 
     def step_should_terminate(self):
         """Returns true if all objects are scaled to the current max scale."""
@@ -361,7 +383,7 @@ class Optimizer(OptimizerData):
             if len(violating_ids) != 0:
                 self.log.info("reducing scale for violating objects: " + str(violating_ids))
                 for id in violating_ids:
-                    self.reduce_scale(id, scale=0.98)
+                    self.reduce_scale(id, scale=0.93)
 
         self.update_data(ib, i, (cat_viols, con_viols, collisions))
 
@@ -370,7 +392,7 @@ class Optimizer(OptimizerData):
 
     def check_closed_cells(self):
         cat_cells = [
-            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id))
+            PolyData(*cat.catdatacell_to_points_and_faces(self.cat_data, obj_id))
             for obj_id in range(self.n_objs)
         ]
         for i, cell in enumerate(cat_cells):
@@ -461,8 +483,10 @@ class Optimizer(OptimizerData):
 optimizer = Optimizer.default_setup()
 # optimizer = Optimizer.simple_shapes_setup()
 optimizer.setup()
-
-# optimizer.run(Ni=1)
+optimizer.config.sequential = False
+#%%
+optimizer.run(Ni=1)
+# optimizer.run()
 # %%
 # optimizer.compute_cat_cells(kwargs={
 kwargs={
@@ -475,7 +499,7 @@ kwargs={
     # "steinerleft": 0, # switch: S
     # "cdt": 1,  # switch: D
     # "opt_scheme": 0,  # switch: O/#
-    "switches": "O/1DS0",
+    "switches": "O/0DS0",
 }
 object_meshes = optimizer.current_meshes()
 
@@ -486,19 +510,53 @@ tetmesh = cat.compute_cdt(object_meshes + [optimizer.container], kwargs)
 obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
     set(map(tuple, optimizer.container.points))
 ]
+objects_npoints = [len(obj) for obj in obj_point_sets]
+cells = get_cell_arrays(tetmesh.cells)
+rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
+data = cat.compute_cat_faces(tetmesh, obj_point_sets, optimizer.object_coords)
 
 #%%
-# cat.compute_cat_faces(tetmesh, obj_point_sets, optimizer.object_coords)
+obj_id = 10
+faceless_points = data.get_faceless_points_for(obj_id)
+vertices = tetmesh.points[faceless_points]
+print(vertices)
+
+# get all the cells from the relevant cells that are part of the object
+object_cell_ids = [x.id for x in filter(lambda x: x.belongs_to_obj(obj_id), rel_cells)]
+object_cells = tetmesh.extract_cells(object_cell_ids)
+
+faceless_cell_ids = tetmesh.find_containing_cell(vertices)
+faceless_cells = tetmesh.extract_cells(faceless_cell_ids)
+cat_cell = PolyData(*cat.catdatacell_to_points_and_faces(data, obj_id))
+
+plotter = pv.Plotter()
+pv_points = pv.PolyData(vertices)
+# plotter.add_mesh_clip_plane(tetmesh, color="w", opacity=0.2, show_edges=True)
+def plane_func(normal, origin):
+    cat_clip = cat_cell.clip(normal=normal, origin=origin, crinkle=True)
+    tet_clip = object_cells.clip(normal=normal, origin=origin, crinkle=True)
+    plotter.add_mesh(tet_clip, color="w", opacity=0.6, show_edges=True)
+    plotter.add_mesh(cat_clip, color="y", opacity=0.6, show_edges=True)
+
+plotter.add_mesh(pv_points, color="w", opacity=1, show_vertices=True, point_size=10)
+plotter.add_mesh(faceless_cells, color="r", opacity=0.9, show_edges=True)
+plotter.add_mesh(object_meshes[obj_id], color="b", opacity=0.7, show_edges=True)
+plotter.add_plane_widget(plane_func)
+# plotter.add_mesh(cat_cell, color="y", opacity=0.7, show_edges=True)
+plotter.show()
+
+print(f"cat_cell is manifold: {cat_cell.is_manifold}")
+
 #%%
-cat.compute_cat_faces_new(tetmesh, obj_point_sets, optimizer.tf_arrays[:, 4:])
+# cat.compute_cat_faces_new(tetmesh, obj_point_sets, optimizer.tf_arrays[:, 4:])
 # %%
 # state_file = "state-cells_in_sphere-n15_cv10.0_f0.7000000000000001.pickle"
 # state_file = "state-cells_in_sphere-n15_cv10.0_f1.0-t1683810762.pickle"
 # optimizer = Optimizer.from_state(state_file)
 # %load_ext pyinstrument
 # %%
-# optimizer.run(Ni=1)
-optimizer.run()
+optimizer.run(Ni=1)
+# optimizer.run()
 
 
 # %%
@@ -522,9 +580,10 @@ step = optimizer.idx
 meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
 plotter = plot_step(optimizer, step, meshes_after, cat_meshes, container)
 # plotter.save_graphic(f"{save_path}.pdf")
-
 # %%
-obj_i = 0
+
+
+obj_i = 9
 plotter = plots.plot_step_single(
     meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
     # meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
@@ -538,7 +597,12 @@ plotter = plots.plot_step_single(
         {"show_edges": True, "color": "w", "edge_color": "red", "show_vertices": True, "point_size": 1, }
     ],
 )
-# # %%
+
+# plotter.add_point_scalar_labels(optimizer.cat_data.get_empty_faces(obj_i), point_size=10, font_size=10, point_color="red", labels="test")
+# for obj_i in range(len(meshes_before)):
+# points_outside = compute_outside_points(cat_meshes[obj_i], meshes_after[obj_i])
+# plotter.add_points(points_outside, color="red", point_size=10, style="render_points_as_spheres")
+# %%
 # plotter = plots.plot_step_single(
 #     # meshes_before[obj_i], cat_meshes[obj_i],  # container=container,
 #     meshes_after[obj_i], cat_meshes[obj_i],  # container=container,

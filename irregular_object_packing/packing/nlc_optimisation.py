@@ -7,7 +7,7 @@ from numba.typed.typedlist import List
 from numpy import ndarray
 from scipy.optimize import minimize
 
-from irregular_object_packing.packing.chordal_axis_transform import CatData
+from irregular_object_packing.cat.chordal_axis_transform import CatData
 from irregular_object_packing.packing.utils import (
     print_transform_array,
 )
@@ -265,6 +265,7 @@ def local_constraints_from_cat(
     points = make_dict_typed(cat_data.points)
 
     v, faces = [*zip(*items, strict=True)]
+
     _, face_normals = [*zip(*cat_data.cat_normals[obj_id].items(), strict=True)]
     assert len(v) == len(faces) == len(face_normals)
 
@@ -276,8 +277,9 @@ def local_constraints_from_cat(
     for i in range(len(faces)):
         if len(faces[i]) == 0:
             continue
+        faces_3 = [f[:3] for f in faces[i]]
         point_list.append(v[i])
-        faces_list.append(np.array(faces[i], dtype=np.int64))
+        faces_list.append(np.array(faces_3, dtype=np.int64))
         face_normals_list.append(np.array(face_normals[i], dtype=np.float64))
 
     return local_constraint_multiple_points(

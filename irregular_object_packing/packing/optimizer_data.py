@@ -8,15 +8,15 @@ from pyvista import PolyData
 from tabulate import tabulate
 from trimesh import transform_points
 
+from irregular_object_packing.cat.chordal_axis_transform import (
+    CatData,
+    catdatacell_to_points_and_faces,
+    filter_tetmesh,
+)
 from irregular_object_packing.mesh.collision import compute_all_collisions
 from irregular_object_packing.mesh.sampling import (
     resample_mesh_by_triangle_area,
     resample_pyvista_mesh,
-)
-from irregular_object_packing.packing.chordal_axis_transform import (
-    CatData,
-    face_coord_to_points_and_faces,
-    filter_tetmesh,
 )
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
 
@@ -55,6 +55,9 @@ class SimConfig:
     beta: float = 0.1
     upscale_factor: float = 1.0
     """The upscale factor for the object mesh."""
+    sequential: bool = False
+
+    new_cat: bool = False
 
 
 @dataclass
@@ -190,7 +193,7 @@ class OptimizerData:
         """Get the mesh of the cat cell that corresponds to the object from the given
         iteration."""
         return PolyData(
-            *face_coord_to_points_and_faces(self._cat_data(iteration), obj_id)
+            *catdatacell_to_points_and_faces(self._cat_data(iteration), obj_id)
         )
 
     def status(self, iteration: int) -> IterationData:
@@ -233,7 +236,7 @@ class OptimizerData:
         if self._cat_data(iteration) is None:
             raise ValueError("No cat data stored yet for iteration " + str(iteration))
         return [
-            PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
+            PolyData(*catdatacell_to_points_and_faces(self._cat_data(iteration), obj_id))
             for obj_id in range(len(self._tf_arrays(iteration)))
         ]
 
@@ -292,7 +295,7 @@ class OptimizerData:
         if self._index <= 0:
             ValueError("No cat data stored yet")
         return [
-            PolyData(*face_coord_to_points_and_faces(self.cat_data, obj_id))
+            PolyData(*catdatacell_to_points_and_faces(self.cat_data, obj_id))
             for obj_id in range(self.n_objs)
         ]
 
