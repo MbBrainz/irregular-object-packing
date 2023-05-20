@@ -45,12 +45,11 @@ def resort_points(point_ids):
 # initialize cat cells list
 def empty_normals_and_cells():
     """convenience func to initialize empty lists for cat cells and normals for 5 points and 5 objs"""
-    n_tetmesh_points = 5
+    n_objs = 5
     face_normals = []
-    for _i in range(n_tetmesh_points):
+    for _i in range(n_objs):
         face_normals.append([])
 
-    n_objs = 5
     cat_cells = []
     for _i in range(n_objs):
         cat_cells.append([])

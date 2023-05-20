@@ -59,19 +59,20 @@ class TetraCell:
         return self.split_func(all_tet_points[self.points])
 
 
-def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: np.ndarray[list[np.ndarray]], cat_cells: np.ndarray[list[np.ndarray]]):
+def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list[list[np.ndarray]], cat_cells: list[list[np.ndarray]]):
     """Splits the cell into faces and processes them."""
     # 0. split the cell into faces
     split_faces = cell.split(tetmesh_points)
 
     for i, faces in enumerate(split_faces):
-        p_id = cell.points[i]
         obj_id = cell.objs[i]
-        obj_point = tetmesh_points[i]
+        obj_point = tetmesh_points[cell.points[i]]
         for face in faces:
             # tetmesh_points[face]
             face_normal = create_face_normal(face[:3], obj_point)
-            normals[p_id].append(face_normal)
+
+
+            normals[obj_id].append(face_normal)
             cat_cells[obj_id].append(face)
 
 
@@ -99,7 +100,7 @@ def filter_relevant_cells(cells: list[TetraCell], objects_npoints: list[int]):
 def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCell], n_objs: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
     # initialize face normals list
     face_normals = []
-    for _i in range(len(tetmesh_points)):
+    for _i in range(n_objs):
         face_normals.append([])
 
     # initialize cat cells list
@@ -112,7 +113,6 @@ def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCe
         split_and_process(cell, tetmesh_points, face_normals, cat_cells)
 
     return face_normals, cat_cells
-
 
 def compute_cat_faces_new(tetmesh: UnstructuredGrid, point_sets, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
     assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"

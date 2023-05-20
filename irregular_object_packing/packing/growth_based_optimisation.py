@@ -109,7 +109,7 @@ class Optimizer(OptimizerData):
         object_rotations = np.random.uniform(-np.pi, np.pi, (n_objects, 3))
 
         # SET TRANSFORM DATA
-        self.tf_arrays = np.empty((n_objects, 7))
+        self.tf_arrays = np.empty((n_objects, 7), dtype=np.float64)
 
         for i in range(n_objects):
             tf_arr_i = np.array(
@@ -281,19 +281,15 @@ class Optimizer(OptimizerData):
         for i in range(self.n_objs):
             last_ids.append(last_ids[-1] + self.objects[i].n_points)
 
-        vertices = self.objects[obj_id].points
-
         # get the points for
-        p_first, p_last = last_ids[obj_id], last_ids[obj_id + 1]
-        face_normals = self.normals[p_first:p_last]
+        vertex_fpoint_fnormal_arr = np.array(self.normals[obj_id], dtype=np.float64)
 
-        assert len(face_normals) == len(vertices)
+        assert np.shape(np.array(vertex_fpoint_fnormal_arr))[1:] == (3,3)
 
         new_tf = nlc.compute_optimal_growth(
             previous_tf_array=previous_tf_array,
             obj_coord=self.object_coords[obj_id],
-            vertices=vertices,
-            face_normals=face_normals,
+            vertex_fpoint_normal_arr=vertex_fpoint_fnormal_arr,
             max_scale=max_scale,
             scale_bound=(self.config.init_f, None),
             max_angle=self.config.max_a,
@@ -313,7 +309,7 @@ class Optimizer(OptimizerData):
                 # "cdt": 1,
                 "quality": False,
                 "opt_scheme": 0,
-                "switches": "O/0",
+                "switches": "O/0Q",
                 # "verbose": 2,
                 "quiet": True,
             }
@@ -323,6 +319,7 @@ class Optimizer(OptimizerData):
 
         # Compute the CDT
         tetmesh = cat.compute_cdt(self.objects + [self.container], kwargs)
+        self.tetmesh = tetmesh
 
         # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
         obj_point_sets = [set(map(tuple, obj.points)) for obj in self.objects] + [
@@ -398,11 +395,11 @@ class Optimizer(OptimizerData):
 
     def log_violations(self, violations):
         if len(violations[0]) > 0:
-            self.log.warning(f"! cat violation found {violations[0]}")
+            self.log.warning(f"[i {self.idx+1}]! cat violation found {violations[0]}")
         if len(violations[1]) > 0:
-            self.log.warning(f"! container violation found {violations[1]}")
+            self.log.warning(f"[{self.idx+1}]! container violation found {violations[1]}")
         if len(violations[2]) > 0:
-            self.log.warning(f"! collisions found {violations[2]}")
+            self.log.warning(f"[{self.idx+1}]! collisions found {violations[2]}")
         sleep(0.5)  # for easier spotting in the terminal
 
     def store_state(self, meshes, name=""):
@@ -487,10 +484,9 @@ optimizer = Optimizer.default_config()
 optimizer.setup()
 optimizer.config.sequential = True
 #%%
-optimizer.run(Ni=2)
-# optimizer.run()
+# optimizer.run(Ni=2)
+optimizer.run()
 # %%
-# optimizer.compute_cat_cells(kwargs={
 kwargs={
     # "nobisect": True,
     "minratio": 10.0,
@@ -515,7 +511,7 @@ obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
 objects_npoints = [len(obj) for obj in obj_point_sets]
 cells = get_cell_arrays(tetmesh.cells)
 rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
-data = cat.compute_cat_faces(tetmesh, obj_point_sets, optimizer.object_coords)
+data = cat.compute_cat_faces_new(tetmesh, obj_point_sets, optimizer.object_coords)
 
 #%%
 obj_id = 10
@@ -560,7 +556,6 @@ print(f"cat_cell is manifold: {cat_cell.is_manifold}")
 optimizer.run(Ni=1)
 # optimizer.run()
 
-
 # %%
 
 # reload(plots)
@@ -579,16 +574,17 @@ def plot_step(optimizer: Optimizer, step, meshes, cat_meshes, container):
 
 
 step = optimizer.idx
+step = 1
 meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
 plotter = plot_step(optimizer, step, meshes_before, cat_meshes, container)
-plotter.save_graphic(f"{save_path}.pdf")
+# plotter.save_graphic(f"{save_path}.pdf")
 # %%
 
 
-obj_i = 9
+obj_i = 10
 plotter = plots.plot_step_single(
+    # meshes_before[obj_i], cat_meshes[obj_i],  # container=container,
     meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
-    # meshes_after[obj_i], cat_meshes[obj_i],  # container=container,
     cat_opacity=0.6, mesh_opacity=1 , clipped=True, title="cat violation",
     # other_meshs=[meshes_after[1], ],
     # tetmesh=tetmesh,

@@ -115,8 +115,8 @@ class OptimizerData:
     shape: PolyData
     container0: PolyData
     container: PolyData
-    normals: ndarray
-    cat_cells: ndarray
+    normals: list
+    cat_cells: list
     tf_arrays: ndarray
     previous_tf_arrays: ndarray
     description: str = "default"
@@ -124,8 +124,8 @@ class OptimizerData:
     _index = -1
 
     def __init__(self):
-        self.normals = np.empty(0)
-        self.cat_cells = np.empty(0)
+        self.normals = []
+        self.cat_cells = []
         self.tf_arrays = np.empty(0)
         self.i_b = 0
         self.i = 0
@@ -134,7 +134,7 @@ class OptimizerData:
     def __getitem__(self, key):
         return self._data[key]
 
-    def add(self, tf_arrays: ndarray, normals: ndarray, cat_cells: ndarray, iteration_data: IterationData):
+    def add(self, tf_arrays: ndarray, normals: list, cat_cells: list, iteration_data: IterationData):
         self._data[self._index] = {
             "tf_arrays": tf_arrays.copy(),
             "normals": normals.copy(),
