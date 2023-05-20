@@ -34,12 +34,13 @@ def resort_points(point_ids):
     """convenience func to resort points so that sorted_points[point_ids]
     returns the same input as SPLIT_INPUT[1, 2, 3, 4]"""
     # Adds a NaN row to the input data to cover for index 0
-    sorted_points = [[np.NaN, np.NaN, np.NaN]]
+    nan_row = [[np.NaN, np.NaN, np.NaN]]
+    sorted_points = [[]] * 4
 
-    for pid in point_ids:
-        sorted_points.append(SPLIT_INPUT[pid-1])
+    for i, pid in enumerate(point_ids):
+        sorted_points[pid-1] = SPLIT_INPUT[i]
 
-    return float_array(sorted_points)
+    return float_array(nan_row + sorted_points)
 
 
 # initialize cat cells list
@@ -207,13 +208,16 @@ class SplitAndProcess(unittest.TestCase):
 
 
 
-    def assert_correct_split_and_process(self, cell, all_tet_points, normals, cat_cells, split_output):
-        for i, pid in enumerate(cell.points):
-            point_normals = normals[pid]
-            float_array(all_tet_points[pid])
-            self.assertEqual(len(point_normals), len(split_output[i]))
-            for _j, face_normal in enumerate(point_normals):
-                self.assertEqual(np.shape(face_normal), (2, 3))
+    def assert_correct_split_and_process(self, cell: TetraCell, all_tet_points, normals, cat_cells, split_output):
+        for _i, obj in enumerate(cell.objs):
+            obj_normals = normals[obj]
+            cat_cells[obj]
+            for _j, face_normal in enumerate(obj_normals):
+                self.assertEqual(np.shape(face_normal), (3, 3))
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
