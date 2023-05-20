@@ -50,7 +50,7 @@ class TetraCell:
             return split_2_2222
         elif self.case == (3, 1,):
             return split_2_3331
-        elif self.case == (2, 1,):
+        elif self.case == (2, 1, 1,):
             return split_3
         else:
             raise ValueError("The cell case is not recognized.")
@@ -67,12 +67,12 @@ def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: np.n
     for i, faces in enumerate(split_faces):
         p_id = cell.points[i]
         obj_id = cell.objs[i]
+        obj_point = tetmesh_points[i]
         for face in faces:
-            face_vertices = tetmesh_points[face]
-            obj_point = tetmesh_points[i]
-            face_normal = create_face_normal(face_vertices[:3], obj_point)
+            # tetmesh_points[face]
+            face_normal = create_face_normal(face[:3], obj_point)
             normals[p_id].append(face_normal)
-            cat_cells[obj_id].append(face_vertices)
+            cat_cells[obj_id].append(face)
 
 
 def filter_relevant_cells(cells: list[TetraCell], objects_npoints: list[int]):
@@ -115,7 +115,7 @@ def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCe
 
 
 def compute_cat_faces_new(tetmesh: UnstructuredGrid, point_sets, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    assert tetmesh.celltypes.all() == 10, "Tetmesh must be of type tetrahedron"
+    assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"
 
     objects_npoints = [len(obj) for obj in point_sets]  # FIXME hacky solution
 
@@ -123,9 +123,11 @@ def compute_cat_faces_new(tetmesh: UnstructuredGrid, point_sets, obj_coords: lis
     cells = get_cell_arrays(tetmesh.cells)
     rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
 
-    face_normals, cat_cells = process_cells_to_normals(tetmesh, rel_cells, len(point_sets))
+    face_normals, cat_cells = process_cells_to_normals(tetmesh.points, rel_cells, len(point_sets))
 
     return face_normals, cat_cells
+
+
 
 # # Maybe usefull later
 # def filter_cells_with_vertex(cells: list[TetraCell], vertex_id: int) -> list[TetraCell]:

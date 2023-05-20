@@ -8,6 +8,7 @@ from irregular_object_packing.cat.tetrahedral_split import (
     split_3,
     split_4,
 )
+from irregular_object_packing.tests.helpers import float_array
 
 from .tetrahedral_splits import (
     SPLIT_2_2222_OUTPUT,
@@ -16,10 +17,6 @@ from .tetrahedral_splits import (
     SPLIT_4_OUTPUT,
     SPLIT_INPUT,
 )
-
-
-def float_array(a):
-    return np.array(a, dtype=np.float64)
 
 
 class ComputeFaces(unittest.TestCase):

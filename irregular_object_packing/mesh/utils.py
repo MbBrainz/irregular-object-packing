@@ -19,6 +19,7 @@ def pyvista_to_trimesh(mesh: pv.PolyData):
     tri_container = Trimesh(tri_container.points, faces_as_array) # type: ignore
     return tri_container
 
+
 def convert_faces_to_polydata_input(faces: np.ndarray):
     """Convert a list of triangular only faces represented by points with coordinates to
     a list of points and a list of faces represented by the number of points and point

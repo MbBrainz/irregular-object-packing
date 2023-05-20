@@ -107,7 +107,7 @@ def create_face_normal(face_vertices: np.ndarray, obj_point: np.ndarray):
     Returns:
     face_normal (ndarray): an array of shape (2,3) with the coordinates of a point on the face in [0] and the normal in [1].
     """
-    assert np.shape(face_vertices)[0] == 3, "The face vertices should be 3D."
+    assert np.shape(face_vertices) == (3,3), "The face vertices should be 3D."
     face_normal = np.empty((2, 3), dtype=np.float64)
     face_normal[0] = face_vertices[0]
     face_normal[1] = compute_face_unit_normal(face_vertices, obj_point)

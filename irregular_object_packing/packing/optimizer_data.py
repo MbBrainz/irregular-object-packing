@@ -116,6 +116,8 @@ class OptimizerData:
     shape: PolyData
     container0: PolyData
     container: PolyData
+    normals: ndarray
+    cat_cells: ndarray
     cat_data: CatData
     tf_arrays: ndarray
     previous_tf_arrays: ndarray

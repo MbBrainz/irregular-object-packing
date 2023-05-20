@@ -68,8 +68,8 @@ def split_3(p: np.ndarray):
     p13 = (p[1] + p[3]) / 2
     p23 = (p[2] + p[3]) / 2
 
-    face_01_2 = [p023, p123, p02, p12]
-    face_01_3 = [p023, p123, p03, p13]
+    face_01_2 = [p023, p123, p12, p02]
+    face_01_3 = [p023, p123, p13, p03]
     face_23 = [p023, p123, p23]
 
     faces_01 = [face_01_2,face_01_3]
@@ -109,5 +109,5 @@ def split_2_2222(p: np.ndarray):
     p12 = (p[1] + p[2]) / 2
     p13 = (p[1] + p[3]) / 2
 
-    face = np.array([p02, p03, p12, p13])
+    face = np.array([p02, p03, p13, p12])
     return ([face,],) * 4
