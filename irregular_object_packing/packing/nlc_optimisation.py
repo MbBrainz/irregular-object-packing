@@ -137,6 +137,103 @@ def transform_v(v_i, T: np.ndarray):
 
 
 @ jit(nopython=NO_PYTHON, debug=True)
+def local_constraint_for_vertex(
+    vertex: np.ndarray[float], face_normals: np.ndarray[float], transform_matrix, obj_coord=np.zeros(3), padding=0.0
+
+
+):
+    """Compute conditions for a single point.
+    NOTE: the point has already been rotated and
+    scaled to according to the last iteration. Therefore the bounds for
+    rotation, scaling and translation are around zero
+
+    Parameters
+    ----------
+    p_vertex : np.ndarray[float]
+        Point to be checked.
+    face_normals : np.ndarray[float]
+        List of face normals.
+    transform_matrix : np.ndarray[float]
+        Transformation matrix shape (4,4).
+    obj_coord : np.ndarray[float], optional
+        Object coordinate, by default np.zeros(3)
+
+    Returns
+    -------
+    list
+        List of conditions for a single point.
+    """
+    # translate the point to the local coordinate system of the object
+    assert np.shape(vertex) == (3,), "point should be a coordinate"
+    v_i = vertex - obj_coord
+    # apply the transformation matrix to the point
+    transformed_v_i = transform_v(v_i, transform_matrix)
+
+    constraints = np.empty(len(face_normals), dtype=np.float64)
+    for i, face_normal in enumerate(face_normals):
+        assert np.shape(face_normal) == (2,3)
+
+        # translate the points of the faces to the local coordinate system of the object
+        local_face_coord = face_normal - obj_coord
+
+        # NOTE: Any point on the surface of the object can be used as q_j
+        q_j = local_face_coord  # q_j = np.mean(face_coords, axis=0) -> not necessary
+
+        # NOTE: The normal vector has unit length [./utils.py:196], no need to divide
+        condition = np.dot(transformed_v_i - q_j, face_normal[0])
+
+        # Return negative value if point is inside surface plus margin,
+        dist = condition - padding
+        constraints[i] = dist
+
+    return constraints
+
+@ jit(nopython=NO_PYTHON, debug=True)
+def local_constraint_vertices(
+    tf_arr: ndarray[float],
+    vertices: ndarray[ndarray[float]],
+    face_normals_for_vertices: list[ndarray[ndarray[float]]],
+    obj_coords: ndarray[float],
+    padding=0.0,
+):
+    """Compute conditions for a list of point with corresponding facets_sets.
+
+    Parameters
+    ----------
+    v : list[int]
+        ID of the point for which the conditions are computed.
+    tf_arr: numpy.ndarray
+        array with global transformation parameters.
+    sets_of_faces: dict[list]
+        np.array in the shape of
+    points: dict
+        Dictionary of point IDs and their coordinates.
+    obj_coord : numpy.ndarray
+        Coordinates of the object center.
+
+    Returns
+    -------
+    list
+        List of conditions for all the points.
+    """
+    transform_matrix = construct_transform_matrix(tf_arr[0], tf_arr[1:4], tf_arr[4:])
+    constraints = List()  # list of constraints
+    # TODO: we could already compute the size of the list here
+
+    for i, vi in enumerate(vertices):
+        face_normals = face_normals_for_vertices[i]
+        constraints.append(
+            local_constraint_for_vertex(
+                vertex=vi,
+                face_normals=face_normals,
+                transform_matrix=transform_matrix,
+                obj_coord=obj_coords,
+                padding=padding,
+            )
+        )
+    return [item for sublist in constraints for item in sublist]
+
+@ jit(nopython=NO_PYTHON, debug=True)
 def local_constraint_for_point(
     v_id, transform_matrix, faces: np.ndarray[int], normals: np.ndarray[float], points, obj_coord=np.zeros(3), padding=0.0
 
@@ -252,7 +349,7 @@ def make_dict_typed(d: dict) -> Dict:
     return nd
 
 
-def local_constraints_from_cat(
+def local_constraints_from_vertices(
     tf_arr: list[float], obj_id: int, cat_data: CatData, padding=0.0
 ):
     """Compute the conditions for one object.
@@ -293,20 +390,7 @@ def local_constraints_from_cat(
     )
 
 
-def optimal_local_transform(
-    obj_id,
-    cat_data,
-    scale_bound=(0.1, None),
-    max_angle=1 / 12 * np.pi,
-    max_t=None,
-    padding=0.0,
-):
-    """Computes the optimal local transform for a given object id.
-
-    This will return the transformation parameters that maximises scale with
-    respect to a local coordinate system of the object. This is possible due to
-    the `obj_coords`.
-    """
+def compute_optimal_growth(previous_tf_array,  obj_coord, vertices, face_normals, padding, max_scale, scale_bound, max_angle, max_t,):
 
     r_bound = (-max_angle, max_angle)
     t_bound = (-max_t if max_t is not None else None, max_t)
@@ -317,28 +401,18 @@ def optimal_local_transform(
 
     constraint_dict = {
         "type": "ineq",
-        "fun": local_constraints_from_cat,
+        "fun": local_constraint_vertices,
         "args": (
-            obj_id,
-            cat_data,
+            vertices,
+            face_normals,
+            obj_coord,
             padding,
         ),
     }
     res = minimize(
         objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
     )
-    return res.x
-
-
-def compute_optimal_growth(obj_id, previous_tf_array, max_scale, scale_bound, max_angle, max_t, padding, cat_data):
-    tf_arr = optimal_local_transform(
-        obj_id=obj_id,
-        cat_data=cat_data,
-        # scale_bound=scale_bound,
-        max_angle=max_angle,
-        max_t=max_t,
-        padding=padding,
-    )
+    tf_arr = res.x
 
     new_tf = previous_tf_array + tf_arr
     new_scale = previous_tf_array[0] * tf_arr[0]

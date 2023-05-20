@@ -10,7 +10,7 @@ from trimesh import transform_points
 
 from irregular_object_packing.cat.chordal_axis_transform import (
     CatData,
-    catdatacell_to_points_and_faces,
+    face_coord_to_points_and_faces,
     filter_tetmesh,
 )
 from irregular_object_packing.mesh.collision import compute_all_collisions
@@ -195,7 +195,7 @@ class OptimizerData:
         """Get the mesh of the cat cell that corresponds to the object from the given
         iteration."""
         return PolyData(
-            *catdatacell_to_points_and_faces(self._cat_data(iteration), obj_id)
+            *face_coord_to_points_and_faces(self._cat_data(iteration), obj_id)
         )
 
     def status(self, iteration: int) -> IterationData:
@@ -238,7 +238,7 @@ class OptimizerData:
         if self._cat_data(iteration) is None:
             raise ValueError("No cat data stored yet for iteration " + str(iteration))
         return [
-            PolyData(*catdatacell_to_points_and_faces(self._cat_data(iteration), obj_id))
+            PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
             for obj_id in range(len(self._tf_arrays(iteration)))
         ]
 
@@ -297,7 +297,7 @@ class OptimizerData:
         if self._index <= 0:
             ValueError("No cat data stored yet")
         return [
-            PolyData(*catdatacell_to_points_and_faces(self.cat_data, obj_id))
+            PolyData(*face_coord_to_points_and_faces(self.cat_data, obj_id))
             for obj_id in range(self.n_objs)
         ]
 

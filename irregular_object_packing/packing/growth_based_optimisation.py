@@ -228,7 +228,7 @@ class Optimizer(OptimizerData):
                     continue
 
                 # administrative stuff
-                self.process_iteration()
+                # self.process_iteration()
                 self.pbar2.update()
 
                 if Ni != -1 and self.idx >= Ni:
@@ -248,7 +248,7 @@ class Optimizer(OptimizerData):
 
         # DOWN SAMPLE MESHES
         try:
-            self.cat_data = self.compute_cat_cells(new=self.config.new_cat)
+            self.normals, self.cat_cells = self.compute_cat_cells()
         except RuntimeError as e:
             self.log.debug(f"RuntimeError: {e}")
             self.log.debug("Scaling down and trying again...")
@@ -257,13 +257,13 @@ class Optimizer(OptimizerData):
             return False
 
         # Check the quality if the cat cells
-        for obj, point_dict in self.cat_data.cat_faces.items():
-            Points_without_faces = []
-            for point, faces in point_dict.items():
-                if len(faces) <= 4:
-                    Points_without_faces.append(point)
-            if len(Points_without_faces) > 0:
-                self.log.warning(f"obj {obj} has {len(Points_without_faces)} points without faces. ids: {Points_without_faces}")
+        Points_without_faces = []
+        for normals in self.normals:
+            if len(normals) == 0:
+                Points_without_faces.append(normals)
+
+        if len(Points_without_faces) > 0:
+            self.log.warning(f"there are {len(Points_without_faces)} points without faces. ids: {Points_without_faces}")
 
         # GROWTH-BASED OPTIMISATION
         self.log.info("optimizing cells...")
@@ -290,21 +290,32 @@ class Optimizer(OptimizerData):
         self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array, max_scale)
 
     def local_optimisation(self, obj_id, previous_tf_array, max_scale):
+        # get all the vertices for the points of this object
+        last_ids = [-1]
+        for i in range(self.n_objs):
+            last_ids.append(last_ids[-1] + self.objects[i].n_points)
+
+        vertices = self.objects[obj_id].points
+
+        # get the points for
+        p_first, p_last = last_ids[obj_id]+1, last_ids[obj_id + 1]
+        face_normals = self.normals[p_first:p_last]
 
         new_tf = nlc.compute_optimal_growth(
-            obj_id=obj_id,
             previous_tf_array=previous_tf_array,
+            obj_coord=self.object_coords[obj_id],
+            vertices=vertices,
+            face_normals=face_normals,
             max_scale=max_scale,
             scale_bound=(self.config.init_f, None),
             max_angle=self.config.max_a,
             max_t=self.config.max_t * max_scale if self.config.max_t is not None else None,
             padding=self.config.padding,
-            cat_data=self.cat_data,
         )
         self.pbar3.update()
         return new_tf
 
-    def compute_cat_cells(self, kwargs=None, new=True) -> CatData:
+    def compute_cat_cells(self, kwargs=None, new=True) -> tuple[np.ndarray, np.ndarray]:
         self.log.info("Computing CAT cells")
         if kwargs is None:
             kwargs = {
@@ -320,29 +331,25 @@ class Optimizer(OptimizerData):
             }
 
         # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
-        object_meshes = self.current_meshes()
+        self.objects = self.current_meshes()
 
         # Compute the CDT
-        tetmesh = cat.compute_cdt(object_meshes + [self.container], kwargs)
+        tetmesh = cat.compute_cdt(self.objects + [self.container], kwargs)
 
         # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
-        obj_point_sets = [set(map(tuple, obj.points)) for obj in object_meshes] + [
+        obj_point_sets = [set(map(tuple, obj.points)) for obj in self.objects] + [
             set(map(tuple, self.container.points))
         ]
 
         # Check that all points are accounted for
-        assert np.sum([len(obj) for obj in obj_point_sets]) == np.sum([obj.n_points for obj in object_meshes] + [self.container.n_points])
+        assert np.sum([len(obj) for obj in obj_point_sets]) == np.sum([obj.n_points for obj in self.objects] + [self.container.n_points])
         assert np.sum([len(obj) for obj in obj_point_sets]) == tetmesh.n_points, "Some points are created by tetmesh"
 
         # COMPUTE CAT CELLS
-        if new is True:
-            return cat.compute_cat_faces_new(
+        return cat.compute_cat_faces_new(
                 tetmesh, obj_point_sets, self.tf_arrays[:, 4:]
             )
-        else:
-            return cat.compute_cat_faces(
-                tetmesh, obj_point_sets, self.tf_arrays[:, 4:]
-            )
+
 
     def step_should_terminate(self):
         """Returns true if all objects are scaled to the current max scale."""
@@ -479,6 +486,14 @@ class Optimizer(OptimizerData):
 
 
 # %%
+# TODO: Refactor the OPTIMIZER DATA CLASS
+# TODO: Refactor the optimizer class functions:
+#   - process_iteration
+#   - check_closed_cells
+#   - log_violations
+#   - store_state
+#   - reduce_scale
+#   - update_data
 
 optimizer = Optimizer.default_setup()
 # optimizer = Optimizer.simple_shapes_setup()
