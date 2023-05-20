@@ -21,7 +21,7 @@ def pyvista_to_trimesh(mesh: pv.PolyData):
 
 
 def convert_faces_to_polydata_input(faces: np.ndarray):
-    """Convert a list of triangular only faces represented by points with coordinates to
+    """Convert a list of faces represented by points with coordinates to
     a list of points and a list of faces represented by the number of points and point
     ids. This function is used to convert the data so that it can be used by the
     pyvista.PolyData class.

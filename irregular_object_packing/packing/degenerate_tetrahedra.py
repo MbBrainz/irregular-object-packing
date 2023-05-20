@@ -67,7 +67,7 @@ def main():
         " reduce the runtime."
     )
 
-    optimizer = Optimizer.default_setup()
+    optimizer = Optimizer.default_config\()
     # List of sample rates to test
     mesh_sample_rates = np.linspace(
         100, 1000, 10, dtype=int

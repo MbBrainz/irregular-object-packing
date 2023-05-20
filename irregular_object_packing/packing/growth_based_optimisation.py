@@ -11,7 +11,6 @@ from pyvista import PolyData
 from tqdm.auto import tqdm
 
 from irregular_object_packing.cat import chordal_axis_transform as cat
-from irregular_object_packing.cat.cat_data import CatData
 from irregular_object_packing.cat.tetra_cell import filter_relevant_cells
 from irregular_object_packing.cat.utils import get_cell_arrays
 from irregular_object_packing.mesh.collision import (
@@ -50,8 +49,7 @@ class Optimizer(OptimizerData):
         self.container0 = container
         self.container = container
         self.config = config
-        self.cat_data = CatData.default()
-        self.tf_arrays = np.empty(0)
+
         self.plotter: pv.Plotter = plotter
         self.scaling_barrier_list = np.linspace(
             self.config.init_f,
@@ -158,17 +156,8 @@ class Optimizer(OptimizerData):
             self.curr_sample_rate,
             *viol_data
         )
-        self.add(self.tf_arrays, self.cat_data, iterdata)
+        self.add(self.tf_arrays, self.normals, self.cat_cells, iterdata)
 
-    # def log(self, msg, log_lvl=LOG_LVL_INFO):
-    #     if log_lvl > self.config.log_lvl:
-    #         return
-
-    #     msg = LOG_PREFIX[log_lvl] + msg + f"[i={self.idx}]"
-    #     if self.pbar1 is None:
-    #         print(msg)
-    #     else:
-    #         self.pbar1.write(msg)
 
     def report(self):
         df = pd.DataFrame(
@@ -228,7 +217,7 @@ class Optimizer(OptimizerData):
                     continue
 
                 # administrative stuff
-                # self.process_iteration()
+                self.process_iteration()
                 self.pbar2.update()
 
                 if Ni != -1 and self.idx >= Ni:
@@ -258,9 +247,9 @@ class Optimizer(OptimizerData):
 
         # Check the quality if the cat cells
         Points_without_faces = []
-        for normals in self.normals:
+        for i, normals in enumerate(self.normals):
             if len(normals) == 0:
-                Points_without_faces.append(normals)
+                Points_without_faces.append(i)
 
         if len(Points_without_faces) > 0:
             self.log.warning(f"there are {len(Points_without_faces)} points without faces. ids: {Points_without_faces}")
@@ -275,9 +264,6 @@ class Optimizer(OptimizerData):
 
         return True
 
-
-
-
     def parallel_optimisation(self):
         tasks = []
         for obj_id, previous_tf_array in enumerate(self.tf_arrays):
@@ -285,21 +271,23 @@ class Optimizer(OptimizerData):
             tasks.append(task)
         wait(tasks)
 
-    """workaround for setting the tf_arrays in parallel"""
     def parallel_local_optimisation(self,obj_id, previous_tf_array, max_scale):
+        """workaround for setting the tf_arrays in parallel"""
         self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array, max_scale)
 
     def local_optimisation(self, obj_id, previous_tf_array, max_scale):
         # get all the vertices for the points of this object
-        last_ids = [-1]
+        last_ids = [0]
         for i in range(self.n_objs):
             last_ids.append(last_ids[-1] + self.objects[i].n_points)
 
         vertices = self.objects[obj_id].points
 
         # get the points for
-        p_first, p_last = last_ids[obj_id]+1, last_ids[obj_id + 1]
+        p_first, p_last = last_ids[obj_id], last_ids[obj_id + 1]
         face_normals = self.normals[p_first:p_last]
+
+        assert len(face_normals) == len(vertices)
 
         new_tf = nlc.compute_optimal_growth(
             previous_tf_array=previous_tf_array,
@@ -399,7 +387,7 @@ class Optimizer(OptimizerData):
 
     def check_closed_cells(self):
         cat_cells = [
-            PolyData(*cat.catdatacell_to_points_and_faces(self.cat_data, obj_id))
+            PolyData(*cat.convert_faces_to_polydata_input(self.cat_cells[obj_id]))
             for obj_id in range(self.n_objs)
         ]
         for i, cell in enumerate(cat_cells):
@@ -425,7 +413,7 @@ class Optimizer(OptimizerData):
         sum.save(f"../dump/{name}error-{time():.0f}.stl", sum)
 
     @staticmethod
-    def default_setup() -> "Optimizer":
+    def default_config() -> "Optimizer":
         DATA_FOLDER = "./../../data/mesh/"
 
         mesh_volume = 0.2
@@ -444,7 +432,7 @@ class Optimizer(OptimizerData):
             n_scaling_steps=9,
             r=0.3,
             final_scale=1.0,
-            log_lvl=logging.INFO,
+            log_lvl=logging.DEBUG,
             init_f=0.1,
             max_t=mesh_volume**(1 / 3) * 2,
             padding=1E-4 * mesh_volume**(1 / 3),
@@ -458,7 +446,7 @@ class Optimizer(OptimizerData):
         return optimizer
 
     @staticmethod
-    def simple_shapes_setup() -> "Optimizer":
+    def simple_shapes_config() -> "Optimizer":
         mesh_volume = 0.2
 
         container_volume = 10
@@ -486,8 +474,7 @@ class Optimizer(OptimizerData):
 
 
 # %%
-# TODO: Refactor the OPTIMIZER DATA CLASS
-# TODO: Refactor the optimizer class functions:
+# TODO: Refactor the optimizer class functions
 #   - process_iteration
 #   - check_closed_cells
 #   - log_violations
@@ -495,12 +482,12 @@ class Optimizer(OptimizerData):
 #   - reduce_scale
 #   - update_data
 
-optimizer = Optimizer.default_setup()
+optimizer = Optimizer.default_config()
 # optimizer = Optimizer.simple_shapes_setup()
 optimizer.setup()
-optimizer.config.sequential = False
+optimizer.config.sequential = True
 #%%
-optimizer.run(Ni=1)
+optimizer.run(Ni=2)
 # optimizer.run()
 # %%
 # optimizer.compute_cat_cells(kwargs={
@@ -577,9 +564,9 @@ optimizer.run(Ni=1)
 # %%
 
 # reload(plots)
-save_path = f"../dump/full_growth_{optimizer.n_objs}_cells_{time()}"
-# plots.generate_gif(optimizer , save_path + ".gif")
-
+save_path = f"../../dump/full_growth_{optimizer.n_objs}_cells_{time()}"
+plots.generate_gif(optimizer , save_path + ".gif")
+#%%
 # reload(plots)
 
 
@@ -593,8 +580,8 @@ def plot_step(optimizer: Optimizer, step, meshes, cat_meshes, container):
 
 step = optimizer.idx
 meshes_before, meshes_after, cat_meshes, container = optimizer.recreate_scene(step)
-plotter = plot_step(optimizer, step, meshes_after, cat_meshes, container)
-# plotter.save_graphic(f"{save_path}.pdf")
+plotter = plot_step(optimizer, step, meshes_before, cat_meshes, container)
+plotter.save_graphic(f"{save_path}.pdf")
 # %%
 
 

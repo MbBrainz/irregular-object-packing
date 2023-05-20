@@ -1,5 +1,4 @@
 import pickle
-from copy import copy
 from dataclasses import dataclass, field, fields
 
 import numpy as np
@@ -10,7 +9,6 @@ from trimesh import transform_points
 
 from irregular_object_packing.cat.chordal_axis_transform import (
     CatData,
-    face_coord_to_points_and_faces,
     filter_tetmesh,
 )
 from irregular_object_packing.mesh.collision import compute_all_collisions
@@ -18,9 +16,10 @@ from irregular_object_packing.mesh.sampling import (
     resample_mesh_by_triangle_area,
     resample_pyvista_mesh,
 )
+from irregular_object_packing.mesh.utils import convert_faces_to_polydata_input
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
 
-STATE_DIRECTORY = "../dump/state/"
+STATE_DIRECTORY = "../../dump/state/"
 
 
 @dataclass
@@ -118,7 +117,6 @@ class OptimizerData:
     container: PolyData
     normals: ndarray
     cat_cells: ndarray
-    cat_data: CatData
     tf_arrays: ndarray
     previous_tf_arrays: ndarray
     description: str = "default"
@@ -126,17 +124,21 @@ class OptimizerData:
     _index = -1
 
     def __init__(self):
+        self.normals = np.empty(0)
+        self.cat_cells = np.empty(0)
+        self.tf_arrays = np.empty(0)
         self.i_b = 0
         self.i = 0
-        pass
+        return
 
     def __getitem__(self, key):
         return self._data[key]
 
-    def add(self, tf_arrays: ndarray, cat_data: None | CatData, iteration_data: IterationData):
+    def add(self, tf_arrays: ndarray, normals: ndarray, cat_cells: ndarray, iteration_data: IterationData):
         self._data[self._index] = {
             "tf_arrays": tf_arrays.copy(),
-            "cat_data": copy(cat_data),
+            "normals": normals.copy(),
+            "cat_cells": cat_cells.copy(),
             "iterationData": iteration_data,
         }
         # self._data[ref] = self._data[self._index]
@@ -145,8 +147,8 @@ class OptimizerData:
     def _tf_arrays(self, index: int):
         return self._data[index]["tf_arrays"]
 
-    def _cat_data(self, index: int) -> CatData:
-        return self._data[index]["cat_data"]
+    def _cat_cells(self, index: int) -> CatData:
+        return self._data[index]["cat_cells"]
 
     def _iteration_data(self, index: int) -> IterationData:
         return self._data[index]["iterationData"]
@@ -173,12 +175,12 @@ class OptimizerData:
         return self._index - 1
 
     @property
-    def n_objs(self):
+    def n_objs(self) -> int:
         return len(self.tf_arrays)
 
     @property
-    def object_coords(self):
-        self.tf_arrays[:, 4:]
+    def object_coords(self) -> ndarray:
+        return self.tf_arrays[:, 4:]
 
     # ------------------- Public methods -------------------
     def mesh_before(self, iteration: int, obj_id: int):
@@ -195,7 +197,7 @@ class OptimizerData:
         """Get the mesh of the cat cell that corresponds to the object from the given
         iteration."""
         return PolyData(
-            *face_coord_to_points_and_faces(self._cat_data(iteration), obj_id)
+            *convert_faces_to_polydata_input(self._cat_cells(iteration)[obj_id])
         )
 
     def status(self, iteration: int) -> IterationData:
@@ -235,10 +237,10 @@ class OptimizerData:
     def cat_meshes(self, iteration: int) -> list[PolyData]:
         """Get the meshes of all cat cells that correspond to the objects from the given
         iteration."""
-        if self._cat_data(iteration) is None:
+        if self._cat_cells(iteration) is None:
             raise ValueError("No cat data stored yet for iteration " + str(iteration))
         return [
-            PolyData(*face_coord_to_points_and_faces(self._cat_data(iteration), obj_id))
+            PolyData(*convert_faces_to_polydata_input(self._cat_cells(iteration)[obj_id]))
             for obj_id in range(len(self._tf_arrays(iteration)))
         ]
 
@@ -297,7 +299,7 @@ class OptimizerData:
         if self._index <= 0:
             ValueError("No cat data stored yet")
         return [
-            PolyData(*face_coord_to_points_and_faces(self.cat_data, obj_id))
+            PolyData(*convert_faces_to_polydata_input(self.cat_cells[obj_id]))
             for obj_id in range(self.n_objs)
         ]
 
