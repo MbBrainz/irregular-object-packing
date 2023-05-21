@@ -59,7 +59,7 @@ class TetraCell:
         return self.split_func(all_tet_points[self.points])
 
 
-def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list[list[np.ndarray]], cat_cells: list[list[np.ndarray]]):
+def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list[list[np.ndarray]], cat_cells: list[list[np.ndarray]], normals_pp):
     """Splits the cell into faces and processes them."""
     # 0. split the cell into faces
     split_faces = cell.split(tetmesh_points)
@@ -71,12 +71,13 @@ def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list
             # tetmesh_points[face]
             face_normal = create_face_normal(face[:3], obj_point)
 
-
             normals[obj_id].append(face_normal)
             cat_cells[obj_id].append(face)
+            normals_pp[cell.points[i]].append(face_normal)
 
 
-def filter_relevant_cells(cells: list[TetraCell], objects_npoints: list[int]):
+
+def filter_relevant_cells(cells: list[int], objects_npoints: list[int]):
     """Filter out cells that only belong to a single object.
 
     parameters:
@@ -103,6 +104,10 @@ def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCe
     for _i in range(n_objs):
         face_normals.append([])
 
+    face_normals_pp = []
+    for _i in range(len(tetmesh_points)):
+        face_normals_pp.append([])
+
     # initialize cat cells list
     cat_cells = []
     for _i in range(n_objs):
@@ -110,11 +115,11 @@ def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCe
 
     for cell in rel_cells:
         # mutates face_normals and cat_cells
-        split_and_process(cell, tetmesh_points, face_normals, cat_cells)
+        split_and_process(cell, tetmesh_points, face_normals, cat_cells, face_normals_pp)
 
-    return face_normals, cat_cells
+    return face_normals, cat_cells, face_normals_pp
 
-def compute_cat_faces_new(tetmesh: UnstructuredGrid, point_sets, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def compute_cat_faces(tetmesh: UnstructuredGrid, point_sets, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
     assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"
 
     objects_npoints = [len(obj) for obj in point_sets]  # FIXME hacky solution
@@ -123,9 +128,9 @@ def compute_cat_faces_new(tetmesh: UnstructuredGrid, point_sets, obj_coords: lis
     cells = get_cell_arrays(tetmesh.cells)
     rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
 
-    face_normals, cat_cells = process_cells_to_normals(tetmesh.points, rel_cells, len(point_sets))
+    face_normals, cat_cells, normalspp = process_cells_to_normals(tetmesh.points, rel_cells, len(point_sets))
 
-    return face_normals, cat_cells
+    return face_normals, cat_cells, normalspp
 
 
 

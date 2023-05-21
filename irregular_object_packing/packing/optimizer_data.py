@@ -2,18 +2,16 @@ import pickle
 from dataclasses import dataclass, field, fields
 
 import numpy as np
-from numpy import concatenate, ndarray
+from numpy import ndarray
+from pandas import DataFrame
 from pyvista import PolyData
 from tabulate import tabulate
-from trimesh import transform_points
 
-from irregular_object_packing.cat.chordal_axis_transform import (
-    CatData,
-    filter_tetmesh,
+from irregular_object_packing.mesh.collision import (
+    compute_all_collisions,
+    compute_cat_violations,
 )
-from irregular_object_packing.mesh.collision import compute_all_collisions
 from irregular_object_packing.mesh.sampling import (
-    resample_mesh_by_triangle_area,
     resample_pyvista_mesh,
 )
 from irregular_object_packing.mesh.utils import convert_faces_to_polydata_input
@@ -36,7 +34,7 @@ class SimConfig:
     """The initial scale factor."""
     itn_max: int = 1
     """The maximum number of iterations per scaling step."""
-    n_scaling_steps: int = 1
+    n_scale_steps: int = 1
     """The number of scaling steps."""
     r: float = 0.3
     """The coverage rate."""
@@ -119,7 +117,7 @@ class OptimizerData:
     cat_cells: list
     tf_arrays: ndarray
     previous_tf_arrays: ndarray
-    description: str = "default"
+    description: str
     _data = {}
     _index = -1
 
@@ -147,7 +145,7 @@ class OptimizerData:
     def _tf_arrays(self, index: int):
         return self._data[index]["tf_arrays"]
 
-    def _cat_cells(self, index: int) -> CatData:
+    def _cat_cells(self, index: int) -> list:
         return self._data[index]["cat_cells"]
 
     def _iteration_data(self, index: int) -> IterationData:
@@ -244,26 +242,26 @@ class OptimizerData:
             for obj_id in range(len(self._tf_arrays(iteration)))
         ]
 
-    def reconstruct_delaunay(self, iteration: int):
-        """Construct a delaunay triangulation of the points of the cat cell at the given
-        iteration."""
-        shape = self.resample_mesh(iteration)
-        container = resample_mesh_by_triangle_area(shape, self.container0)
+    # def reconstruct_delaunay(self, iteration: int):
+    #     """Construct a delaunay triangulation of the points of the cat cell at the given
+    #     iteration."""
+    #     shape = self.resample_mesh(iteration)
+    #     container = resample_mesh_by_triangle_area(shape, self.container0)
 
-        list_of_obj_points = [
-            transform_points(shape.points.copy(),
-                             construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]))
-            for tf_array in self._tf_arrays(iteration - 1)]
+    #     list_of_obj_points = [
+    #         transform_points(shape.points.copy(),
+    #                          construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]))
+    #         for tf_array in self._tf_arrays(iteration - 1)]
 
-        pc = PolyData(concatenate(list_of_obj_points + [container.points]))
-        tetmesh = pc.delaunay_3d()
+    #     pc = PolyData(concatenate(list_of_obj_points + [container.points]))
+    #     tetmesh = pc.delaunay_3d()
 
-        obj_point_sets = [set(map(tuple, obj)) for obj in list_of_obj_points] + [
-            set(map(tuple, container.points))
-        ]
+    #     obj_point_sets = [set(map(tuple, obj)) for obj in list_of_obj_points] + [
+    #         set(map(tuple, container.points))
+    #     ]
 
-        filtered_tetmesh, occs = filter_tetmesh(tetmesh, obj_point_sets)
-        return tetmesh, filtered_tetmesh, occs
+    #     filtered_tetmesh, occs = filter_tetmesh(tetmesh, obj_point_sets)
+    #     return tetmesh, filtered_tetmesh, occs
 
     def recreate_scene(self, iteration: int):
         """Recreate the scene at the given iteration."""
@@ -274,6 +272,14 @@ class OptimizerData:
         compute_all_collisions(meshes_after, cat_meshes, self.container0, set_contacts=True)
 
         return meshes_before, meshes_after, cat_meshes, self.container0
+
+    def recreate_object_scene(self, iteration, object_id):
+        mesh_before = self.mesh_before(iteration, object_id)
+        mesh_after = self.mesh_after(iteration, object_id)
+        cat_mesh = self.cat_mesh(iteration, object_id)
+        compute_cat_violations([mesh_before, mesh_after], [cat_mesh, cat_mesh], set_contacts=True)
+
+        return mesh_before, mesh_after, cat_mesh
 
     def current_meshes(self, shape: PolyData = None):
         """Construct mesh objects from the latest self.tf_arrays ."""
@@ -320,6 +326,12 @@ class OptimizerData:
             headers=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"],
         )
 
+
+    def report(self):
+        return DataFrame(
+            data=self.tf_arrays, columns=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"]
+        )
+
     def print_report(self, notebook=False):
         table = tabulate(
             [self.status(i) for i in range(self.idx)],  # type: ignore
@@ -350,3 +362,5 @@ class OptimizerData:
             state: State = pickle.load(f)
 
         return state
+
+

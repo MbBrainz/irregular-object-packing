@@ -8,6 +8,10 @@ from pyvista import PolyData, StructuredGrid
 from scipy.optimize import minimize
 from scipy.spatial import Voronoi
 
+from irregular_object_packing.mesh.collision import (
+    compute_container_violations,
+    compute_object_collisions,
+)
 from irregular_object_packing.mesh.utils import pyvista_to_trimesh
 
 
@@ -59,7 +63,7 @@ def get_max_radius(mesh: PolyData) -> float:
     return max_distance
 
 
-def init_coordinates(
+def generate_initial_coordinates(
     container: PolyData,
     mesh: PolyData,
     coverage_rate: float = 0.3,
@@ -225,6 +229,22 @@ def find_optimal_grid_spacing(mesh: PolyData, container: PolyData, coverage_rate
         raise RuntimeError(f"Could not find optimal grid spacing due to {res.message}")
 
 
+def initialize_state(mesh, container, coverage_rate, f_init):
+    object_coords, _skipped = generate_initial_coordinates(
+        container,
+        mesh,
+        coverage_rate,
+        f_init,
+    )
+    n_objects = len(object_coords)
+
+    tf_arrays = np.empty((n_objects, 7), dtype=np.float64)
+    object_rotations = np.random.uniform(-np.pi, np.pi, (n_objects, 3))
+    for i in range(n_objects):
+        tf_arrays[i] = np.array([f_init, *object_rotations[i], *object_coords[i]])
+
+    return tf_arrays
+
 def grid_initialisation(
     container: PolyData,
     mesh: PolyData,
@@ -239,6 +259,20 @@ def grid_initialisation(
     grid_points = generate_sample_points(mesh, container, grid_dimensions, min_distance_between_meshes)
     return grid_points
 
+
+def check_initial_state(container, objects):
+    overlaps = compute_object_collisions(objects)
+    if len(overlaps) > 0:
+        raise ValueError(
+            f"Initial object placements show overlaps for {overlaps}"
+        )
+
+    overlaps = compute_container_violations(objects, container)
+    if len(overlaps) > 0:
+        raise ValueError(
+            "Initial object placements show container violations for"
+            f" {overlaps} objects."
+        )
 
 # NOT IN USE CURRENTLY
 class PartitionBuilder:

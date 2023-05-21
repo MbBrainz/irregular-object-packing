@@ -1,11 +1,20 @@
 import numpy as np
 import pyvista as pv
 import trimesh
+from matplotlib import pyplot as plt
 from numpy import ndarray
 from pyvista import PolyData
 
+from irregular_object_packing.mesh.sampling import mesh_simplification_condition
+
 # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
+def plot_step(optimizer, step, meshes, cat_meshes, container):
+    plotter = pv.Plotter()
+    plot_simulation_scene(plotter, meshes, cat_meshes, container, c_kwargs={"show_edges": False, "edge_color": "purple"})
+    plotter.add_text(optimizer.status(step).table_str, position="upper_left")
+    plotter.show()
+    return plotter
 
 def create_plot(
     object_locations,
@@ -135,7 +144,7 @@ def plot_step_single(
     cat_opacity=0.4,
     plotter=None,
     clipped=False,
-    title="Title",
+    title="",
     c_kwargs=None, m_kwargs=None, cat_kwargs=None, oms_kwargs=None,
 ):
     c_kwargs, m_kwargs, cat_kwargs = [none_to_dict(d) for d in [c_kwargs, m_kwargs, cat_kwargs]]
@@ -305,3 +314,19 @@ def generate_gif(optimizer, save_path, title="Optimization"):
         plotter.write_frame()
 
     plotter.close()
+
+
+def plot_simplification_curve():
+    fig, ax = plt.subplots()
+
+    a = [0.05, 0.15, 0.25]
+    b = [0.1, 0.2, 0.3, 0.5]
+
+    x = np.linspace(0, 1, 100)
+
+    for ai in a:
+        for bi in b:
+            print(f"{ai} {bi}`")
+            ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
+    ax.legend()
+    plt.show()

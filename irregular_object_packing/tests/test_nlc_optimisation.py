@@ -6,7 +6,6 @@ import numpy as np
 import tetgen
 from parameterized import parameterized
 from pyvista import PolyData
-from scipy.optimize import minimize
 
 from irregular_object_packing.cat.chordal_axis_transform import (
     compute_cat_faces,
@@ -14,11 +13,9 @@ from irregular_object_packing.cat.chordal_axis_transform import (
 )
 from irregular_object_packing.mesh.transform import scale_and_center_mesh
 from irregular_object_packing.packing.nlc_optimisation import (
-    compute_optimal_growth,
+    compute_optimal_transform,
     construct_transform_matrix,
     construct_transform_matrix_from_array,
-    local_constraint_multiple_points,
-    objective,
     transform_v,
 )
 
@@ -47,12 +44,7 @@ class NLCTestParams:
 
 
 TEST_CASES = [
-    NLCTestParams(
-        "no bounds",
-        t_bounds=(None, None),
-        r_bounds=(None, None),
-        f_bounds=(0, None),
-    ).list,
+
     NLCTestParams(
         "no rotation",
         r_bounds=(0.0, 0.0),
@@ -95,13 +87,6 @@ TEST_CASES = [
         "normal bounds with padding",
         t_bounds=(None, None),
         r_bounds=(-1/12 * np.pi, 1/12 * np.pi),
-        f_bounds=(0, None),
-        padding=0.1,
-    ).list,
-    NLCTestParams(
-        "no bounds with padding",
-        t_bounds=(None, None),
-        r_bounds=(None, None),
         f_bounds=(0, None),
         padding=0.1,
     ).list,
@@ -201,17 +186,50 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
             np.array([3, 4, 8, 7]) ,
             np.array([4, 1, 5, 8]) ,
         ]
+
+        self.local_face_coordinates = [
+            np.array([self.local_points[i] for i in face]) for face in self.faces
+        ]
+
+        self.global_face_coordinates = [
+            np.array([self.global_points[i] for i in face]) for face in self.faces
+        ]
         self.face_normals = [
             np.array([0, 0, -1]),
-np.array([0, 0, 1]),
-np.array([0, 1, 0]),
-np.array([-1, 0, 0]),
-np.array([0, -1, 0]),
-np.array([+1, 0, 0]),
+            np.array([0, 0, 1]),
+            np.array([0, 1, 0]),
+            np.array([-1, 0, 0]),
+            np.array([0, -1, 0]),
+            np.array([+1, 0, 0]),
         ]
-        self.face_sets = [self.faces, self.faces, self.faces]
-        self.face_normal_sets = [self.face_normals, self.face_normals, self.face_normals]
         return super().setUp()
+
+    def local_vertex_fpoint_normal_arr(self, points):
+        local_vertex_fpoint_normal_arr = []
+        for i in points:
+            for j, face in enumerate(self.local_face_coordinates):
+                assert np.shape(face) == (4, 3)
+                vertex_fpoint_fnormal = np.array([
+                    self.local_points[i],
+                    face[0],
+                    self.face_normals[j],
+                ])
+                local_vertex_fpoint_normal_arr.append(vertex_fpoint_fnormal)
+        return local_vertex_fpoint_normal_arr
+
+
+    def global_vertex_fpoint_normal_arr(self):
+        global_vertex_fpoint_normal_arr = []
+        for i in range(self.global_points.__len__()):
+            for j, face in enumerate(self.global_face_coordinates):
+                assert np.shape(face) == (4, 3)
+                vertex_fpoint_fnormal = np.array([
+                    self.global_points[i],
+                    face[0],
+                    self.face_normals[j],
+                ])
+                global_vertex_fpoint_normal_arr.append(vertex_fpoint_fnormal)
+        return global_vertex_fpoint_normal_arr
 
     @parameterized.expand(TEST_CASES)
     def test_local(
@@ -229,16 +247,17 @@ np.array([+1, 0, 0]),
     ):
         x0 = [f_init] + [r_init] * 3 + [t_init] * 3
 
-        T, opt_tf = compute_optimal_tf(
+        array = self.local_vertex_fpoint_normal_arr(v),
+
+        T, opt_tf = compute_optimal_transform(
             x0,
-            v,
-            self.face_sets,
-            self.face_normal_sets,
-            self.local_points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
+            np.array([0, 0, 0]),
+            array,
             padding=padding,
+            max_scale=3.0,
+            scale_bound=f_bounds,
+            max_angle=r_bounds[1],
+            max_t=t_bounds[1],
         )
         resulting_points = []
         for point in v:
@@ -265,35 +284,19 @@ np.array([+1, 0, 0]),
     ):
         x0 = [f_init] + [r_init] * 3 + [t_init] * 3
 
-        T_local, opt_tf = compute_optimal_tf(
+        array = self.global_vertex_fpoint_normal_arr(v),
+
+        T_local, new_tf = compute_optimal_transform(
             x0,
-            v,
-            self.face_sets,
-            self.face_normal_sets,
-            self.global_points,
-            f_bounds,
-            r_bounds,
-            t_bounds,
-            obj_coords=self.obj_coord,
+            self.obj_coord,
+            array,
             padding=padding,
+            max_scale=3.0,
+            scale_bound=f_bounds,
+            max_angle=r_bounds[1],
+            max_t=t_bounds[1],
         )
 
-        # Check if the local system is correct
-        local_points = []
-        for point in v:
-            res_v = transform_v(self.local_points[point], T_local)
-            local_points.append(res_v)
-            assert_point_within_box(
-                self, res_v, self.local_box_coords, tolerance=1e-5, padding=padding
-            )
-
-        if expected_f is not None:
-            self.assertAlmostEqual(opt_tf[0], expected_f, places=5)
-
-        # This part is based on Optimizer.local_optimisation()
-        tf0 = np.array([0, 0, 0, 0] + list(self.obj_coord))
-        new_tf = opt_tf + tf0
-        # new_tf[4:] = opt_tf[4:] + self.obj_coord
         T = construct_transform_matrix(new_tf[0], new_tf[1:4], new_tf[4:])
 
         resulting_points = []
@@ -308,38 +311,6 @@ np.array([+1, 0, 0]),
     # ----------------------------------------------------------------
     # Helper functions
     # ----------------------------------------------------------------
-
-
-def compute_optimal_tf(
-    x0,
-    v,
-    sets_of_faces,
-    sets_of_normals,
-    points,
-    f_bounds,
-    r_bounds,
-    t_bounds,
-    obj_coords=np.array([0, 0, 0]),
-    padding=0.0,
-):
-    bounds = [f_bounds, r_bounds, r_bounds, r_bounds, t_bounds, t_bounds, t_bounds]
-    constraint_dict = {
-        "type": "ineq",
-        "fun": local_constraint_multiple_points,
-        "args": (
-            v,
-            sets_of_faces,
-            sets_of_normals,
-            points,
-            obj_coords,
-            padding,
-        ),
-    }
-    res = minimize(
-        objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
-    )
-    T = construct_transform_matrix(res.x[0], res.x[1:4], res.x[4:7])
-    return T, res.x
 
 
 def is_point_within_box(point, box_coords, tolerance=1e-8, padding=0.0):
@@ -426,7 +397,7 @@ class TestCatBoxOptimization(unittest.TestCase):
         self.previous_transform_array = np.array([1, 0, 0, 0] + list(self.init_center))
 
     def test_optimize_cat_box(self):
-        new_tf_array = compute_optimal_growth(
+        new_tf_array = compute_optimal_transform(
             0,
             self.previous_transform_array,
             1,

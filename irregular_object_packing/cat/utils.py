@@ -37,6 +37,8 @@ def get_cell_arrays(cells: np.ndarray) -> np.ndarray:
     -> tetmesh.cells will return a numpy array of shape (n_cells, 5),
     where the first column is the number of vertices in the cell,
     and the remaining columns are the indices of the vertices.
+
+    returns a numpy array of shape (n_cells, 4), where each row is a cell,
     """
     return np.array(np.hsplit(cells, cells.size / 5)).reshape(-1, 5)[:, 1:]
 

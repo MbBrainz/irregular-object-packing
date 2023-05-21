@@ -82,3 +82,10 @@ def convert_faces_to_polydata_input(faces: np.ndarray):
             idx += 5
 
     return cat_points, poly_faces
+
+def polydata_from_cat_cell(cat_cell)-> pv.PolyData:
+    return pv.PolyData(*convert_faces_to_polydata_input(cat_cell))
+
+def cat_meshes_from_cells(cat_cells):
+    return [polydata_from_cat_cell(cat_cell) for cat_cell in cat_cells]
+

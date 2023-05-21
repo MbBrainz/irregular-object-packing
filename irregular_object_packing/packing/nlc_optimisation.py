@@ -38,8 +38,8 @@ def rotation_matrix(theta):
         Rotation matrix.
     """
 
-    cosine = np.cos(theta, dtype=np.float64)
-    sine = np.sin(theta, dtype=np.float64)
+    cosine = np.cos(theta)
+    sine = np.sin(theta)
 
     R = np.array([
         [cosine[1] * cosine[2], -cosine[1] * sine[2] * cosine[0] + sine[1] * sine[0], cosine[1] * sine[2] * sine[0] + sine[1] * cosine[0]],
@@ -206,7 +206,7 @@ def local_constraint_vertices(
     return constraints
 
 
-def compute_optimal_growth(previous_tf_array,  obj_coord, vertex_fpoint_normal_arr, padding, max_scale, scale_bound, max_angle, max_t,):
+def compute_optimal_transform(previous_tf_array,  obj_coord, vertex_fpoint_normal_arr, padding, max_scale, scale_bound, max_angle, max_t,):
     r_bound = (-max_angle, max_angle)
     t_bound = (-max_t if max_t is not None else None, max_t)
     bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
@@ -306,7 +306,6 @@ def test_nlcp_facets():
 
 
 #     points = make_dict_typed(points)
-
 #     local_constraint_multiple_points(
 #         x0,
 #         v,

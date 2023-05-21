@@ -207,16 +207,12 @@ class SplitAndProcess(unittest.TestCase):
         self.assert_correct_split_and_process(cell, all_tet_points , normals, cat_cells, SPLIT_3_OUTPUT)
 
 
-
     def assert_correct_split_and_process(self, cell: TetraCell, all_tet_points, normals, cat_cells, split_output):
         for _i, obj in enumerate(cell.objs):
             obj_normals = normals[obj]
             cat_cells[obj]
             for _j, face_normal in enumerate(obj_normals):
                 self.assertEqual(np.shape(face_normal), (3, 3))
-
-
-
 
 
 if __name__ == '__main__':

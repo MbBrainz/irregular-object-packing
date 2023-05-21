@@ -10,9 +10,9 @@ from irregular_object_packing.mesh.transform import (
 )
 from irregular_object_packing.packing.initialize import (
     coord_is_correct,
+    generate_initial_coordinates,
     get_max_radius,
     grid_initialisation,
-    init_coordinates,
     pyvista_to_trimesh,
     random_coordinate_within_bounds,
 )
@@ -69,7 +69,7 @@ class TestInitialize(unittest.TestCase):
             get_max_radius(mesh) * 2 * f_init ** (1 / 3) for mesh in self.shapes
         ]
 
-        coords, skipped = init_coordinates(
+        coords, skipped = generate_initial_coordinates(
             self.containers[0], self.shapes[0], coverage_rate, f_init
         )
         self.assert_correct_coordinates(
@@ -82,7 +82,7 @@ class TestInitialize(unittest.TestCase):
             descr="sphere",
         )
 
-        coords, _ = init_coordinates(
+        coords, _ = generate_initial_coordinates(
             self.containers[1], self.shapes[1], coverage_rate, f_init
         )
         self.assert_correct_coordinates(
@@ -95,7 +95,7 @@ class TestInitialize(unittest.TestCase):
             descr="box",
         )
 
-        coords, _ = init_coordinates(
+        coords, _ = generate_initial_coordinates(
             self.containers[2], self.shapes[2], coverage_rate, f_init
         )
         self.assert_correct_coordinates(
