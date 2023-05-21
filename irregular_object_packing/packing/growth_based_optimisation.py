@@ -1,6 +1,7 @@
 # %%
 import logging
 from concurrent.futures import ThreadPoolExecutor as PoolExecutor
+from time import time
 
 import numpy as np
 import pyvista as pv
@@ -60,6 +61,7 @@ class Optimizer(OptimizerData):
         self.executor = PoolExecutor()
         self.log = logging.getLogger(__name__)
         self.log.setLevel(config.log_lvl)
+        self.time_array = np.zeros(self.config.n_scale_steps)
 
     @property
     def curr_max_scale(self):
@@ -116,17 +118,17 @@ class Optimizer(OptimizerData):
     def sample_rate_mesh(self, scale_factor):
         if self.config.dynamic_simplification:
             return int(mesh_simplification_condition(scale_factor, self.config.alpha, self.config.beta) * self.shape0.n_faces * self.config.upscale_factor)
-        return self.config.sample_rate  # currently simple
+        return self.shape0.n_faces  # currently simple
+
 
     def resample_meshes(self, scale_factor=None):
         self.log.info("resampling meshes")
         if scale_factor is None:
             scale_factor = self.curr_max_scale
 
-        if self.config.sample_rate is not None:
-            self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
-            self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
-            self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
+        self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
+        self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
+        self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
 
         self.log.info(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]")
         self.log.info(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]")
@@ -154,14 +156,17 @@ class Optimizer(OptimizerData):
             self.resample_meshes(self.curr_max_scale)
             self.pbar1.set_postfix(ƒ_max=f"{self.curr_max_scale:.3f}")
             self.pbar2.reset()
-
+            iteration_times = []
             for i in range(self.config.itn_max):
                 self.log.info(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
                 self.pbar3.reset()
                 self.pbar3.set_postfix(total=self.idx)
                 self.i = i
+                start_time = time()
                 if self.iteration() is False:
                     continue
+                end_time = time()
+                iteration_times.append(end_time - start_time)
 
                 # administrative stuff
                 self.process_iteration()
@@ -171,6 +176,7 @@ class Optimizer(OptimizerData):
                     return
 
                 if self.step_should_terminate():
+                    self.time_array.append(np.mean(iteration_times))
                     break
 
             self.pbar1.update()
@@ -255,7 +261,6 @@ class Optimizer(OptimizerData):
         for i in range(self.n_objs):
             if are_scaled[i]:
                 count += 1
-                self.log.debug(f"Object {i} has reached the scaling barrier")
 
         self.log.info(f"{count}/{self.n_objs} objects have reached the scaling barrier")
         self.log.info(f"scales: {[f'{f[0]:.2f}' for f in self.tf_arrays]}")

@@ -1,3 +1,4 @@
+import logging
 import pickle
 from dataclasses import dataclass, field, fields
 
@@ -22,8 +23,6 @@ STATE_DIRECTORY = "../../dump/state/"
 
 @dataclass
 class SimConfig:
-    sample_rate: int = 50
-    """The sample rate of the object surface mesh."""
     max_a: float = 1 / 12 * np.pi
     """The maximum rotation angle per growth step."""
     max_t: float = None
@@ -32,28 +31,28 @@ class SimConfig:
     """Final scale."""
     final_scale: float = 1.0
     """The initial scale factor."""
-    itn_max: int = 1
+    itn_max: int = 200
     """The maximum number of iterations per scaling step."""
-    n_scale_steps: int = 1
+    n_scale_steps: int = 9
     """The number of scaling steps."""
     r: float = 0.3
     """The coverage rate."""
     plot_intermediate: bool = False
     """Whether to plot intermediate results."""
-    log_lvl: int = 3
+    log_lvl: int = logging.ERROR
     """The log level maximum level is 3."""
-    decimate: bool = True
-    """Whether to decimate the object mesh."""
     padding: float = 0.0
     """The padding which is added to the inside of the cat cells."""
-    dynamic_simplification: bool = False
+    dynamic_simplification: bool = True
     """Whether to use dynamic simplification."""
     alpha: float = 0.05
     beta: float = 0.1
     upscale_factor: float = 1.0
     """The upscale factor for the object mesh."""
     sequential: bool = False
-
+    """Whether to use sequential scaling."""
+    container_volume: float = 10.0
+    """The volume of the container."""
     new_cat: bool = False
 
 
@@ -117,6 +116,7 @@ class OptimizerData:
     cat_cells: list
     tf_arrays: ndarray
     previous_tf_arrays: ndarray
+    time_array: ndarray
     description: str
     _data = {}
     _index = -1
