@@ -1,7 +1,6 @@
 # %%
 import logging
 from concurrent.futures import ThreadPoolExecutor as PoolExecutor
-from concurrent.futures import wait
 
 import numpy as np
 import pyvista as pv
@@ -32,7 +31,10 @@ from irregular_object_packing.packing.optimizer_data import (
     SimConfig,
 )
 from irregular_object_packing.packing.optimizer_plotter import ScenePlotter
-from irregular_object_packing.packing.utils import log_violations
+from irregular_object_packing.packing.utils import (
+    check_cat_cells_quality,
+    log_violations,
+)
 
 
 class Optimizer(OptimizerData):
@@ -125,8 +127,7 @@ class Optimizer(OptimizerData):
             self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
             self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
             self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
-        assert self.shape.is_manifold
-        assert self.container.is_manifold
+
         self.log.info(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]")
         self.log.info(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]")
 
@@ -183,19 +184,10 @@ class Optimizer(OptimizerData):
             self.normals, self.cat_cells, self.normals_pp, _ = self.compute_cat_cells()
         except RuntimeError as e:
             self.log.error(f"RuntimeError: {e}, Scaling down and trying again...")
-            for i in range(self.n_objs):
-                self.reduce_scale(i, scale=0.99)
+            self.reduce_all_scales()
             return False
 
-        # Check the quality if the cat cells
-        self.log.debug("Checking cat cells quality")
-        Points_without_faces = []
-        for i, normals in enumerate(self.normals):
-            if len(normals) == 0:
-                Points_without_faces.append(i)
-
-        if len(Points_without_faces) > 0:
-            self.log.warning(f"there are {len(Points_without_faces)} points without faces. ids: {Points_without_faces}")
+        check_cat_cells_quality(self.log,self.normals)
 
         self.optimize_positions()
         return True
@@ -203,26 +195,17 @@ class Optimizer(OptimizerData):
     def optimize_positions(self):
         self.log.debug("optimizing cells...")
         if self.config.sequential is False:
-            self.parallel_optimisation()
+            self.executor.map(self.parallel_local_optimisation, range(self.n_objs), self.tf_arrays)
         else:
             for obj_id, previous_tf_array in enumerate(self.tf_arrays):
-                self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array, self.curr_max_scale)
+                self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array)
 
-    def parallel_optimisation(self):
-        # self.executor.map(self.parallel_local_optimisation, range(self.n_objs), self.tf_arrays, [self.curr_max_scale]*self.n_objs)
-
-        tasks = []
-        for obj_id, previous_tf_array in enumerate(self.tf_arrays):
-            task = self.executor.submit(self.parallel_local_optimisation, obj_id, previous_tf_array, self.curr_max_scale)
-            tasks.append(task)
-        wait(tasks)
-        return True
-
-    def parallel_local_optimisation(self,obj_id, previous_tf_array, max_scale):
+    def parallel_local_optimisation(self,obj_id, previous_tf_array):
         """workaround for setting the tf_arrays in parallel"""
-        self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array, max_scale)
+        self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array)
 
-    def local_optimisation(self, obj_id, previous_tf_array, max_scale):
+    def local_optimisation(self, obj_id, previous_tf_array, max_scale=None):
+        max_scale = max_scale or self.curr_max_scale
 
         vertex_fpoint_fnormal_arr = np.array(self.normals[obj_id], dtype=np.float64)
         assert np.shape(vertex_fpoint_fnormal_arr)[1:] == (3,3)
@@ -287,17 +270,7 @@ class Optimizer(OptimizerData):
         i, ib = self.i, self.i_b
         is_correct = False
         while is_correct is False:
-            p_meshes = self.current_meshes()
-            cat_meshes = self.final_cat_meshes()
-            cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
-            log_violations(self.log, self.idx+1, (cat_viols, con_viols, collisions))
-            violating_ids = set()
-            for ((obj_ida, obj_idb), _) in collisions:
-                violating_ids.add(obj_ida)
-                violating_ids.add(obj_idb)
-
-            for (obj_id, _) in con_viols:
-                violating_ids.add(obj_id)
+            violations, violating_ids = self.compute_violations()
 
             is_correct = len(violating_ids) == 0
             if len(violating_ids) != 0:
@@ -305,7 +278,25 @@ class Optimizer(OptimizerData):
                 for id in violating_ids:
                     self.reduce_scale(id, scale=0.93)
 
-        self.update_data(ib, i, (cat_viols, con_viols, collisions))
+        self.update_data(ib, i, violations)
+
+    def compute_violations(self):
+        p_meshes = self.current_meshes()
+        cat_meshes = self.final_cat_meshes()
+        cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
+        log_violations(self.log, self.idx+1, (cat_viols, con_viols, collisions))
+        violating_ids = set()
+        for ((obj_ida, obj_idb), _) in collisions:
+            violating_ids.add(obj_ida)
+            violating_ids.add(obj_idb)
+
+        for (obj_id, _) in con_viols:
+            violating_ids.add(obj_id)
+        return (cat_viols,con_viols,collisions),violating_ids
+
+    def reduce_all_scales(self, scale=0.99):
+        for i in self.n_objs:
+            self.reduce_scale(i, scale)
 
     def reduce_scale(self, id, scale=0.95):
         self.tf_arrays[id][0] *= scale
@@ -357,9 +348,7 @@ def default_optimizer_config(N=5) -> "Optimizer":
 
 def simple_shapes_optimizer_config() -> "Optimizer":
     mesh_volume = 0.2
-
     container_volume = 10
-
 
     original_mesh = pv.Cube().triangulate().extract_surface()
     container = pv.Cube().triangulate().extract_surface()
@@ -401,7 +390,8 @@ if __name__ == "__main__":
        the optimizer will run for 10 iterations and then plot the final state.")
     optimizer = default_optimizer_config()
     optimizer.setup()
-    optimizer.run(Ni=2)
+    optimizer.run()
     optimizer.plotter.plot_step()
+
 
 # %%

@@ -1,4 +1,6 @@
 # %%
+import logging
+
 import numpy as np
 from numba import float64, jit, prange
 from numpy import ndarray
@@ -8,6 +10,8 @@ from scipy.optimize import minimize
 NO_PYTHON = True
 DEBUG = False
 
+logger = logging.getLogger("numba")
+logger.setLevel(logging.ERROR)
 
 @jit(nopython=NO_PYTHON, debug=DEBUG)
 def objective(x):
@@ -47,7 +51,7 @@ def rotation_matrix(theta):
         [-sine[1] * cosine[2], sine[1] * sine[2] * cosine[0] + cosine[1] * sine[0], -sine[1] * sine[2] * sine[0] + cosine[1] * cosine[0]]
     ], dtype=np.float64)
 
-    return np.ascontiguousarray(R)
+    return R
 
 
 @ jit(float64[: , :](float64, float64[:], float64[:]), nopython=NO_PYTHON, debug=DEBUG, fastmath=True, cache=True)
@@ -238,10 +242,6 @@ def compute_optimal_transform(previous_tf_array,  obj_coord, vertex_fpoint_norma
 
 
 # -----------------------------------------------------------------------------
-# Visual Tests
-# -----------------------------------------------------------------------------
-
-
 def test_nlcp_facets():
     # Define points
     points = {
@@ -305,95 +305,7 @@ def test_nlcp_facets():
     print(constraints)
 
 
-#     points = make_dict_typed(points)
-#     local_constraint_multiple_points(
-#         x0,
-#         v,
-#         faces_sets,
-#         face_normal_sets,
-#         points,
-#         obj_coords=np.array([0, 0, 0], dtype=np.float64),
-#         padding=0.0,
-#     )
+if __name__ == "__main__":
+    test_nlcp_facets()
+    pass
 
-#     constraint_dict = {
-#         "type": "ineq",
-#         "fun": local_constraint_multiple_points,
-#         "args": (
-#             v,
-#             faces_sets,
-#             face_normal_sets,
-#             points,
-#             np.array([0, 0, 0], dtype=np.float64),
-#             0.1,
-#         ),
-#     }
-
-#     res = minimize(
-#         objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
-#     )
-#     T = construct_transform_matrix(res.x[0], res.x[1:4], res.x[4:7])
-
-#     # Print the results
-#     print("Optimal solution:")
-#     print_transform_array(res.x)
-#     # print("resulting vectors:")
-
-#     print(transform_v(points[9], T))
-#     print(transform_v(points[10], T))
-#     print(transform_v(points[11], T))
-
-#     # Create a 3D plot
-#     import matplotlib.pyplot as plt
-#     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
-#     fig = plt.figure()
-#     ax = fig.add_subplot(111)
-
-#     # Plot the faces with opacity = 0.5
-#     # quick
-#     def get_face_coords(face, points):
-#         return [points[p_id] for p_id in face]
-
-#     for face in faces:
-#         face = get_face_coords(face, points)
-
-#         collection = Poly3DCollection(
-#             [face], alpha=0.2, facecolor="blue", edgecolor="black"
-#         )
-#         ax.add_collection(collection)
-#     pairs = [
-#         [points[9], transform_v(points[9], T)],
-#         [points[10], transform_v(points[10], T)],
-#         [points[11], transform_v(points[11], T)],
-#     ]
-
-#     # Plot the pairs of points with lines connecting them
-#     colors = ["r", "g", "b"]  # Different colors for each pair
-#     for i, pair in enumerate(pairs):
-#         color = colors[i % len(colors)]  # Cycle through the colors
-#         ax.plot(*zip(*pair, strict=True), color=color, marker="o", linestyle="-")
-
-#     # Set the plot limits and labels
-#     ax.set_xlim(-1, 1)
-#     ax.set_ylim(-1, 1)
-#     ax.set_zlim(-0.1, 1.1)
-#     ax.set_xlabel("X")
-#     ax.set_ylabel("Y")
-#     ax.set_zlabel("Z")
-
-#     # Show the plot
-#     # plt.tight_layout()
-#     plt.show()
-
-
-# if __name__ == "__main__":
-#     test_nlcp_facets()
-#     pass
-
-# # %%
-test_nlcp_facets()
-
-# # %%
-
-# %%

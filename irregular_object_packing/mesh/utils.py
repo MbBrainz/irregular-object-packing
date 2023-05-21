@@ -2,16 +2,16 @@
 
 import numpy as np
 import pyvista as pv
+from numpy import array_str
 from trimesh import Trimesh
 
 
 def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True):
-    with np.printoptions(precision=4, suppress=suppress_scientific):
+    with np.printoptions(precision=3, suppress=suppress_scientific):
         print(
             f"Mesh info {description}: {mesh}, \nvolume: {mesh.volume}, \nbounding box:"
-            f" {mesh.bounds} \ncenter of mass: {mesh.center_of_mass()}\n"
+            f" {array_str(mesh.bounds)} \ncenter of mass: {mesh.center_of_mass()}\n"
         )
-
 
 def pyvista_to_trimesh(mesh: pv.PolyData):
     tri_container = mesh.extract_surface().triangulate() # type: ignore

@@ -14,3 +14,14 @@ def log_violations(logger,idx, violations ):
         logger.warning(f"[{idx}]! container violation found {violations[1]}")
     if len(violations[2]) > 0:
         logger.warning(f"[{idx}]! collisions found {violations[2]}")
+
+        # Check the quality if the cat cells
+def check_cat_cells_quality(logger, all_normals):
+    logger.debug("Checking cat cells quality")
+    Points_without_faces = []
+    for i, normals in enumerate(all_normals):
+        if len(normals) == 0:
+            Points_without_faces.append(i)
+
+    if len(Points_without_faces) > 0:
+        logger.warning(f"there are {len(Points_without_faces)} points without faces. ids: {Points_without_faces}")
