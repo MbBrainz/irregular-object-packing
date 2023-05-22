@@ -7,6 +7,7 @@ import trimesh
 from pyvista import PolyData, StructuredGrid
 from scipy.optimize import minimize
 from scipy.spatial import Voronoi
+from wrapt_timeout_decorator import timeout
 
 from irregular_object_packing.mesh.collision import (
     compute_container_violations,
@@ -63,6 +64,24 @@ def get_max_radius(mesh: PolyData) -> float:
     return max_distance
 
 
+def generate_correct_coordinates(mesh, min_distance_between_meshes, max_volume, tri_container):
+    objects_coords = []
+    acc_vol, skipped = 0, 0
+    while acc_vol < max_volume:
+        coord = random_coordinate_within_bounds(tri_container.bounds)
+        if coord_is_correct(
+            coord, tri_container, objects_coords, min_distance_between_meshes
+        ):
+            objects_coords.append(coord)
+            acc_vol += mesh.volume
+        else:
+            skipped += 1
+    return objects_coords,skipped # type: ignore
+
+@timeout(2)
+def generate_correct_coordinates_timeout(mesh, min_distance_between_meshes, max_volume, tri_container):
+    return generate_correct_coordinates(mesh, min_distance_between_meshes, max_volume, tri_container)
+
 def generate_initial_coordinates(
     container: PolyData,
     mesh: PolyData,
@@ -79,27 +98,32 @@ def generate_initial_coordinates(
     returns:
         tuple[np.ndarray, int]: coordinates of the objects and number of skipped objects
     """
-    # TODO: Make sure the container is a closed surface mesh
+    assert container.is_manifold, "Container mesh is not a closed surface mesh"
     # max_dim_mesh = max(np.abs(mesh.bounds)) * 2 # for sphere this is the same, but quicker. for other shapes might be different
     max_dim_mesh = get_max_radius(mesh) * 2
     min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
     max_volume = container.volume * coverage_rate
 
     tri_container = pyvista_to_trimesh(container)
+    if min_distance_between_meshes > 1/4 * container.volume ** (1/3):
+        # Warning: Initial distance between meshes is larger than 1/4 of the container size. This may lead to an infinite loop.")
+        return timeout_loop(generate_correct_coordinates_timeout, (mesh, min_distance_between_meshes, max_volume, tri_container), 10)
 
-    objects_coords = []
-    acc_vol, skipped = 0, 0
-    while acc_vol < max_volume:
-        coord = random_coordinate_within_bounds(tri_container.bounds)
-        if coord_is_correct(
-            coord, tri_container, objects_coords, min_distance_between_meshes
-        ):
-            objects_coords.append(coord)
-            acc_vol += mesh.volume
-        else:
-            skipped += 1
+    return generate_correct_coordinates(mesh, min_distance_between_meshes, max_volume, tri_container)
 
-    return objects_coords, skipped  # type: ignore
+
+def timeout_loop(fn, params, max_runs):
+    """Runs a function until it either returns a value or the timeout is reached.
+    If the timeout is reached, the function is run again with the same parameters.
+    This is repeated until the function returns a value or the maximum number of runs is reached.
+    """
+    runs = 0
+    while runs < max_runs:
+        try:
+            return fn(*params)
+        except TimeoutError:
+            runs += 1
+    raise TimeoutError("Timeout reached. No valid coordinates could be found.")
 
 
 def coord_is_correct(
@@ -131,6 +155,9 @@ def filter_coords(
     skipped = 0
     objects_coords = []
     # object is centered at the origin
+    # FIXME: If there are only a few points inside the container,
+    # this may stall if the first point is in the middle of the container.
+    # there wont be any other points possible
 
     points_inside = PolyData(coords).select_enclosed_points(container)
 

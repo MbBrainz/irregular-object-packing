@@ -58,10 +58,14 @@ class Optimizer(OptimizerData):
         )[1:]
 
         self.plotter = ScenePlotter(self)
-        self.executor = PoolExecutor()
         self.log = logging.getLogger(__name__)
         self.log.setLevel(config.log_lvl)
-        self.time_array = np.zeros(self.config.n_scale_steps)
+
+        # intermediate results
+        self.time_per_step = np.zeros(self.config.n_scale_steps)
+        self.its_per_step = np.zeros(self.config.n_scale_steps)
+        self.fails_per_step = np.zeros(self.config.n_scale_steps)
+        self.errors_per_step = np.zeros(self.config.n_scale_steps)
 
     @property
     def curr_max_scale(self):
@@ -93,10 +97,10 @@ class Optimizer(OptimizerData):
 
     def setup_pbars(self):
         self.pbar1 = tqdm(
-            range(self.config.n_scale_steps), desc="scale\t", position=0, leave=True, initial=self.i_b
+            range(self.config.n_scale_steps), desc="scale\t", position=1, leave=True, initial=self.i_b
         )
-        self.pbar2 = tqdm(range(self.config.itn_max), desc="Iteration\t", position=1, leave=True, initial=self.i)
-        self.pbar3 = tqdm(range(self.n_objs), desc="Object\t", position=2, leave=True, initial=0)
+        self.pbar2 = tqdm(range(self.config.itn_max), desc="Iteration\t", position=2, leave=True, initial=self.i)
+        self.pbar3 = tqdm(range(self.n_objs), desc="Object\t", position=3, leave=True, initial=0)
 
     # ----------------------------------------------------------------------------------------------
     # Helper functions
@@ -113,7 +117,6 @@ class Optimizer(OptimizerData):
             *viol_data
         )
         self.add(self.tf_arrays, self.normals, self.cat_cells, iterdata)
-
 
     def sample_rate_mesh(self, scale_factor):
         if self.config.dynamic_simplification:
@@ -134,6 +137,7 @@ class Optimizer(OptimizerData):
         self.log.info(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]")
 
     def run(self, start_idx=None, end_idx=None, Ni=-1):
+        self.check_setup()
         try:
             self.executor = PoolExecutor(thread_name_prefix="optimizer")
             self._run(start_idx, end_idx, Ni)
@@ -176,7 +180,8 @@ class Optimizer(OptimizerData):
                     return
 
                 if self.step_should_terminate():
-                    self.time_array.append(np.mean(iteration_times))
+                    self.time_per_step[i_b] = np.mean(iteration_times)
+                    self.its_per_step[i_b] = i
                     break
 
             self.pbar1.update()
@@ -191,6 +196,7 @@ class Optimizer(OptimizerData):
         except RuntimeError as e:
             self.log.error(f"RuntimeError: {e}, Scaling down and trying again...")
             self.reduce_all_scales()
+            self.errors_per_step[self.i_b] += 1
             return False
 
         check_cat_cells_quality(self.log,self.normals)
@@ -274,15 +280,19 @@ class Optimizer(OptimizerData):
     def process_iteration(self):
         i, ib = self.i, self.i_b
         is_correct = False
+        failed = False
         while is_correct is False:
             violations, violating_ids = self.compute_violations()
 
             is_correct = len(violating_ids) == 0
             if len(violating_ids) != 0:
+                failed = True
                 self.log.info("reducing scale for violating objects: " + str(violating_ids))
                 for id in violating_ids:
                     self.reduce_scale(id, scale=0.93)
 
+        if failed:
+            self.fails_per_step[ib] += 1
         self.update_data(ib, i, violations)
 
     def compute_violations(self):

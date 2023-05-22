@@ -12,8 +12,8 @@ CONFIG = {
 }
 
 PARAMETERS = {
-    'n_objects': [2, 3, 4, 6, 8],
-    'container': ['sphere'],
+    'n_objects': [5, 6, 7, 8, 9,],
+    'container': ['sphere', 'cube',],
     # 'container': ["cube", 'cylinder', 'sphere'],
     'shape': [ "normal_red_blood_cell"],
     # 'shape': ["cube", 'sphere', "normal_red_blood_cell", "sickle_blood_cell", "bunny"],
@@ -29,8 +29,11 @@ RESULTS = {
     'i': int,
     'run_time': float,
     'setup_time': float,
-    'scale_step_time': ndarray[float],
     'n_total_steps': int,
+    'time_per_step': ndarray[int],
+    'its_per_step': ndarray[float],
+    'fails_per_step': ndarray[int],
+    'errors_per_step': ndarray[float],
 }
 
 @dataclass
@@ -46,13 +49,16 @@ class ResultData:
     i: int
     run_time: float
     setup_time: float
-    scale_step_time: ndarray[float]
     n_total_steps: int
+    time_per_step: ndarray[float]
+    iterations_per_step: ndarray[float]
+    fails_per_step: ndarray[float]
+    errors_per_step: ndarray[float]
 
-
-    def write_csv(self, file_path):
+    @staticmethod
+    def write_csv(file_path):
         with open(file_path, 'w') as f:
-            writer = DataclassWriter(f, [self], ResultData)
+            writer = DataclassWriter(f, [], ResultData)
             writer.write()
 
     def read_csv(self, file_path):
@@ -61,19 +67,23 @@ class ResultData:
             reader.write()
 
     def update_csv(self, file_path):
-        with open(file_path, 'rw') as f:
+        with open(file_path, 'a') as f:
             writer = DataclassWriter(f, [self], ResultData)
             writer.write(skip_header=True)
 
     @staticmethod
-    def create_result(params, i, elapsed_time, setup_time, scale_step_time, n_total_steps):
+    def create_result(params, i, run_time, setup_time, n_total_steps, time_per_step, its_per_step,
+                      fails_per_step, errors_per_step,):
         return ResultData(
             **params,
             i=i,
-            run_time=elapsed_time,
+            run_time=run_time,
             setup_time=setup_time,
-            scale_step_time=scale_step_time,
             n_total_steps=n_total_steps,
+            time_per_step=time_per_step,
+            iterations_per_step=its_per_step,
+            fails_per_step=fails_per_step,
+            errors_per_step=errors_per_step,
         )
 
 

@@ -11,7 +11,7 @@ The datacollector will run from terminal without parameters and will then:
 - save it to the right data csv
 - If this process is interupted by any external factor on the DAS, we can turn it on later and it will continue from where it stopped
 """
-
+#%%
 import itertools
 import time
 from os import path
@@ -40,8 +40,8 @@ def get_pv_container(name):
     """Returns the container from a string"""
     match name:
         case "cube": return pv.Cube().triangulate().extract_surface()
-        case "sphere": return pv.Sphere().triangulate().extract_surface()
-        case "cylinder": return pv.Cylinder().triangulate().extract_surface()
+        case "sphere": return pv.Sphere()
+        case "cylinder": return pv.Cylinder()
 
 
 def get_shape(name):
@@ -60,15 +60,18 @@ class DataCollector:
     """Description of the data collection"""
     number_of_iterations = 3
     """number of iterations to run per parameter set"""
-
+    Ni: int = -1
+    test: bool = False
 
     #############################
     # INITIALIZATION
     #############################
-    def __init__(self, number_of_iterations, description):
+    def __init__(self, number_of_iterations, description,test):
         self.number_of_iterations = number_of_iterations
         self.description = description
         self._set_start_time()
+        self.test = test
+        self.Ni = 1 if test else -1
 
     def setup_directories(self):
         Path(CONFIG["result_dir"]).mkdir(parents=True, exist_ok=True)
@@ -102,7 +105,7 @@ class DataCollector:
         for scenario in scenarios:
             opt = self.setup_optimizer(scenario)
             opt.setup()
-        del(opt)
+            del(opt)
 
     #############################
     # Data collection
@@ -131,42 +134,55 @@ class DataCollector:
 
     def collect(self,scenarios):
         """Collect the data"""
-        tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0})
+        tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0}, position=0, leave=True)
         for scenario in tqdm_bar:
             tqdm_bar.set_postfix(i=0)
-            for _i in range(CONFIG["number_of_iterations"]):
+            for i in range(CONFIG["number_of_iterations"]):
 
                 setup_time = time.time()
                 optimizer = self.setup_optimizer(scenario)
+                optimizer.setup()
                 setup_time = time.time() - setup_time
 
-                runtime = time.time()
-                optimizer.run()
-                runtime = time.time() - runtime
+                run_time = time.time()
+                optimizer.run(Ni=1)
+                run_time = time.time() - run_time
 
                 ResultData.create_result(
                     scenario,
-                    _i,
-                    runtime,
-                    setup_time,
-                    scale_step_time=optimizer.time_array,
+                    i=i,
+                    run_time=run_time,
+                    setup_time=setup_time,
                     n_total_steps=optimizer.idx,
+                    time_per_step=optimizer.time_per_step,
+                    its_per_step=optimizer.its_per_step,
+                    fails_per_step=optimizer.fails_per_step,
+                    errors_per_step=optimizer.errors_per_step,
                 ).update_csv(self.path)
 
     def run(self):
         """Run the data collection"""
-        print("Starting data collection...")
+
+        if self.test:
+            print("------TEST MODE------")
+        print("Start DataCollector.")
+        print(f"Results will be stored here: {self.path}")
+        ResultData.write_csv(self.path)
+
         test_scenarios = self.parameter_combinations()
+        print("Checking initialisation of all scenarios...")
         self.check_initialisation(test_scenarios)
+        print("start collecting...")
         self.collect(test_scenarios)
         print("Data collection finished.")
 
 @click.command()
 @click.option("-i", "iterations", default=1, help="Number of iterations to run per parameter set")
 @click.option("--new", "-n", "description", prompt=True, prompt_required=False, default="", help="Description of the data collection")
-def main(iterations, description):
+@click.option("--test", "-t", "test", is_flag=True,default=False, help="Test to run")
+def main(iterations, description, test):
     """CLI for the data collection"""
-    collector = DataCollector(iterations, description)
+    collector = DataCollector(iterations, description, test)
     collector.run()
 
 if __name__ == "__main__":

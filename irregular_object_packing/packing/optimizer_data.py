@@ -116,7 +116,10 @@ class OptimizerData:
     cat_cells: list
     tf_arrays: ndarray
     previous_tf_arrays: ndarray
-    time_array: ndarray
+    time_per_step: ndarray
+    its_per_step: ndarray
+    fails_per_step: ndarray
+    errors_per_step: ndarray
     description: str
     _data = {}
     _index = -1
@@ -131,6 +134,12 @@ class OptimizerData:
 
     def __getitem__(self, key):
         return self._data[key]
+
+    def check_setup(self):
+        assert self.shape0 is not None, "setup not correct: shape0 is None"
+        assert self.container0 is not None, "setup not correct: container0 is None"
+        assert len(self.tf_arrays) > 0, "setup not correct: tf_arrays is empty"
+
 
     def add(self, tf_arrays: ndarray, normals: list, cat_cells: list, iteration_data: IterationData):
         self._data[self._index] = {

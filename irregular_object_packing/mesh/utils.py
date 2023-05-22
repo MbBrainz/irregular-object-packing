@@ -9,8 +9,8 @@ from trimesh import Trimesh
 def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True):
     with np.printoptions(precision=3, suppress=suppress_scientific):
         print(
-            f"Mesh info {description}: {mesh}, \nvolume: {mesh.volume}, \nbounding box:"
-            f" {array_str(mesh.bounds)} \ncenter of mass: {mesh.center_of_mass()}\n"
+            f"Mesh info {description}:\nvolume: {mesh.volume}, \nbounding box:"
+            f" {array_str(np.array(mesh.bounds))} \ncenter of mass: {mesh.center_of_mass()}\n"
         )
 
 def pyvista_to_trimesh(mesh: pv.PolyData):

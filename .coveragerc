@@ -9,6 +9,7 @@ source =
     irregular_object_packing
     tests
 parallel = true
+omit = irregular_object_packing/performance_analysis/*
 
 [report]
 show_missing = true
