@@ -1,6 +1,6 @@
-import taichi as ti
+# import taichi as ti
 
 
-def test_taichi_init():
-    ti.init(arch=ti.gpu, kernel_profiler=True)
-    print("success")
+# def test_taichi_init():
+#     ti.init(arch=ti.gpu, kernel_profiler=True)
+#     print("success")

@@ -1,13 +1,13 @@
 [tool.black]
-line-length = 115
-include = '\.pyi?$'
+line-length = 88
+include = '\\.pyi?$'
 exclude = '''
 /(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
+    \\.git
+  | \\.hg
+  | \\.mypy_cache
+  | \\.tox
+  | \\.venv
   | _build
   | buck-out
   | build
@@ -18,3 +18,25 @@ exclude = '''
   | tests/data
 )/
 '''
+
+# Ruff
+[tool.ruff.pydocstyle]
+convention = "google"
+
+
+[tool.ruff]
+line-length = 88
+
+select = [
+  "E", # pycodestyle errors
+  "W", # pycodestyle warnings
+  "F", # pyflakes
+  "I", # isort
+  "C", # flake8-comprehensions
+  "B", # flake8-bugbear
+]
+ignore = [
+  "E501", # line too long, handled by black
+  "B008", # do not perform function calls in argument defaults
+  "C901", # too complex
+]

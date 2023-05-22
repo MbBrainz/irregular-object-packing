@@ -2,52 +2,90 @@
 
 import numpy as np
 import pyvista as pv
-from sklearn.cluster import KMeans
+from numpy import array_str
+from trimesh import Trimesh
 
 
 def print_mesh_info(mesh: pv.PolyData, description="", suppress_scientific=True):
-    with np.printoptions(precision=4, suppress=suppress_scientific):
+    with np.printoptions(precision=3, suppress=suppress_scientific):
         print(
-            f"Mesh info {description}: {mesh}, \nvolume: {mesh.volume}, \nbounding box: {mesh.bounds} \ncenter of mass: {mesh.center_of_mass()}\n"
+            f"Mesh info {description}:\nvolume: {mesh.volume}, \nbounding box:"
+            f" {array_str(np.array(mesh.bounds))} \ncenter of mass: {mesh.center_of_mass()}\n"
         )
 
-
-def resample_pyvista_mesh_kmeans(mesh, target_vertices):
-    # Convert PyVista mesh to NumPy points|
-    points = mesh.points
-
-    # Cluster points using KMeans to get the target number of vertices
-    kmeans = KMeans(n_clusters=target_vertices)
-    kmeans.fit(points)
-    new_points = kmeans.cluster_centers_
-
-    # Create a new mesh from the reduced points
-    cloud = pv.PolyData(new_points)
-
-    # Regenerate the surface mesh using Delaunay triangulation
-    new_mesh = cloud.reconstruct_surface()
-
-    # Extract the surface of the 3D triangulation
-    new_mesh = new_mesh.extract_surface()
-
-    # Smooth the mesh
-    new_mesh = new_mesh.smooth(n_iter=10)
-
-    return new_mesh
+def pyvista_to_trimesh(mesh: pv.PolyData):
+    tri_container = mesh.extract_surface().triangulate() # type: ignore
+    faces_as_array = tri_container.faces.reshape((tri_container.n_faces, 4))[:, 1:] # type: ignore
+    tri_container = Trimesh(tri_container.points, faces_as_array) # type: ignore
+    return tri_container
 
 
-def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
-    # Compute the decimation factor based on the target number of faces
-    num_faces = mesh.n_faces
-    if num_faces < target_faces:
-        return ValueError("Target number of faces must be less than the number of faces in the mesh.")
-    decimation_factor = 1 - target_faces / num_faces
+def convert_faces_to_polydata_input(faces: np.ndarray):
+    """Convert a list of faces represented by points with coordinates to
+    a list of points and a list of faces represented by the number of points and point
+    ids. This function is used to convert the data so that it can be used by the
+    pyvista.PolyData class.
 
-    # Decimate the mesh using the decimation factor
-    new_mesh = mesh.decimate(decimation_factor, inplace=False)
+    Note: Currently this function assumes that the indices of the points
+    are not global with respect to other meshes.
+    """
+    cat_points = []
+    poly_faces = []
+    n_entries = 0
+    for face in faces:
+        len_face = len(face)
+        # assert len_face == 3, f"len_face: {len_face}"
+        if len_face == 3:
+            n_entries += 4
+        if len_face == 4:
+            n_entries += 5
+            # n_entries += 8
 
-    print(new_mesh)
-    # Smooth the mesh
-    new_mesh = new_mesh.smooth(n_iter=10)
+    poly_faces = np.empty(n_entries, dtype=np.int32)
+    points = {}
 
-    return new_mesh
+    counter = 0
+    face_len = 0
+    idx = 0
+
+    for _i, face in enumerate(faces):
+        face_len = len(face)
+        new_face = np.zeros(face_len)
+        for i, vertex in enumerate(face):
+            # if face_len != 3:
+            #     raise NotImplementedError("Only triangular faces are supported")
+            vertex = tuple(vertex)
+            if vertex not in points.keys():
+                points[vertex] = counter
+                cat_points.append(vertex)
+                counter += 1
+
+            new_face[i] = points[vertex]
+
+        # For a face with 4 points, we create 2 triangles,
+        # Because pyvista does not support quads correctly, while it says it does.
+        # The issue is that when you supply a quad, it will create 2 triangles,
+        # but the triangles will overlap by half, like an open envelope shape.
+        if face_len == 3:
+            poly_faces[idx] = 3
+            poly_faces[idx + 1] = new_face[0]
+            poly_faces[idx + 2] = new_face[1]
+            poly_faces[idx + 3] = new_face[2]
+            idx += 4
+
+        elif face_len == 4:  # make a quadrillateral (NOTE: Skipped by raise)
+            poly_faces[idx] = 4
+            poly_faces[idx + 1] = new_face[0]
+            poly_faces[idx + 2] = new_face[1]
+            poly_faces[idx + 3] = new_face[2]
+            poly_faces[idx + 4] = new_face[3]
+            idx += 5
+
+    return cat_points, poly_faces
+
+def polydata_from_cat_cell(cat_cell)-> pv.PolyData:
+    return pv.PolyData(*convert_faces_to_polydata_input(cat_cell))
+
+def cat_meshes_from_cells(cat_cells):
+    return [polydata_from_cat_cell(cat_cell) for cat_cell in cat_cells]
+

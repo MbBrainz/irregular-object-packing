@@ -16,14 +16,13 @@ import profile
 
 
 def cprofile(func):
-    """
-    Decorator (function wrapper) that profiles a single function
+    """Decorator (function wrapper) that profiles a single function.
+
     @profileit()
     def func1(...)
         # do something
         pass
     """
-
     def inner(*args, **kwargs):
         func_name = func.__name__ + "-c.pstats"
         prof = cProfile.Profile()
@@ -42,14 +41,13 @@ def cprofile(func):
 
 
 def pprofile(func):
-    """
-    Decorator (function wrapper) that profiles a single function
+    """Decorator (function wrapper) that profiles a single function.
+
     @profile()
     def func1(...)
             # do something
         pass
     """
-
     def inner(*args, **kwargs):
         func_name = func.__name__ + ".pstats"
         prof = profile.Profile()

@@ -39,7 +39,7 @@ setup(
     name="irregular-object-packing",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    description="Python package for packing irregularly shaped objects in an arbitrary 3D container",
+    description=("Python package for packing irregularly shaped objects in an arbitrary 3D" " container"),
     long_description=readme,
     author="Maurits Bos",
     author_email="maurits.bos@gmail.com",

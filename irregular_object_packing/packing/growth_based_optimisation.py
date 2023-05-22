@@ -1,515 +1,412 @@
 # %%
-import sys
-from time import sleep
-
-sys.path.append("../irregular_object_packing/")
-sys.path.append("../irregular_object_packing/irregular_object_packing/")
-
-
-from dataclasses import dataclass
-from itertools import combinations
+import logging
+from concurrent.futures import ThreadPoolExecutor as PoolExecutor
+from time import time
 
 import numpy as np
-import pandas as pd
 import pyvista as pv
-import trimesh
-from pyvista import PolyData
-from scipy.optimize import minimize
+from pyvista import PolyData, UnstructuredGrid
 from tqdm.auto import tqdm
 
-import irregular_object_packing.packing.plots as plots
-from irregular_object_packing.mesh.transform import scale_and_center_mesh, scale_to_volume
-from irregular_object_packing.mesh.utils import print_mesh_info, resample_pyvista_mesh
-from irregular_object_packing.packing.OptimizerData import OptimizerData
-from irregular_object_packing.packing.utils import get_max_bounds
-
-# pv.set_jupyter_backend("panel")
-LOG_LVL_SEVERE = 0
-LOG_LVL_WARNING = 1
-LOG_LVL_INFO = 2
-LOG_LVL_DEBUG = 3
-LOG_LVL_NO_LOG = -1
-LOG_PREFIX = ["[ERROR]: ", "[WARNING]: ", "[INFO]: ", "[DEBUG]: "]
-
-from irregular_object_packing.packing import chordal_axis_transform as cat
+from irregular_object_packing.cat import chordal_axis_transform as cat
+from irregular_object_packing.mesh.collision import (
+    compute_all_collisions,
+)
+from irregular_object_packing.mesh.sampling import (
+    mesh_simplification_condition,
+    resample_mesh_by_triangle_area,
+    resample_pyvista_mesh,
+)
+from irregular_object_packing.mesh.transform import (
+    scale_and_center_mesh,
+    scale_to_volume,
+)
+from irregular_object_packing.mesh.utils import (
+    print_mesh_info,
+)
 from irregular_object_packing.packing import initialize as init
 from irregular_object_packing.packing import nlc_optimisation as nlc
-
-
-def pyvista_to_trimesh(mesh: PolyData):
-    points = mesh.points
-    faces = mesh.faces.reshape(mesh.n_faces, 4)[:, 1:]
-    return trimesh.Trimesh(vertices=points, faces=faces)
-
-
-def trimesh_to_pyvista(mesh: trimesh.Trimesh):
-    return pv.wrap(mesh)
-
-
-# NOTE: Unfortunately this method produces too many issues i dont know to deal with rn. reconsidering design...
-def downsample_mesh(mesh: trimesh.Trimesh, sample_rate: float):
-    nvertices = len(mesh.vertices)
-    if not nvertices > sample_rate:
-        return mesh
-
-    target_reduction = sample_rate / nvertices
-
-    pv_mesh = pv.wrap(mesh)
-    trimesh = pyvista_to_trimesh(pv_mesh.decimate(target_reduction).clean().triangulate().extract_geometry())
-    return trimesh
-
-
-violations, viol_meshes, n = [], [], 0
-
-
-def compute_collisions(p_meshes: list[PolyData]):
-    i, colls, coll_meshes = 0, [], []
-
-    for mesh_1, mesh_2 in combinations(p_meshes, 2):
-        col, n_contacts = mesh_1.collision(mesh_2, 1)
-        if col:
-            coll_meshes.append(col)
-        if n_contacts > 0:
-            i += 1
-            colls.append(n_contacts)
-    return i, colls, coll_meshes
-
-
-def compute_boundary_violation(mesh: PolyData, container: PolyData, mode=1):
-    return mesh.collision(container, mode, cell_tolerance=1e-6)
-
-
-def compute_container_violations(p_meshes, container):
-    n, violations, viol_meshes = 0, [], []
-
-    for i, mesh in enumerate(p_meshes):
-        violation = compute_boundary_violation(mesh, container)
-        if violation[1] > 0:
-            violations.append(i)
-            viol_meshes.append(violation[0])
-            n += 1
-    return n, violations, viol_meshes
-
-
-def compute_cat_violations(p_meshes, cat_meshes):
-    n, violations, viol_meshes = 0, [], []
-
-    for i, (mesh, cat_mesh) in enumerate(zip(p_meshes, cat_meshes)):
-        violation = compute_boundary_violation(mesh, cat_mesh)
-        if violation[1] > 0:
-            violations.append(i)
-            viol_meshes.append(violation[0])
-            n += 1
-    return n, violations, viol_meshes
-
-
-## %% [markdown] {"slideshow": {"slide_type": "slide"}}
-# ### NLC optimisation with CAT cells single interation
-# We will now combine the NLC optimisation with the CAT cells to create a single iteration of the optimisation.
-#
-
-
-def optimal_local_transform(
-    obj_id, cat_data, scale_bound=(0.1, None), max_angle=1 / 12 * np.pi, max_t=None, margin=None
-):
-    """Computes the optimal local transform for a given object id. This will return the transformation parameters that
-    maximises scale with respect to a local coordinate system of the object. This is possible due to the `obj_coords`.
-    """
-
-    r_bound = (-max_angle, max_angle)
-    t_bound = (0, max_t)
-    bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
-    x0 = np.array([scale_bound[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-
-    constraint_dict = {
-        "type": "ineq",
-        "fun": nlc.local_constraints_from_cat,
-        "args": (
-            obj_id,
-            cat_data,
-            margin,
-        ),
-    }
-    res = minimize(nlc.objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict)
-    return res.x
-
-
-# SimSettings as dataclass:
-@dataclass
-class SimSettings:
-    sample_rate: int = 50
-    """The sample rate of the object surface mesh"""
-    max_a: float = 1 / 12 * np.pi
-    """The maximum rotation angle per growth step"""
-    max_t: float = None
-    """The maximum translation per growth step"""
-    init_f: float = 0.1
-    """Final scale"""
-    final_scale: float = 1.0
-    """The initial scale factor"""
-    itn_max: int = 1
-    """The maximum number of iterations per scaling step"""
-    n_scaling_steps: int = 1
-    """The number of scaling steps"""
-    r: float = 0.3
-    """The coverage rate"""
-    plot_intermediate: bool = False
-    """Whether to plot intermediate results"""
-    log_lvl: int = -1
-    """The log level maximum level is 3"""
-    decimate: bool = True
-    """Whether to decimate the object mesh"""
-    sample_rate_ratio: float = 2.0
-    """The ratio between the sample rate of the object and the container"""
+from irregular_object_packing.packing.optimizer_data import (
+    IterationData,
+    OptimizerData,
+    SimConfig,
+)
+from irregular_object_packing.packing.optimizer_plotter import ScenePlotter
+from irregular_object_packing.packing.utils import (
+    check_cat_cells_quality,
+    log_violations,
+)
 
 
 class Optimizer(OptimizerData):
-    shape0: PolyData
-    shape: PolyData
-    container0: PolyData
-    container: PolyData
-    settings: SimSettings
-    cat_data: cat.CatData
-    tf_arrs: np.ndarray[np.ndarray]
-    object_coords: np.ndarray
-    prev_tf_arrs: np.ndarray[np.ndarray]
 
-    def __init__(self, shape: PolyData, container: PolyData, settings: SimSettings, plotter=None):
+    def __init__(
+        self, shape: PolyData, container: PolyData, config: SimConfig, description="default"
+    ):
+        super().__init__()
         self.shape0 = shape
         self.shape = shape
         self.container0 = container
         self.container = container
-        self.settings = settings
-        self.cat_data = None
-        self.tf_arrs = np.empty(0)
-        self.object_coords = np.empty(0)
-        self.prev_tf_arrs = np.empty(0)
-        self.plotter: pv.Plotter = plotter
-        self.data_index = -1
-        self.objects = None
-        self.pbar1 = self.pbar2 = None
-        self.margin = None
-        self.scaling_barrier_list = np.linspace(
-            self.settings.init_f, self.settings.final_scale, num=self.settings.n_scaling_steps + 1
+        self.config = config
+        self.description = description
+
+        self.scale_steps = np.linspace(
+            self.config.init_f,
+            self.config.final_scale,
+            num=self.config.n_scale_steps + 1,
         )[1:]
+
+        self.plotter = ScenePlotter(self)
+        self.log = logging.getLogger(__name__)
+        self.log.setLevel(config.log_lvl)
+
+        # intermediate results
+        self.time_per_step = np.zeros(self.config.n_scale_steps)
+        self.its_per_step = np.zeros(self.config.n_scale_steps)
+        self.fails_per_step = np.zeros(self.config.n_scale_steps)
+        self.errors_per_step = np.zeros(self.config.n_scale_steps)
+
+    @property
+    def curr_max_scale(self):
+        return self.scale_steps[self.i_b]
+
+    @ property
+    def start_scale(self):
+        return self.scale_steps[self.i_b - 1] if self.i_b > 0 else self.config.init_f
 
     # ----------------------------------------------------------------------------------------------
     # SETUP functions
     # ----------------------------------------------------------------------------------------------
     def setup(self):
-        self.resample_meshes()
-        self.object_coords, skipped = init.init_coordinates(
-            self.container,
-            self.shape,
-            coverage_rate=self.settings.r,
-            f_init=self.settings.init_f,
+        # init current state
+        self.curr_sample_rate = self.shape0.n_faces
+        self.tf_arrays = init.initialize_state(
+            mesh=self.shape0,
+            container=self.container0,
+            coverage_rate=self.config.r,
+            f_init=self.config.init_f,
         )
-        self.log(f"Skipped {skipped} points to avoid overlap with container", LOG_LVL_DEBUG)
-        self.log(f"Number of objects: {self.n_objs}", LOG_LVL_INFO)
 
-        object_rotations = np.random.uniform(-np.pi, np.pi, (self.n_objs, 3))
-        self.margin = 0.01
-
-        # SET TRANSFORM DATA
-        self.tf_arrs = np.empty((self.n_objs, 7))
-        self.prev_tf_arrs = np.empty((self.n_objs, 7))
-
-        for i in range(self.n_objs):
-            tf_arr_i = np.array([self.settings.init_f, *object_rotations[i], *self.object_coords[i]])
-            self.tf_arrs[i] = tf_arr_i
+        self.log.info(f"Setup with settings: \n{self.config}")
+        self.log.info(f"Number of objects: {len(self.tf_arrays)}")
 
         self.update_data(-1, -1)
-        has_overlap = self.has_object_overlap()
-        has_c_violations = self.has_container_violations()
-        if has_overlap or has_c_violations:
-            raise ValueError("Initial object placement is invalid")
-
-        if self.plotter is not None:
-            self.plotter.show(interactive=True, interactive_update=True)
+        objects = self.current_meshes(shape=self.shape0)
+        init.check_initial_state(self.container0, objects)
 
     def setup_pbars(self):
-        self.pbar1 = tqdm(range(self.settings.n_scaling_steps), desc="scaling \t", position=0)
-        self.pbar2 = tqdm(range(self.settings.itn_max), desc="Iteration\t", position=1)
-        self.pbar3 = tqdm(range(self.n_objs), desc="Object\t", position=2)
+        self.pbar1 = tqdm(
+            range(self.config.n_scale_steps), desc="scale\t", position=1, leave=True, initial=self.i_b
+        )
+        self.pbar2 = tqdm(range(self.config.itn_max), desc="Iteration\t", position=2, leave=True, initial=self.i)
+        self.pbar3 = tqdm(range(self.n_objs), desc="Object\t", position=3, leave=True, initial=0)
 
     # ----------------------------------------------------------------------------------------------
     # Helper functions
     # ----------------------------------------------------------------------------------------------
-    def update_data(self, i_b, i):
-        self.log(f"Updating data for {i_b=}, {i=}")
-        self.add(self.tf_arrs, self.cat_data, (i_b, i))
+    def update_data(self, i_b, i, viol_data=()):
+        self.log.info(f"Updating data for {i_b=}, {i=}")
+        iterdata = IterationData(
+            i,
+            i_b,
+            self.scale_steps[i_b - 1] if i_b > 0 else self.config.init_f,
+            self.scale_steps[i_b],
+            np.count_nonzero(self.tf_arrays[:, 0] >= self.scale_steps[i_b]),
+            self.curr_sample_rate,
+            *viol_data
+        )
+        self.add(self.tf_arrays, self.normals, self.cat_cells, iterdata)
 
-    def log(self, msg, log_lvl=LOG_LVL_INFO):
-        if log_lvl > self.settings.log_lvl:
-            return
+    def sample_rate_mesh(self, scale_factor):
+        if self.config.dynamic_simplification:
+            return int(mesh_simplification_condition(scale_factor, self.config.alpha, self.config.beta) * self.shape0.n_faces * self.config.upscale_factor)
+        return self.shape0.n_faces  # currently simple
 
-        msg = LOG_PREFIX[log_lvl] + msg
-        if self.pbar1 is None:
-            print(msg)
-        else:
-            self.pbar1.write(msg)
 
-    def report(self):
-        df = pd.DataFrame(data=self.tf_arrs, columns=["scale", "r_x", "ry", "rz", "t_x", "t_y", "t_z"])
-        return df
+    def resample_meshes(self, scale_factor=None):
+        self.log.info("resampling meshes")
+        if scale_factor is None:
+            scale_factor = self.curr_max_scale
 
-    def mesh_sample_rate(self, k=0):
-        return self.settings.sample_rate  # currently simple
+        self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
+        self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
+        self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
 
-    def container_sample_rate(self):
-        return self.settings.sample_rate * self.settings.sample_rate_ratio
+        self.log.info(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]")
+        self.log.info(f"mesh: n_faces: {self.curr_sample_rate}[sampled]/{self.shape0.n_faces}[original]")
 
-    def resample_meshes(self):
-        self.log("resampling meshes", LOG_LVL_DEBUG)
-        self.container = resample_pyvista_mesh(self.container0, self.container_sample_rate())
-        self.shape = resample_pyvista_mesh(self.shape0, self.mesh_sample_rate())
+    def run(self, start_idx=None, end_idx=None, Ni=-1):
+        self.check_setup()
+        try:
+            self.executor = PoolExecutor(thread_name_prefix="optimizer")
+            self._run(start_idx, end_idx, Ni)
+            self.executor.shutdown(wait=False, cancel_futures=False)
+        except KeyboardInterrupt:
+            self.executor.shutdown(wait=False, cancel_futures=False)
+            self.write_state()
+        self.log.info("Exiting optimizer.run()")
 
-    @property
-    def n_objs(self):
-        return len(self.object_coords)
-
-    def add_meshes_to_plot(self, coll_meshes, obj_id=None):
-        if self.plotter is None:
-            return
-
-        for mesh in coll_meshes:
-            self.plotter.add_mesh(mesh)
-
-        self.plotter.render()
-
-    def add_mesh_to_plot(self, obj_id):
-        pass
-
-    def update_plot(self):
-        if self.plotter is None:
-            return
-
-        self.plotter.clear()
-        self.plotter.add_mesh(self.container, color="white", opacity=0.2)
-        colors = plots.generate_tinted_colors(self.n_objs)
-        for i, mesh in enumerate(self.final_meshes_after(self.shape)):
-            self.plotter.add_mesh(mesh, color=colors[1][i], opacity=0.7)
-
-        cat_meshes = [
-            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id)) for obj_id in range(self.n_objs)
-        ]
-
-        for i, mesh in enumerate(cat_meshes):
-            self.plotter.add_mesh(mesh, color=colors[0][i], opacity=0.5)
-
-        self.plotter.update()
-        sleep(5)
-
-    def run(self):
-        # self.setup()
+    def _run(self, start_idx=None, end_idx=None, Ni=-1):
         self.setup_pbars()
+        if start_idx is None:
+            start_idx = self.i_b
+        if end_idx is None:
+            end_idx = self.config.n_scale_steps
 
-        for i_b in range(0, self.settings.n_scaling_steps):
-            self.pbar1.set_postfix(ƒ_max=f"{self.scaling_barrier_list[i_b]:.2f}")
+        for i_b in range(start_idx, end_idx):
+            self.log.info(f"Starting scaling step {i_b}")
+            self.i_b = i_b
+            self.resample_meshes(self.curr_max_scale)
+            self.pbar1.set_postfix(ƒ_max=f"{self.curr_max_scale:.3f}")
             self.pbar2.reset()
-            self.pbar3.reset()
-
-            for i in range(self.settings.itn_max):
-                self.iteration(self.scaling_barrier_list[i_b])
+            iteration_times = []
+            for i in range(self.config.itn_max):
+                self.log.info(f"Starting iteration [{i}, scale_step:{i_b}] total: {self.idx}")
+                self.pbar3.reset()
+                self.pbar3.set_postfix(total=self.idx)
+                self.i = i
+                start_time = time()
+                if self.iteration() is False:
+                    continue
+                end_time = time()
+                iteration_times.append(end_time - start_time)
 
                 # administrative stuff
-                self.update_data(i_b, i)
-                self.check_validity()
+                self.process_iteration()
                 self.pbar2.update()
 
-                if np.alltrue([arr[0] >= self.scaling_barrier_list[i_b] for arr in self.tf_arrs]):
-                    self.log(
-                        f"All objects have reached the scaling barrier {self.scaling_barrier_list[i_b]}",
-                        LOG_LVL_INFO,
-                    )
+                if Ni != -1 and self.idx >= Ni:
+                    return
+
+                if self.step_should_terminate():
+                    self.time_per_step[i_b] = np.mean(iteration_times)
+                    self.its_per_step[i_b] = i
                     break
+
             self.pbar1.update()
 
     # ----------------------------------------------------------------------------------------------
     # Optimisation
     # ----------------------------------------------------------------------------------------------
-    def iteration(self, scale_bound):
-        """Perform a single iteration of the optimisation"""
-        # DOWN SAMPLE MESHES
-        self.compute_cat_cells()
-        self.update_plot()
+    def iteration(self):
+        """Perform a single iteration of the optimisation."""
+        try:
+            self.normals, self.cat_cells, self.normals_pp, _ = self.compute_cat_cells()
+        except RuntimeError as e:
+            self.log.error(f"RuntimeError: {e}, Scaling down and trying again...")
+            self.reduce_all_scales()
+            self.errors_per_step[self.i_b] += 1
+            return False
 
-        # GROWTH-BASED OPTIMISATION
-        for obj_id, transform_data_i in enumerate(self.tf_arrs):
-            self.pbar2.set_postfix(obj_id=obj_id)
-            self.local_optimisation(obj_id, transform_data_i, scale_bound)
+        check_cat_cells_quality(self.log,self.normals)
 
-        self.update_plot()
+        self.optimize_positions()
+        return True
 
-    def local_optimisation(self, obj_id, transform_data_i, max_scale):
-        tf_arr = optimal_local_transform(
-            obj_id,
-            self.cat_data,
-            scale_bound=(self.settings.init_f, None),
-            max_angle=self.settings.max_a,
-            max_t=self.settings.max_t,
-            margin=self.margin,
+    def optimize_positions(self):
+        self.log.debug("optimizing cells...")
+        if self.config.sequential is False:
+            self.executor.map(self.parallel_local_optimisation, range(self.n_objs), self.tf_arrays)
+        else:
+            for obj_id, previous_tf_array in enumerate(self.tf_arrays):
+                self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array)
+
+    def parallel_local_optimisation(self,obj_id, previous_tf_array):
+        """workaround for setting the tf_arrays in parallel"""
+        self.tf_arrays[obj_id] = self.local_optimisation(obj_id, previous_tf_array)
+
+    def local_optimisation(self, obj_id, previous_tf_array, max_scale=None):
+        max_scale = max_scale or self.curr_max_scale
+
+        vertex_fpoint_fnormal_arr = np.array(self.normals[obj_id], dtype=np.float64)
+        assert np.shape(vertex_fpoint_fnormal_arr)[1:] == (3,3)
+
+        new_tf = nlc.compute_optimal_transform(
+            previous_tf_array=previous_tf_array,
+            obj_coord=self.object_coords[obj_id],
+            vertex_fpoint_normal_arr=vertex_fpoint_fnormal_arr,
+            max_scale=max_scale,
+            scale_bound=(self.config.init_f, None),
+            max_angle=self.config.max_a,
+            max_t=self.config.max_t * max_scale if self.config.max_t is not None else None,
+            padding=self.config.padding,
         )
-
-        new_tf = transform_data_i + tf_arr
-        new_scale = new_tf[0]
-        if new_scale > max_scale:
-            new_scale = max_scale
-
-        new_tf[0] = new_scale
-        self.tf_arrs[obj_id] = new_tf
-        self.object_coords[obj_id] = new_tf[4:]
         self.pbar3.update()
+        return new_tf
 
-    def compute_cat_cells(self):
-        self.log("Computing CAT cells")
+    def compute_cat_cells(self, kwargs=None) -> tuple[np.ndarray, np.ndarray, np.ndarray, UnstructuredGrid]:
+        self.log.info("Computing CAT cells")
 
-        # TRANSFORM MESHES TO OBJECT COORDINATES, SCALE, ROTATION
-        obj_points = [
-            trimesh.transform_points(self.shape.points.copy(), nlc.construct_transform_matrix(transform_data))
-            for transform_data in self.tf_arrs
+        self.objects = self.current_meshes()
+
+        # Compute the CDT
+        tetmesh = cat.compute_cdt(self.objects + [self.container], kwargs)
+
+        # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
+        obj_point_sets = [set(map(tuple, obj.points)) for obj in self.objects] + [
+            set(map(tuple, self.container.points))
         ]
 
+        # Check that all points are accounted for
+        assert np.sum([len(obj) for obj in obj_point_sets]) == np.sum([obj.n_points for obj in self.objects] + [self.container.n_points])
+        assert np.sum([len(obj) for obj in obj_point_sets]) == tetmesh.n_points, "Some points are created by tetmesh"
+
         # COMPUTE CAT CELLS
-        self.cat_data = cat.compute_cat_cells(obj_points, self.container.points, self.object_coords)
+        normals, cat_cells, normals_pp = cat.compute_cat_faces(
+                tetmesh, obj_point_sets, self.tf_arrays[:, 4:]
+            )
+        return normals, cat_cells, normals_pp, tetmesh
+
+
+    def step_should_terminate(self):
+        """Returns true if all objects are scaled to the current max scale."""
+
+        are_scaled = [arr[0] >= self.curr_max_scale for arr in self.tf_arrays]
+        count = 0
+        for i in range(self.n_objs):
+            if are_scaled[i]:
+                count += 1
+
+        self.log.info(f"{count}/{self.n_objs} objects have reached the scaling barrier")
+        self.log.info(f"scales: {[f'{f[0]:.2f}' for f in self.tf_arrays]}")
+        if count == self.n_objs:
+            return True
+        return False
 
     # ----------------------------------------------------------------------------------------------
     # VALIDITY CHECKS
     # ----------------------------------------------------------------------------------------------
+    def process_iteration(self):
+        i, ib = self.i, self.i_b
+        is_correct = False
+        failed = False
+        while is_correct is False:
+            violations, violating_ids = self.compute_violations()
 
-    def check_validity(self):
-        self.check_cat_boundaries()
-        self.has_container_violations()
-        self.has_object_overlap()
+            is_correct = len(violating_ids) == 0
+            if len(violating_ids) != 0:
+                failed = True
+                self.log.info("reducing scale for violating objects: " + str(violating_ids))
+                for id in violating_ids:
+                    self.reduce_scale(id, scale=0.93)
+
+        if failed:
+            self.fails_per_step[ib] += 1
+        self.update_data(ib, i, violations)
+
+    def compute_violations(self):
+        p_meshes = self.current_meshes()
+        cat_meshes = self.final_cat_meshes()
+        cat_viols, con_viols, collisions = compute_all_collisions(p_meshes, cat_meshes, self.container, set_contacts=False)
+        log_violations(self.log, self.idx+1, (cat_viols, con_viols, collisions))
+        violating_ids = set()
+        for ((obj_ida, obj_idb), _) in collisions:
+            violating_ids.add(obj_ida)
+            violating_ids.add(obj_idb)
+
+        for (obj_id, _) in con_viols:
+            violating_ids.add(obj_id)
+        return (cat_viols,con_viols,collisions),violating_ids
+
+    def reduce_all_scales(self, scale=0.99):
+        for i in self.n_objs:
+            self.reduce_scale(i, scale)
+
+    def reduce_scale(self, id, scale=0.95):
+        self.tf_arrays[id][0] *= scale
 
     def check_closed_cells(self):
         cat_cells = [
-            PolyData(*cat.face_coord_to_points_and_faces(self.cat_data, obj_id)) for obj_id in range(self.n_objs)
+            PolyData(*cat.convert_faces_to_polydata_input(self.cat_cells[obj_id]))
+            for obj_id in range(self.n_objs)
         ]
         for i, cell in enumerate(cat_cells):
             if not cell.is_manifold:
-                self.log(f"CAT cell of object {i} is not manifold", log_lvl=LOG_LVL_WARNING)
+                self.log.error(
+                    f"CAT cell of object {i} is not manifold"
+                )
 
-    def has_object_overlap(self):
-        self.log("checking for collisions", LOG_LVL_DEBUG)
-        p_meshes = self.final_meshes_after(self.shape)
 
-        extents = np.array([(get_max_bounds(mesh.bounds), mesh.volume) for mesh in p_meshes])
-        self.log(f"all mesh bounds, volumes: {extents}", LOG_LVL_DEBUG)
-        n, colls, coll_meshes = compute_collisions(p_meshes)
+def default_optimizer_config(N=5) -> "Optimizer":
+    DATA_FOLDER = "./../../data/mesh/"
 
-        if n > 0:
-            self.log(f"! collision found for {n} objects with total of {colls} contacts", LOG_LVL_SEVERE)
-            return self.add_meshes_to_plot(coll_meshes)
-        return n > 0
+    coverage_rate = 0.3
+    mesh_volume = 0.2
+    container_volume = 10
+    mesh_volume = container_volume * coverage_rate  / N
 
-    def check_cat_boundaries(self):
-        self.log("checking for cat boundary violations", LOG_LVL_DEBUG)
-        p_meshes = self.final_meshes_after(self.shape)
-        cat_meshes = self.final_cat_meshes()
-        n, violations, meshes = compute_cat_violations(p_meshes, cat_meshes)
+    loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
+    container = pv.Sphere()
 
-        if n > 0:
-            self.log(f"! cat boundary violation for objects {violations}", LOG_LVL_SEVERE)
-            self.add_meshes_to_plot(meshes)
+    # Scale the mesh and container to the desired volume
+    container = scale_to_volume(container, container_volume)
+    original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
+    print_mesh_info(original_mesh, "original mesh")
 
-    def has_container_violations(self):
-        self.log("checking for container violations", LOG_LVL_DEBUG)
-        p_meshes = self.final_meshes_after(self.shape)
-        n, violations, meshes = compute_container_violations(p_meshes, self.container)
+    config = SimConfig(
+        itn_max=100,
+        n_scale_steps=9,
+        r=coverage_rate,
+        final_scale=1.0,
+        log_lvl=logging.ERROR,
+        init_f=0.1,
+        max_t=mesh_volume**(1 / 3) * 2,
+        padding=1E-4 * mesh_volume**(1 / 3),
+        dynamic_simplification=True,
+        alpha=0.1,
+        beta=0.5,
+        upscale_factor=1,
+    )
+    optimizer = Optimizer(original_mesh, container, config, description="cells_in_sphere")
+    return optimizer
 
-        if n > 0:
-            self.log(f"! container violation for objects {violations}", LOG_LVL_SEVERE)
-            self.add_meshes_to_plot(meshes)
-        return n > 0
+def simple_shapes_optimizer_config() -> "Optimizer":
+    mesh_volume = 0.2
+    container_volume = 10
 
-    @staticmethod
-    def default_setup() -> "Optimizer":
-        DATA_FOLDER = "./data/mesh/"
+    original_mesh = pv.Cube().triangulate().extract_surface()
+    container = pv.Cube().triangulate().extract_surface()
 
-        mesh_volume = 0.1
-        container_volume = 10
+    container = scale_to_volume(container, container_volume)
+    original_mesh = scale_and_center_mesh(original_mesh, mesh_volume)
+    print_mesh_info(original_mesh, "original mesh")
 
-        loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
-        container = pv.Sphere()
+    settings = SimConfig(
+        itn_max=100,
+        n_scale_steps=9,
+        r=0.3,
+        final_scale=1,
+        sample_rate=None,
+        log_lvl=logging.WARNING,
+        init_f=0.1,
+        # padding=0,
+    )
+    plotter = None
+    optimizer = Optimizer(original_mesh, container, settings, plotter)
+    return optimizer
 
-        # Scale the mesh and container to the desired volume
-        container = scale_to_volume(container, container_volume)
-        original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
-        print_mesh_info(original_mesh, "original mesh")
-
-        settings = SimSettings(
-            itn_max=10,
-            n_scaling_steps=10,
-            r=0.3,
-            final_scale=0.5,
-            sample_rate=300,
-            log_lvl=0,
-            init_f=0.1,  # NOTE: Smaller than paper
+def load_optimizer_from_state(statefile: str) -> 'Optimizer':
+        state = OptimizerData.load_state(statefile)
+        optimizer = Optimizer(
+            shape=state.shape0,
+            container=state.container0,
+            config=state.settings,
         )
-        plotter = None
-        plotter = pv.Plotter(off_screen=True)
-        optimizer = Optimizer(original_mesh, container, settings, plotter)
+        optimizer.description = state.description
+        optimizer.tf_arrays = state.tf_arrays
+        optimizer.i = 0
+        optimizer.i_b = state.iteration_data.i_b
+        optimizer.curr_sample_rate = state.iteration_data.sample_rate
         return optimizer
 
-    @staticmethod
-    def simple_shapes_setup() -> "Optimizer":
-        mesh_volume = 4
-        container_volume = 10
-
-        loaded_mesh = pv.Sphere().extract_surface()
-        container = pv.Sphere().extract_surface()
-
-        container = scale_to_volume(container, container_volume)
-        original_mesh = scale_and_center_mesh(loaded_mesh, mesh_volume)
-
-        settings = SimSettings(
-            itn_max=1,
-            n_scaling_steps=1,
-            r=0.3,
-            final_scale=1,
-            sample_rate=100,
-            log_lvl=0,
-            decimate=False,
-            init_f=0.1,  # NOTE: Smaller than paper
-            sample_rate_ratio=1,
-        )
-        plotter = None
-        optimizer = Optimizer(original_mesh, container, settings, plotter)
-        return optimizer
+if __name__ == "__main__":
+    print("This is an example run of the optimizer.\n\
+       the optimizer will run for 10 iterations and then plot the final state.")
+    optimizer = default_optimizer_config()
+    optimizer.setup()
+    optimizer.run()
+    optimizer.plotter.plot_step()
 
 
 # %%
-
-# optimizer = Optimizer.simple_shapes_setup()
-# optimizer.setup()
-
-# # %%
-# optimizer.run()
-
-# # %%
-# reload(plots)
-# plotter = pv.Plotter()
-# # enumerate
-# plots.plot_full_comparison(
-#     optimizer.meshes_before(0, optimizer.shape),
-#     # optimizer.final_meshes_before(optimizer.shape),
-#     optimizer.final_meshes_after(optimizer.shape),
-#     # optimizer.final_cat_meshes(),
-#     optimizer.cat_meshes(0),
-#     optimizer.container,
-#     plotter,
-# )
-# # %%
-# obj_i = 0
-# plots.plot_step_comparison(
-#     optimizer.mesh_before(0, obj_i, optimizer.shape),
-#     optimizer.mesh_after(0, obj_i, optimizer.shape),
-#     optimizer.cat_mesh(0, obj_i),
-# )
-
-
-# # %%
-# @pprofile
-# def profile_optimizer():
-#     optimizer.run()

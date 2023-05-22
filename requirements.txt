@@ -12,3 +12,6 @@ plotly
 rtree
 networkx
 pandas
+parameterized
+black
+scikit-learntetgen

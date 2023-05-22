@@ -31,6 +31,10 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
+import sphinx_rtd_theme
+
+import irregular_object_packing
+
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
@@ -75,7 +79,6 @@ author = "Maurits Bos"
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-import irregular_object_packing
 
 # The short X.Y version.
 version = irregular_object_packing.__version__
@@ -107,7 +110,6 @@ todo_include_todos = False
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
-import sphinx_rtd_theme
 
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
@@ -176,7 +178,15 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "irregular-object-packing", "irregular-object-packing Documentation", [author], 1)]
+man_pages = [
+    (
+        master_doc,
+        "irregular-object-packing",
+        "irregular-object-packing Documentation",
+        [author],
+        1,
+    )
+]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -191,7 +201,7 @@ texinfo_documents = [
         "irregular-object-packing Documentation",
         author,
         "irregular-object-packing",
-        'Python package for packing irregularly shaped objects in an arbitrary 3D container"',
+        ("Python package for packing irregularly shaped objects in an arbitrary 3D" ' container"'),
         "Miscellaneous",
     ),
 ]
