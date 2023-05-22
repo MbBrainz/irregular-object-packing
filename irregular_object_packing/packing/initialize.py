@@ -1,12 +1,10 @@
 """Initialization phase of the packing algorithm."""
 # %%
-from typing import List
 
 import numpy as np
 import trimesh
 from pyvista import PolyData, StructuredGrid
 from scipy.optimize import minimize
-from scipy.spatial import Voronoi
 from wrapt_timeout_decorator import timeout
 
 from irregular_object_packing.mesh.collision import (
@@ -272,19 +270,6 @@ def initialize_state(mesh, container, coverage_rate, f_init):
 
     return tf_arrays
 
-def grid_initialisation(
-    container: PolyData,
-    mesh: PolyData,
-    coverage_rate: float = 0.3,
-    f_init: float = 0.1,
-) -> np.ndarray:
-    """Generates a grid of points within the bounds of the bounding box."""
-    # Init
-    max_dim_mesh = get_max_radius(mesh) * 2
-    min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
-    grid_dimensions = find_optimal_grid_spacing(mesh, container, coverage_rate, min_distance_between_meshes)
-    grid_points = generate_sample_points(mesh, container, grid_dimensions, min_distance_between_meshes)
-    return grid_points
 
 
 def check_initial_state(container, objects):
@@ -302,39 +287,16 @@ def check_initial_state(container, objects):
         )
 
 # NOT IN USE CURRENTLY
-class PartitionBuilder:
-    vor: Voronoi
-    container: PolyData
-    points: np.ndarray
-    seed_points: np.ndarray = np.empty((0))
-    threshold: float = 0.01
-    power_cells: List[np.ndarray] = []
-
-    def __init__(self, container: PolyData, points: np.ndarray):
-        self.container = container
-        self.points = points
-        self.seed_points = np.random.rand(len(points), 3) * 4
-        self.vor = Voronoi(points)
-
-    def power_cell_step(self):
-        self.power_cells = []
-        for i in range(len(self.points)):
-            region = self.vor.regions[self.vor.point_region[i]]
-            if len(region) > 0:
-                vertices = self.vor.vertices[region]
-                # power_cell = PolyData(vertices=vertices, faces=self.vor.ridge_vertices)
-                # power_cell = power_cell.intersection(self.container)
-                power_cell = vertices
-                self.power_cells.append(power_cell)
-
-        # centroids = []
-        # for power_cell in self.power_cells:
-        # # Use a library such as numpy to compute the centroid of the cell
-        #     centroid = np.mean(power_cell, axis=0)
-        #     centroids.append(centroid)
-
-    def run(self):
-        for _i in range(100):
-            self.power_cell_step()
-
-# %%
+def grid_initialisation(
+    container: PolyData,
+    mesh: PolyData,
+    coverage_rate: float = 0.3,
+    f_init: float = 0.1,
+) -> np.ndarray:
+    """Generates a grid of points within the bounds of the bounding box."""
+    # Init
+    max_dim_mesh = get_max_radius(mesh) * 2
+    min_distance_between_meshes = f_init ** (1 / 3) * max_dim_mesh
+    grid_dimensions = find_optimal_grid_spacing(mesh, container, coverage_rate, min_distance_between_meshes)
+    grid_points = generate_sample_points(mesh, container, grid_dimensions, min_distance_between_meshes)
+    return grid_points

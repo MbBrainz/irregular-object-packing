@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
-from dataclass_csv import DataclassReader, DataclassWriter
+import pandas as pd
+from dataclass_csv import DataclassWriter
 from numpy import ndarray
+from pandas import DataFrame
 
 CONFIG = {
     "number_of_iterations": 1,
@@ -61,10 +63,15 @@ class ResultData:
             writer = DataclassWriter(f, [], ResultData)
             writer.write()
 
-    def read_csv(self, file_path):
-        with open(file_path, 'r') as f:
-            reader = DataclassReader(f, ResultData)
-            reader.write()
+    @staticmethod
+    def read_csv(file_path):
+        df = pd.read_csv(file_path)
+        return df
+
+    @staticmethod
+    def read_csv_to_df(file_path):
+        return DataFrame(ResultData.read_csv(file_path))
+
 
     def update_csv(self, file_path):
         with open(file_path, 'a') as f:

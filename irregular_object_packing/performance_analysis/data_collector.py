@@ -58,7 +58,7 @@ class DataCollector:
     """Time this collector started collecting data"""
     description: str
     """Description of the data collection"""
-    number_of_iterations = 3
+    number_of_iterations = 1
     """number of iterations to run per parameter set"""
     Ni: int = -1
     test: bool = False
@@ -66,12 +66,11 @@ class DataCollector:
     #############################
     # INITIALIZATION
     #############################
-    def __init__(self, number_of_iterations, description,test):
+    def __init__(self, number_of_iterations, description, test):
         self.number_of_iterations = number_of_iterations
         self.description = description
         self._set_start_time()
         self.test = test
-        self.Ni = 1 if test else -1
 
     def setup_directories(self):
         Path(CONFIG["result_dir"]).mkdir(parents=True, exist_ok=True)
@@ -145,7 +144,8 @@ class DataCollector:
                 setup_time = time.time() - setup_time
 
                 run_time = time.time()
-                optimizer.run(Ni=1)
+
+                optimizer.run(Ni=1 if self.test else -1)
                 run_time = time.time() - run_time
 
                 ResultData.create_result(

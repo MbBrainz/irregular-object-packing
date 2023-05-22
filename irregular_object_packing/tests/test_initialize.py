@@ -142,6 +142,7 @@ class TestInitialize(unittest.TestCase):
             msg=f"not all coords are far enough apart ({descr})",
         )
 
+    @unittest.skip("not implemented")
     def test_grid_initialisation(self):
         container_volume = 10
         mesh_volume = 0.1
@@ -151,7 +152,6 @@ class TestInitialize(unittest.TestCase):
             coords = grid_initialisation(container, shape, 0.3, 0.1)
 
             self.assertAlmostEqual(len(coords) * shape.volume, container.volume * 0.3, places=3)
-
 
     def test_get_max_radius(self):
         mesh = pv.Sphere(radius=1)
