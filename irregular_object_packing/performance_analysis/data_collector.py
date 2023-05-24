@@ -35,21 +35,23 @@ from irregular_object_packing.performance_analysis.search_parameters import (
 )
 
 
-def get_pv_container(name):
+def get_pv_container(container_name):
     """Returns the container from a string"""
-    match name:
+    match container_name:
         case "cube": return pv.Cube().triangulate().extract_surface()
         case "sphere": return pv.Sphere()
         case "cylinder": return pv.Cylinder()
+        case _: raise ValueError(f"Container {container_name} not found")
 
 
-def get_shape(name):
+def get_shape(shape_name):
     """Returns the shape from a string"""
-    match name:
+    match shape_name:
         case "cube": return pv.Cube().triangulate().extract_surface()
         case "sphere": return pv.Sphere().triangulate().extract_surface()
         case "normal_red_blood_cell": return pv.read("../../data/mesh/RBC_normal.stl")
         case "sickle_red_blood_cell": return pv.read("../../data/mesh/sikleCell.stl")
+        case _ : raise ValueError(f"Shape {shape_name} not found")
 
 # TODO: Abstract away all the read and write logic to a separate class
 class DataCollector:

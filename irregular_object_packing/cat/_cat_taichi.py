@@ -10,7 +10,7 @@ class CatTaichi():
 @ti.data_oriented
 class ObjData():
     def __init__(self, mesh) -> None:
-        self.points =
+        pass
 
 # Like the parameters you see in the mesh examples like velocity or weight, we could add an index to each vertex with the related object id.
 # maybe we could also add a initially empty vector/list there to store the cat face lateron, what do you think?

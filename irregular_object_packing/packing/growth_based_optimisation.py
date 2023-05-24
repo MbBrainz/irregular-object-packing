@@ -167,7 +167,7 @@ class Optimizer(OptimizerData):
                 self.pbar3.set_postfix(total=self.idx)
                 self.i = i
                 start_time = time()
-                if self.iteration() is False:
+                if self.perform_optimisation_iteration() is False:
                     continue
                 end_time = time()
                 iteration_times.append(end_time - start_time)
@@ -189,8 +189,8 @@ class Optimizer(OptimizerData):
     # ----------------------------------------------------------------------------------------------
     # Optimisation
     # ----------------------------------------------------------------------------------------------
-    def iteration(self):
-        """Perform a single iteration of the optimisation."""
+    def perform_optimisation_iteration(self):
+        """Computes cat cells and scales the objects accordingly"""
         try:
             self.normals, self.cat_cells, self.normals_pp, _ = self.compute_cat_cells()
         except RuntimeError as e:
