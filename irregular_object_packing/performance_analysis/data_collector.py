@@ -17,7 +17,6 @@ import time
 from os import path
 from pathlib import Path
 from time import gmtime, strftime
-from typing import List
 
 import click
 import pyvista as pv
@@ -94,7 +93,7 @@ class DataCollector:
         return "results_{}_{}_{}.csv".format(CONFIG["title"],self.start_time,self.description)
 
 
-    def parameter_combinations(self) -> List[dict]:
+    def parameter_combinations(self) -> list[dict]:
         """Return the parameters used for the data collection"""
         keys, values = zip(*PARAMETERS.items(), strict=True)
         return [dict(zip(keys, v, strict=True)) for v in itertools.product(*values)]
