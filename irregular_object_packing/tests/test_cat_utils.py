@@ -141,8 +141,8 @@ class TestMeshFunctions(unittest.TestCase):
         # self.assertEqual(result.size, 0)
 
         # Test with one cell
-        cells = np.array([4, 0, 1, 2, 3])
-        grid = UnstructuredGrid(cells, np.array([10]), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]]))
+        cells = np.array([4, 0, 1, 2, 3], dtype=np.int64)
+        grid = UnstructuredGrid(cells, np.array([10], dtype=np.float64), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64))
         result = get_tetmesh_cell_arrays(grid)
         self.assertTrue(np.array_equal(result, np.array([[0, 1, 2, 3]])))
 

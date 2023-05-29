@@ -79,10 +79,6 @@ def compute_face_unit_normal(points, v_i):
     Raises:
     AssertionError: If the number of points in the input list is not 3 or 4.
 
-    Examples
-    --------
-    >>> compute_face_normal(np.array([[0, 0, 0], [0, 0, 1], [1, 0, 0]]), np.array([0, 1, 2]))
-    array([0, 1, 0])
     """
     shape = np.shape(points)
     assert shape[1] == 3, "The points should be 3D."

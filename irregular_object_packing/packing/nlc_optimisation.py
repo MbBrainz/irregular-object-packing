@@ -71,14 +71,14 @@ def construct_transform_matrix(f, theta, t):
     T : (4, 4) ndarray
         Transformation matrix.
 
-    Examples
-    --------
-    >>> x = np.array([1, 0, 0, 0, 0, 0, 0])
-    >>> construct_transform_matrix(x)
-    array([[1., 0., 0., 0.],
-           [0., 1., 0., 0.],
-           [0., 0., 1., 0.],
-           [0., 0., 0., 1.]])
+    # Examples
+    # --------
+    # >>> x = np.array([1, 0, 0, 0, 0, 0, 0])
+    # >>> construct_transform_matrix(x)
+    # array([[1., 0., 0., 0.],
+    #        [0., 1., 0., 0.],
+    #        [0., 0., 1., 0.],
+    #        [0., 0., 0., 1.]])
     """
     # Extract parameters
     # Construct identity transformation matrix

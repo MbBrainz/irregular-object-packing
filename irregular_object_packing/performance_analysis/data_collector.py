@@ -38,20 +38,29 @@ from irregular_object_packing.performance_analysis.search_parameters import (
 def get_pv_container(container_name):
     """Returns the container from a string"""
     match container_name:
-        case "cube": return pv.Cube().triangulate().extract_surface()
-        case "sphere": return pv.Sphere()
-        case "cylinder": return pv.Cylinder()
-        case _: raise ValueError(f"Container {container_name} not found")
+        case "cube":
+            return pv.Cube().triangulate().extract_surface()
+        case "sphere":
+            return pv.Sphere()
+        case "cylinder":
+            return pv.Cylinder()
+        case _:
+            raise ValueError(f"Container {container_name} not found")
 
 
 def get_shape(shape_name):
     """Returns the shape from a string"""
     match shape_name:
-        case "cube": return pv.Cube().triangulate().extract_surface()
-        case "sphere": return pv.Sphere().triangulate().extract_surface()
-        case "normal_red_blood_cell": return pv.read("../../data/mesh/RBC_normal.stl")
-        case "sickle_red_blood_cell": return pv.read("../../data/mesh/sikleCell.stl")
-        case _ : raise ValueError(f"Shape {shape_name} not found")
+        case "cube":
+            return pv.Cube().triangulate().extract_surface()
+        case "sphere":
+            return pv.Sphere().triangulate().extract_surface()
+        case "normal_red_blood_cell":
+            return pv.read("../../data/mesh/RBC_normal.stl")
+        case "sickle_red_blood_cell":
+            return pv.read("../../data/mesh/sikleCell.stl")
+        case _ :
+            raise ValueError(f"Shape {shape_name} not found")
 
 # TODO: Abstract away all the read and write logic to a separate class
 class DataCollector:
@@ -95,7 +104,7 @@ class DataCollector:
         return "results_{}_{}_{}.csv".format(CONFIG["title"],self.start_time,self.description)
 
 
-    def parameter_combinations(self) -> list[dict]:
+    def parameter_combinations(elf) -> list[dict]:
         """Return the parameters used for the data collection"""
         keys, values = zip(*PARAMETERS.items(), strict=True)
         return [dict(zip(keys, v, strict=True)) for v in itertools.product(*values)]
@@ -132,7 +141,7 @@ class DataCollector:
         optimizer = Optimizer(shape, container, config, "performance_tests")
         return optimizer
 
-    def collect(self,scenarios):
+    def collect_time_data(self,scenarios):
         """Collect the data"""
         tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0}, position=0, leave=True)
         for scenario in tqdm_bar:
@@ -161,6 +170,17 @@ class DataCollector:
                     errors_per_step=optimizer.errors_per_step,
                 ).update_csv(self.path)
 
+    def collect_profile_data(self,scenarios):
+        """Collect the data"""
+        tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0}, position=0, leave=True)
+        for _scenario in tqdm_bar:
+            # handle generic scenario # [ ] TODO
+            # we want to profile the CDT, the CAT and the growth based optimisation for each scenario
+
+            # only profile one iteration for eaach scenario,
+            # going from small scale to large and from little to many objects
+            pass
+
     def run(self):
         """Run the data collection"""
 
@@ -174,7 +194,7 @@ class DataCollector:
         print("Checking initialisation of all scenarios...")
         self.check_initialisation(test_scenarios)
         print("start collecting...")
-        self.collect(test_scenarios)
+        self.collect_time_data(test_scenarios)
         print("Data collection finished.")
 
 @click.command()
@@ -190,3 +210,5 @@ if __name__ == "__main__":
     main()
     # idea: add one cli flag to option that specifies a new type of data collection
 
+
+# %%

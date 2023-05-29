@@ -9,9 +9,6 @@ from pyvista import PolyData, UnstructuredGrid
 from tqdm.auto import tqdm
 
 from irregular_object_packing.cat import chordal_axis_transform as cat
-from irregular_object_packing.mesh.collision import (
-    compute_all_collisions,
-)
 from irregular_object_packing.mesh.sampling import (
     mesh_simplification_condition,
     resample_mesh_by_triangle_area,
@@ -35,6 +32,10 @@ from irregular_object_packing.packing.optimizer_plotter import ScenePlotter
 from irregular_object_packing.packing.utils import (
     check_cat_cells_quality,
     log_violations,
+)
+
+from ..mesh.collision import (
+    compute_all_collisions,
 )
 
 

@@ -3,9 +3,6 @@
     # import numpy as np
     # import pyvista as pv
 
-    # from irregular_object_packing.cat.tetra_cell import filter_relevant_cells
-    # from irregular_object_packing.cat.utils import get_cell_arrays
-    # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
     # optimizer = Optimizer.default_config()
     # object_meshes = optimizer.current_meshes()
@@ -39,3 +36,5 @@
     # plotter.show()
 
 # https://stackoverflow.com/questions/73490842/find-cells-from-vertices-in-pyvista-polydata-mesh
+
+# %%

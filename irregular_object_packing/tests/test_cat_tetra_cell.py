@@ -51,10 +51,15 @@ def empty_normals_and_cells():
     for _i in range(n_objs):
         face_normals.append([])
 
+    face_normals_pp = []
+    for _i in range(5):
+        face_normals_pp.append([])
+
+
     cat_cells = []
     for _i in range(n_objs):
         cat_cells.append([])
-    return face_normals, cat_cells
+    return face_normals, cat_cells, face_normals_pp
 
 def cell_1111() -> tuple[TetraCell, list, list]:
     point_ids = [1, 2, 3, 4]
@@ -177,33 +182,33 @@ class SplitAndProcess(unittest.TestCase):
         pass
     def test_1111(self):
         cell, _, _ = cell_1111()
-        normals, cat_cells = empty_normals_and_cells()
+        normals, cat_cells, normals_pp = empty_normals_and_cells()
         all_tet_points = resort_points(cell.points)
-        split_and_process(cell, all_tet_points, normals, cat_cells)
+        split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
         self.assert_correct_split_and_process(cell,all_tet_points,normals, cat_cells, SPLIT_4_OUTPUT)
 
     def test_3331(self):
         cell, _, _ = cell_3331()
-        normals, cat_cells = empty_normals_and_cells()
+        normals, cat_cells, normals_pp = empty_normals_and_cells()
         all_tet_points = resort_points(cell.points)
-        split_and_process(cell, all_tet_points, normals, cat_cells)
+        split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
 
         self.assert_correct_split_and_process( cell, all_tet_points, normals, cat_cells, SPLIT_2_3331_OUTPUT)
 
     def test_2222(self):
         cell, _, _ = cell_2222()
-        normals, cat_cells = empty_normals_and_cells()
+        normals, cat_cells, normals_pp = empty_normals_and_cells()
         all_tet_points = resort_points(cell.points)
-        split_and_process(cell, all_tet_points, normals, cat_cells)
+        split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
         self.assert_correct_split_and_process(cell, all_tet_points, normals, cat_cells, SPLIT_2_2222_OUTPUT)
 
 
     unittest.skip("resort points doesnt function properly but tests result is correct")
     def test_2211(self):
         cell, _, _ = cell_2211()
-        normals, cat_cells = empty_normals_and_cells()
+        normals, cat_cells, normals_pp = empty_normals_and_cells()
         all_tet_points = resort_points(cell.points)
-        split_and_process(cell, all_tet_points, normals, cat_cells)
+        split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
         self.assert_correct_split_and_process(cell, all_tet_points , normals, cat_cells, SPLIT_3_OUTPUT)
 
 
