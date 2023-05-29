@@ -13,7 +13,7 @@ CONFIG = {
     "data_dir": "../data",
 }
 
-PARAMETERS = {
+CASE_PARAMETER_SEARCH = {
     'n_objects': [5, 6, 7, 8, 9,],
     'container': ['sphere', 'cube',],
     # 'container': ["cube", 'cylinder', 'sphere'],
@@ -25,6 +25,24 @@ PARAMETERS = {
     'beta': [0.5],
     # 'alpha': [0.01, 0.05, 0.1],
     # 'beta': [0.01, 0.05, 0.1],
+}
+
+CASE_TRIVIAL_SHAPES = {
+    'n_objects': [1,],
+    'container': ['cube','sphere','cylinder', 'tetrahedron', 'cone'],
+    'shape': ["cube", 'sphere', "cylinder", 'tetrahedron', 'cone'],
+    'padding': [0],
+    'alpha': [0.1],
+    'beta': [0.5],
+}
+
+CASE_BLOODCELL_MAX = {
+    'n_objects': [2, 4, 8, 16, 32, 64],
+    'container': ['cylinder', 'cube', 'sphere'],
+    'shape': ["normal_red_blood_cell"],
+    'padding': [0],
+    'alpha': [0.1],
+    'beta': [0.5],
 }
 
 RESULTS = {

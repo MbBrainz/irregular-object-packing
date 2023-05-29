@@ -9,6 +9,9 @@ from pyvista import PolyData, UnstructuredGrid
 from tqdm.auto import tqdm
 
 from irregular_object_packing.cat import chordal_axis_transform as cat
+from irregular_object_packing.mesh.collision import (
+    compute_all_collisions,
+)
 from irregular_object_packing.mesh.sampling import (
     mesh_simplification_condition,
     resample_mesh_by_triangle_area,
@@ -32,10 +35,6 @@ from irregular_object_packing.packing.optimizer_plotter import ScenePlotter
 from irregular_object_packing.packing.utils import (
     check_cat_cells_quality,
     log_violations,
-)
-
-from ..mesh.collision import (
-    compute_all_collisions,
 )
 
 
@@ -123,7 +122,6 @@ class Optimizer(OptimizerData):
         if self.config.dynamic_simplification:
             return int(mesh_simplification_condition(scale_factor, self.config.alpha, self.config.beta) * self.shape0.n_faces * self.config.upscale_factor)
         return self.shape0.n_faces  # currently simple
-
 
     def resample_meshes(self, scale_factor=None):
         self.log.info("resampling meshes")
@@ -328,7 +326,6 @@ class Optimizer(OptimizerData):
                     f"CAT cell of object {i} is not manifold"
                 )
 
-
 def default_optimizer_config(N=5) -> "Optimizer":
     DATA_FOLDER = "./../../data/mesh/"
 
@@ -406,7 +403,7 @@ if __name__ == "__main__":
        the optimizer will run for 10 iterations and then plot the final state.")
     optimizer = default_optimizer_config()
     optimizer.setup()
-    optimizer.run()
+    optimizer.run(Ni=10)
     optimizer.plotter.plot_step()
 
 

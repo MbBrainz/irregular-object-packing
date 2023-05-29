@@ -29,8 +29,8 @@ from irregular_object_packing.mesh.transform import (
 from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 from irregular_object_packing.packing.optimizer_data import SimConfig
 from irregular_object_packing.performance_analysis.search_parameters import (
+    CASE_PARAMETER_SEARCH,
     CONFIG,
-    PARAMETERS,
     ResultData,
 )
 
@@ -99,6 +99,7 @@ class DataCollector:
         """Return the path to the data file"""
         return path.join(CONFIG["result_dir"], self._data_file_name())
 
+
     def _data_file_name(self):
         """Return the path to the registry file"""
         return "results_{}_{}_{}.csv".format(CONFIG["title"],self.start_time,self.description)
@@ -106,7 +107,7 @@ class DataCollector:
 
     def parameter_combinations(elf) -> list[dict]:
         """Return the parameters used for the data collection"""
-        keys, values = zip(*PARAMETERS.items(), strict=True)
+        keys, values = zip(*CASE_PARAMETER_SEARCH.items(), strict=True)
         return [dict(zip(keys, v, strict=True)) for v in itertools.product(*values)]
             # key should match the parameter name in the data model
 
@@ -158,6 +159,8 @@ class DataCollector:
                 optimizer.run(Ni=1 if self.test else -1)
                 run_time = time.time() - run_time
 
+                # Add an image of the result
+
                 ResultData.create_result(
                     scenario,
                     i=i,
@@ -176,6 +179,7 @@ class DataCollector:
         for _scenario in tqdm_bar:
             # handle generic scenario # [ ] TODO
             # we want to profile the CDT, the CAT and the growth based optimisation for each scenario
+
 
             # only profile one iteration for eaach scenario,
             # going from small scale to large and from little to many objects
