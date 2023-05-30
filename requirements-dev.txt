@@ -22,3 +22,4 @@ sphinx_rtd_theme
 ipykernel
 tornado==6.1
 jupyter_client==7.3.2
+trame

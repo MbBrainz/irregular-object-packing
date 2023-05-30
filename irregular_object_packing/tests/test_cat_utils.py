@@ -6,6 +6,7 @@ from pyvista import UnstructuredGrid
 
 from irregular_object_packing.cat.utils import (
     compute_face_unit_normal,
+    create_face_normal,
     get_cell_arrays,
     get_tetmesh_cell_arrays,
     n_related_objects,
@@ -93,13 +94,21 @@ class TestSortByOccurrence(unittest.TestCase):
 class TestComputeFaceUnitNormal(unittest.TestCase):
     @parameterized.expand([
         # 3 points, with point on the positive z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]), np.array([1, 1, 1]), np.array([0, 0, 1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, 1]),
+         np.array([0, 0, 1])),
         # 3 points, with point on the negative z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]), np.array([1, 1, -1]), np.array([0, 0, -1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, -1]),
+         np.array([0, 0, -1])),
         # 4 points, with point on the positive z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]), np.array([1, 1, 1]), np.array([0, 0, 1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]),
+         np.array([1, 1, 1]),
+         np.array([0, 0, 1])),
         # 4 points, with point on the negative z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]), np.array([1, 1, -1]), np.array([0, 0, -1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]),
+         np.array([1, 1, -1]),
+         np.array([0, 0, -1])),
     ])
     def test_normal_cases(self, points, v_i, expected_normal):
         result = compute_face_unit_normal(points, v_i)
@@ -115,6 +124,43 @@ class TestComputeFaceUnitNormal(unittest.TestCase):
         with self.assertRaises(AssertionError):
             compute_face_unit_normal(points, v_i)
 
+class CreateFaceNormal(unittest.TestCase):
+    @parameterized.expand([
+        # format:
+            # (points, 
+            #  v_i, 
+            #  expected_normal)
+
+        # 3 points, with point on the positive z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, 1]),
+         np.array([[1, 1, 1], [0,0,0], [0,0,1]])),
+        # 3 points, with point on the negative z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, -1]),
+         np.array([[1,1,-1], [0,0,0], [0, 0, -1]])),
+        # 4 points, with point on the positive z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, 1]),
+         np.array([[1,1,1],[0,0,0],[0, 0, 1]])),
+        # 4 points, with point on the negative z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, -1]),
+         np.array([[1,1,-1],[0,0,0], [0, 0, -1]])),
+    ])
+    def test_normal_cases(self, points, v_i, expected_normal):
+        result = create_face_normal(points, v_i)
+        np.testing.assert_array_almost_equal(result, expected_normal)
+
+    @parameterized.expand([
+        # 2D points
+        (np.array([[0, 0], [0, 1], [1, 0]]), np.array([1, 1])),
+        # 5 points
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [0, 0, 1], [1, 1, 1]]), np.array([1, 1, 1])),
+    ])
+    def test_exception_cases(self, points, v_i):
+        with self.assertRaises(AssertionError):
+            create_face_normal(points, v_i)
 
 class TestMeshFunctions(unittest.TestCase):
 
@@ -148,7 +194,7 @@ class TestMeshFunctions(unittest.TestCase):
 
         # Test with two cells
         cells = np.array([4, 0, 1, 2, 3, 4, 4, 5, 6, 7])
-        grid = UnstructuredGrid(cells, np.array([10, 10]), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 1, 0], [0, 1, 1], [1, 0, 1]]))
+        grid = UnstructuredGrid(cells, np.array([10, 10]), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 1, 0], [0, 1, 1], [1, 0, 1]], dtype=np.float64))
         result = get_tetmesh_cell_arrays(grid)
         self.assertTrue(np.array_equal(result, np.array([[0, 1, 2, 3], [4, 5, 6, 7]])))
 

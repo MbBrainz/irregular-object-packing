@@ -1,30 +1,31 @@
 import numpy as np
 import pyvista as pv
-from sklearn.cluster import KMeans
+
+# from sklearn.cluster import KMeans
 
 
-def resample_pyvista_mesh_kmeans(mesh: pv.PolyData, target_vertices: int):
-    # Convert PyVista mesh to NumPy points|
-    points = mesh.points
+# def resample_pyvista_mesh_kmeans(mesh: pv.PolyData, target_vertices: int):
+#     # Convert PyVista mesh to NumPy points|
+#     points = mesh.points
 
-    # Cluster points using KMeans to get the target number of vertices
-    kmeans = KMeans(n_clusters=target_vertices)
-    kmeans.fit(points)
-    new_points = kmeans.cluster_centers_
+#     # Cluster points using KMeans to get the target number of vertices
+#     kmeans = KMeans(n_clusters=target_vertices)
+#     kmeans.fit(points)
+#     new_points = kmeans.cluster_centers_
 
-    # Create a new mesh from the reduced points
-    cloud = pv.PolyData(new_points)
+#     # Create a new mesh from the reduced points
+#     cloud = pv.PolyData(new_points)
 
-    # Regenerate the surface mesh using Delaunay triangulation
-    new_mesh = cloud.reconstruct_surface()
+#     # Regenerate the surface mesh using Delaunay triangulation
+#     new_mesh = cloud.reconstruct_surface()
 
-    # Extract the surface of the 3D triangulation
-    new_mesh = new_mesh.extract_surface()
+#     # Extract the surface of the 3D triangulation
+#     new_mesh = new_mesh.extract_surface()
 
-    # Smooth the mesh
-    new_mesh = new_mesh.smooth(n_iter=10)
+#     # Smooth the mesh
+#     new_mesh = new_mesh.smooth(n_iter=10)
 
-    return new_mesh
+#     return new_mesh
 
 
 def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):

@@ -19,7 +19,6 @@ from pathlib import Path
 from time import gmtime, strftime
 
 import click
-import pyvista as pv
 from tqdm import tqdm
 
 from irregular_object_packing.mesh.transform import (
@@ -33,34 +32,11 @@ from irregular_object_packing.performance_analysis.search_parameters import (
     CONFIG,
     ResultData,
 )
+from irregular_object_packing.performance_analysis.utils import (
+    get_pv_container,
+    get_pv_shape,
+)
 
-
-def get_pv_container(container_name):
-    """Returns the container from a string"""
-    match container_name:
-        case "cube":
-            return pv.Cube().triangulate().extract_surface()
-        case "sphere":
-            return pv.Sphere()
-        case "cylinder":
-            return pv.Cylinder()
-        case _:
-            raise ValueError(f"Container {container_name} not found")
-
-
-def get_shape(shape_name):
-    """Returns the shape from a string"""
-    match shape_name:
-        case "cube":
-            return pv.Cube().triangulate().extract_surface()
-        case "sphere":
-            return pv.Sphere().triangulate().extract_surface()
-        case "normal_red_blood_cell":
-            return pv.read("../../data/mesh/RBC_normal.stl")
-        case "sickle_red_blood_cell":
-            return pv.read("../../data/mesh/sikleCell.stl")
-        case _ :
-            raise ValueError(f"Shape {shape_name} not found")
 
 # TODO: Abstract away all the read and write logic to a separate class
 class DataCollector:
@@ -102,7 +78,7 @@ class DataCollector:
 
     def _data_file_name(self):
         """Return the path to the registry file"""
-        return "results_{}_{}_{}.csv".format(CONFIG["title"],self.start_time,self.description)
+        return f"results_{CONFIG['title']}_{self.start_time}_{self.description}.csv"
 
 
     def parameter_combinations(elf) -> list[dict]:
@@ -129,7 +105,7 @@ class DataCollector:
 
         container = get_pv_container(params["container"])
         container = scale_to_volume(container, 10)
-        shape = get_shape(params["shape"])
+        shape = get_pv_shape(params["shape"])
         shape = scale_and_center_mesh(shape, shape_volume)
 
 
@@ -213,6 +189,5 @@ def main(iterations, description, test):
 if __name__ == "__main__":
     main()
     # idea: add one cli flag to option that specifies a new type of data collection
-
 
 # %%

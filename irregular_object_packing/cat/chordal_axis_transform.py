@@ -16,9 +16,9 @@ import numpy as np
 import pyvista as pv
 import tetgen
 
-from irregular_object_packing.cat.tetra_cell import compute_cat_faces
+from irregular_object_packing.cat.tetra_cell import TetraCell
+from irregular_object_packing.cat.utils import create_face_normal, get_cell_arrays, n_related_objects
 
-# from utils import angle_between, sort_points_clockwise
 CDT_DEFAULTS = {
     "steinerleft": 0,
     "minratio": 10.0,
@@ -51,7 +51,77 @@ def compute_cdt(meshes: list[pv.PolyData], tetgen_kwargs=None) -> pv.Unstructure
 
     return mesh.grid
 
+def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list[list[np.ndarray]], cat_cells: list[list[np.ndarray]], normals_pp):
+    """Splits the cell into faces and processes them."""
+    # 0. split the cell into faces
+    split_faces = cell.split(tetmesh_points)
 
+    for i, faces in enumerate(split_faces):
+        obj_id = cell.objs[i]
+        obj_point = tetmesh_points[cell.points[i]]
+        for face in faces:
+            # tetmesh_points[face]
+            face_normal = create_face_normal(face[:3], obj_point)
+
+            normals[obj_id].append(face_normal)
+            cat_cells[obj_id].append(face)
+            normals_pp[cell.points[i]].append(face_normal)
+
+
+def filter_relevant_cells(cells: list[int], objects_npoints: list[int]):
+    """Filter out cells that only belong to a single object.
+
+    parameters:
+    cells (ndarray): an array of shape (n_cells, 4) with the indices of the points in the cell. shape: [id0, id1, id2, id3]
+    objects_npoints (List[int]): A list of the number of points for each object.
+    """
+    relevant_cells: list[TetraCell] = []
+    skipped_cells = []
+
+    for i, cell in enumerate(cells):
+        rel_objs = n_related_objects(objects_npoints, cell=cell)
+        cell = TetraCell(cell, rel_objs, i)
+        if cell.nobjs == 1:
+            skipped_cells.append(cell)
+        else:
+            relevant_cells.append(cell)
+
+    return relevant_cells, skipped_cells
+
+
+def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCell], n_objs: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    # initialize face normals list
+    face_normals = []
+    for _i in range(n_objs):
+        face_normals.append([])
+
+    face_normals_pp = []
+    for _i in range(len(tetmesh_points)):
+        face_normals_pp.append([])
+
+    # initialize cat cells list
+    cat_cells = []
+    for _i in range(n_objs):
+        cat_cells.append([])
+
+    for cell in rel_cells:
+        # mutates face_normals and cat_cells
+        split_and_process(cell, tetmesh_points, face_normals, cat_cells, face_normals_pp)
+
+    return face_normals, cat_cells, face_normals_pp
+
+def compute_cat_faces(tetmesh: pv.UnstructuredGrid, point_sets, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"
+
+    objects_npoints = [len(obj) for obj in point_sets]  # FIXME hacky solution
+
+    # filter tetrahedron mesh to only contain tetrahedrons with points from more than one object
+    cells = get_cell_arrays(tetmesh.cells)
+    rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
+
+    face_normals, cat_cells, normalspp = process_cells_to_normals(tetmesh.points, rel_cells, len(point_sets))
+
+    return face_normals, cat_cells, normalspp
 def compute_cat_cells(
     object_meshes: list[pv.PolyData],
     container: pv.PolyData,
@@ -83,3 +153,5 @@ def compute_cat_cells(
     compute_cat_faces(tetmesh, obj_point_sets, obj_coords)
 
     del tetmesh
+
+# %%

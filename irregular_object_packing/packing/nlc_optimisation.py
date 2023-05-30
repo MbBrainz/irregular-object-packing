@@ -292,6 +292,7 @@ def test_nlcp_facets():
 
     constraint = local_constraint_for_vertex(vertex, fpoint, fnormal, np.eye(4), np.array([0, 0, 0], dtype=np.float64), 0.0)
     print(constraint)
+    assert np.allclose(constraint, 0.1), "Constraint is not correct"
 
     vertex_fpoint_fnormal_arr = np.array([
         [vertex, fpoint, fnormal],
@@ -302,6 +303,7 @@ def test_nlcp_facets():
     tf_array = np.array([1, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 
     constraints = local_constraint_vertices(tf_array, vertex_fpoint_fnormal_arr, np.array([0, 0, 0], dtype=np.float64), 0.0)
+    assert np.allclose(constraints, [0.1, 0.1, 0.1]), "Constraints are not correct"
     print(constraints)
 
 
@@ -309,3 +311,5 @@ if __name__ == "__main__":
     test_nlcp_facets()
     pass
 
+
+# %%

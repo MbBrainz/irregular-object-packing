@@ -14,8 +14,9 @@ CONFIG = {
 }
 
 CASE_PARAMETER_SEARCH = {
-    'n_objects': [5, 6, 7, 8, 9,],
+    'n_objects': [5],
     'container': ['sphere', 'cube',],
+    # 'n_objects': [5, 6, 7, 8, 9,],
     # 'container': ["cube", 'cylinder', 'sphere'],
     'shape': [ "normal_red_blood_cell"],
     # 'shape': ["cube", 'sphere', "normal_red_blood_cell", "sickle_blood_cell", "bunny"],
@@ -38,7 +39,7 @@ CASE_TRIVIAL_SHAPES = {
 
 CASE_BLOODCELL_MAX = {
     'n_objects': [2, 4, 8, 16, 32, 64],
-    'container': ['cylinder', 'cube', 'sphere'],
+    'container': ['cylinder', 'cube'],
     'shape': ["normal_red_blood_cell"],
     'padding': [0],
     'alpha': [0.1],

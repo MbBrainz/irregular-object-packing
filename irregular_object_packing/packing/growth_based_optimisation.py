@@ -326,15 +326,14 @@ class Optimizer(OptimizerData):
                     f"CAT cell of object {i} is not manifold"
                 )
 
-def default_optimizer_config(N=5) -> "Optimizer":
-    DATA_FOLDER = "./../../data/mesh/"
+def default_optimizer_config(N=5, mesh_dir ="./../../data/mesh/") -> "Optimizer":
 
     coverage_rate = 0.3
     mesh_volume = 0.2
     container_volume = 10
     mesh_volume = container_volume * coverage_rate  / N
 
-    loaded_mesh = pv.read(DATA_FOLDER + "RBC_normal.stl")
+    loaded_mesh = pv.read(mesh_dir + "RBC_normal.stl")
     container = pv.Sphere()
 
     # Scale the mesh and container to the desired volume
@@ -403,8 +402,13 @@ if __name__ == "__main__":
        the optimizer will run for 10 iterations and then plot the final state.")
     optimizer = default_optimizer_config()
     optimizer.setup()
-    optimizer.run(Ni=10)
+    optimizer.run(Ni=1)
     optimizer.plotter.plot_step()
 
 
+# %%
+
+# optimizer = default_optimizer_config()
+# optimizer.setup()
+# optimizer.run(Ni=1)
 # %%

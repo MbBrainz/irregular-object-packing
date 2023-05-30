@@ -18,7 +18,7 @@ from irregular_object_packing.mesh.sampling import (
 from irregular_object_packing.mesh.utils import convert_faces_to_polydata_input
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
 
-STATE_DIRECTORY = "../../dump/state/"
+STATE_DIRECTORY = "../dump/state/"
 
 
 @dataclass

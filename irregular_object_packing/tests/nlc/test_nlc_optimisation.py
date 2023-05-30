@@ -21,7 +21,6 @@ from irregular_object_packing.packing.nlc_optimisation import (
 
 RB = 1 / 12 * np.pi
 
-
 @dataclass
 class NLCTestParams:
     name: str
@@ -266,7 +265,7 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
         for point in v:
             res_v = transform_v(self.local_points[point], T)
             resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, padding=padding)
+            assert_point_within_box(self, res_v, self.local_box_coords, self.local_points[point], padding=padding)
 
         if expected_f is not None:
             self.assertAlmostEqual(opt_tf[0], expected_f, places=4)
@@ -309,7 +308,7 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
 
             resulting_points.append(res_v)
             assert_point_within_box(
-                self, res_v, self.global_box_coords, tolerance=1e-7, padding=padding
+                self, res_v, self.global_box_coords, self.global_points[point], tolerance=1e-7, padding=padding
             )
 
     # ----------------------------------------------------------------
@@ -333,14 +332,14 @@ def is_point_within_box(point, box_coords, tolerance=1e-8, padding=0.0):
 
 
 def assert_point_within_box(
-    test_case: unittest.TestCase, point, box_coords, tolerance=1e-7, padding=0.0
+    test_case: unittest.TestCase, point, box_coords, o_point, tolerance=1e-7, padding=0.0
 ):
     is_inside = is_point_within_box(
         point, box_coords, tolerance=tolerance, padding=padding
     )
     test_case.assertTrue(
         is_inside,
-        f"Point {point} is not inside the box defined by {box_coords} with padding {padding}",
+        f"Point {point} is not inside the box defined by {box_coords} with padding {padding}. Was {o_point}",
     )
 
 
@@ -381,6 +380,7 @@ class TestCatBoxOptimization(unittest.TestCase):
             [15, 10, 4],
             [0, 10, 4],
         ], dtype=np.float64)
+
         self.container_center = np.mean(self.container_points, axis=0)
         self.container_faces = self.obj_faces.copy()
         self.mesh = PolyData(self.obj_points, self.obj_faces)
