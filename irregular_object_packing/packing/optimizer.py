@@ -22,6 +22,7 @@ from irregular_object_packing.mesh.transform import (
     scale_to_volume,
 )
 from irregular_object_packing.mesh.utils import (
+    convert_faces_to_polydata_input,
     print_mesh_info,
 )
 from irregular_object_packing.packing import initialize as init
@@ -242,18 +243,11 @@ class Optimizer(OptimizerData):
         # Compute the CDT
         tetmesh = cat.compute_cdt(self.objects + [self.container], kwargs)
 
-        # The point sets are sets(uniques) of tuples (x,y,z) for each object, for quick lookup
-        obj_point_sets = [set(map(tuple, obj.points)) for obj in self.objects] + [
-            set(map(tuple, self.container.points))
-        ]
-
-        # Check that all points are accounted for
-        assert np.sum([len(obj) for obj in obj_point_sets]) == np.sum([obj.n_points for obj in self.objects] + [self.container.n_points])
-        assert np.sum([len(obj) for obj in obj_point_sets]) == tetmesh.n_points, "Some points are created by tetmesh"
-
         # COMPUTE CAT CELLS
+        n_points_per_object = [obj.n_points for obj in self.objects] + [self.container.n_points]
+
         normals, cat_cells, normals_pp = cat.compute_cat_faces(
-                tetmesh, obj_point_sets, self.tf_arrays[:, 4:]
+                tetmesh, n_points_per_object, self.tf_arrays[:, 4:]
             )
         return normals, cat_cells, normals_pp, tetmesh
 
@@ -317,13 +311,12 @@ class Optimizer(OptimizerData):
 
     def check_closed_cells(self):
         cat_cells = [
-            PolyData(*cat.convert_faces_to_polydata_input(self.cat_cells[obj_id]))
+            PolyData(*convert_faces_to_polydata_input(self.cat_cells[obj_id]))
             for obj_id in range(self.n_objs)
         ]
         for i, cell in enumerate(cat_cells):
             if not cell.is_manifold:
                 self.log.error(
-                    f"CAT cell of object {i} is not manifold"
                 )
 
 def default_optimizer_config(N=5, mesh_dir ="./../../data/mesh/") -> "Optimizer":

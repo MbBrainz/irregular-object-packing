@@ -110,16 +110,19 @@ def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCe
 
     return face_normals, cat_cells, face_normals_pp
 
-def compute_cat_faces(tetmesh: pv.UnstructuredGrid, point_sets, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"
+def compute_cat_faces(tetmesh: pv.UnstructuredGrid, npoints_per_object, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Compute the CAT faces of the objects in the list and the container. The n_points_per_object is a list of the number of points for each object and should be added in the same order as the objects provided to the compute_cdt() function."""
 
-    objects_npoints = [len(obj) for obj in point_sets]  # FIXME hacky solution
+    # assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"
+
+    # [ ] TODO: add the obj_coords substraction to the computation here so that the optimisation becomes easier
 
     # filter tetrahedron mesh to only contain tetrahedrons with points from more than one object
     cells = get_cell_arrays(tetmesh.cells)
-    rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
+    
+    rel_cells, _ = filter_relevant_cells(cells, npoints_per_object)
 
-    face_normals, cat_cells, normalspp = process_cells_to_normals(tetmesh.points, rel_cells, len(point_sets))
+    face_normals, cat_cells, normalspp = process_cells_to_normals(tetmesh.points, rel_cells, len(npoints_per_object))
 
     return face_normals, cat_cells, normalspp
 def compute_cat_cells(
