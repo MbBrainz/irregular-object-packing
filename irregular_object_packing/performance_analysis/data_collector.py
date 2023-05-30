@@ -25,7 +25,7 @@ from irregular_object_packing.mesh.transform import (
     scale_and_center_mesh,
     scale_to_volume,
 )
-from irregular_object_packing.packing.growth_based_optimisation import Optimizer
+from irregular_object_packing.packing.optimizer import Optimizer
 from irregular_object_packing.packing.optimizer_data import SimConfig
 from irregular_object_packing.performance_analysis.search_parameters import (
     CASE_PARAMETER_SEARCH,
