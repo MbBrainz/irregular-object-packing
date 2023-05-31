@@ -82,6 +82,7 @@ class TestSortByOccurrence(unittest.TestCase):
         self.assert_sorted_correctly(sorted_point_ids, sorted_object_ids, [1, 2, 3, 4], [4, 3, 2, 1])
         self.assertEqual(expected_case, (1,1,1,1))
 
+
     def test_empty_errors(self):
         self.assertRaises(ValueError, sort_by_occurrance, [], [])
 
@@ -127,8 +128,8 @@ class TestComputeFaceUnitNormal(unittest.TestCase):
 class CreateFaceNormal(unittest.TestCase):
     @parameterized.expand([
         # format:
-            # (points, 
-            #  v_i, 
+            # (points,
+            #  v_i,
             #  expected_normal)
 
         # 3 points, with point on the positive z-axis
@@ -208,23 +209,41 @@ class nRelatedObjects(unittest.TestCase):
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 0, 0])
 
+        objects_npoints = [10]
+        cell = np.array([0, 4, 5, 9])
+        result = n_related_objects(objects_npoints, cell)
+        self.assertEqual(result.tolist(), [0, 0, 0, 0])
+
+    def test_belongs_to_multiple_objects(self):
         # Test with two objects
         objects_npoints = [2, 2]
         cell = np.array([0, 1, 2, 3])
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 1, 1])
 
-        # Test with three objects
+        # Test with three objects non equal
         objects_npoints = [2, 4, 2]
         cell = np.array([0, 1, 4, 5])
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 1, 1])
 
-        # Test with four objects
+        # Test with four objects non equal
         objects_npoints = [2, 4, 2, 2]
         cell = np.array([0, 1, 4, 6])
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 1, 2])
+
+        # test for a lot of objects unsorted
+        objects_npoints = np.ones(100) * 8
+        cell = np.array([160, 79, 80, 8])
+        result = n_related_objects(objects_npoints, cell)
+        self.assertEqual(result.tolist(), [20, 9, 10, 1])
+
+        # test for increasing points in objects
+        objects_npoints = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+        cell = np.array([5, 3, 2, 10])
+        result = n_related_objects(objects_npoints, cell)
+        self.assertEqual(result.tolist(), [2, 2, 1, 4])
 
 if __name__ == '__main__':
     unittest.main()

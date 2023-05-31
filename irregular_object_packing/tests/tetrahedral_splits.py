@@ -1,7 +1,9 @@
+import unittest
+
 import numpy as np
+
 from irregular_object_packing.cat.tetra_cell import TetraCell
 from irregular_object_packing.tests.helpers import float_array
-
 
 SPLIT_INPUT = [[0, 0, 0], [36, 0, 0], [0, 36, 0], [0, 0, 36], ]
 SPLIT_4_OUTPUT = [
@@ -127,7 +129,7 @@ def cell_2211() -> tuple[TetraCell, list, list]:
     point_ids = [1, 2, 3, 4]
     obj_ids = [1, 2, 2, 3]
     return TetraCell(point_ids, obj_ids, 1), point_ids, obj_ids
-    
+
 # have [a, b, c, d] which corresponds to [1, 2, 3, 4]
 # want [d, c, b, a] which corresponds to [4, 3, 2, 1]
 # want [b, a, d, c] which corresponds to [2, 1, 4, 3]
@@ -144,3 +146,40 @@ def resort_points(point_ids):
     return float_array(nan_row + sorted_points)
 
 
+
+# Set up a mock SPLIT_INPUT and float_array function for testing
+RESORT_TEST_INPUT = np.array([[1, 2, 3], [2, 3, 4], [3, 4, 5], [4, 5, 6]])
+
+class TestResortPoints(unittest.TestCase):
+    def setUp(self):
+        self.nan_row = [[np.NaN, np.NaN, np.NaN]]
+        self.expected_result = lambda lst: np.array(self.nan_row + lst, dtype=float)
+
+    def test_resort_points(self):
+        # Test that the function correctly reorders the points
+        self.assertTrue((resort_points([4, 3, 2, 1]) == self.expected_result([RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2], RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0]])).all())
+        self.assertTrue((resort_points([2, 1, 4, 3]) == self.expected_result([RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2]])).all())
+
+    def test_empty_list(self):
+        # Test that the function correctly handles an empty list
+        self.assertTrue((resort_points([]) == self.expected_result([])).all())
+
+    def test_single_element(self):
+        # Test that the function correctly handles a list with a single element
+        self.assertTrue((resort_points([3]) == self.expected_result([RESORT_TEST_INPUT[2]])).all())
+
+    def test_invalid_point_ids(self):
+        # Test that the function correctly handles invalid point IDs
+        with self.assertRaises(IndexError):
+            resort_points([0])
+        with self.assertRaises(IndexError):
+            resort_points([5])
+        with self.assertRaises(IndexError):
+            resort_points([2.5])
+
+    def test_duplicate_point_ids(self):
+        # Test that the function correctly handles duplicate point IDs
+        self.assertTrue((resort_points([1, 1, 2, 2]) == self.expected_result([RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[1]])).all())
+
+if __name__ == "__main__":
+    unittest.main()

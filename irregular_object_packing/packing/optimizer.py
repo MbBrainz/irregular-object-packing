@@ -125,6 +125,8 @@ class Optimizer(OptimizerData):
         return self.shape0.n_faces  # currently simple
 
     def resample_meshes(self, scale_factor=None):
+        if self.config.sampling_disabled:
+            return
         self.log.info("resampling meshes")
         if scale_factor is None:
             scale_factor = self.curr_max_scale
@@ -139,9 +141,12 @@ class Optimizer(OptimizerData):
     def run(self, start_idx=None, end_idx=None, Ni=-1):
         self.check_setup()
         try:
-            self.executor = PoolExecutor(thread_name_prefix="optimizer")
-            self._run(start_idx, end_idx, Ni)
-            self.executor.shutdown(wait=False, cancel_futures=False)
+            if self.config.n_threads == 1:
+                self._run(start_idx, end_idx, Ni)
+            else:
+                self.executor = PoolExecutor(thread_name_prefix="optimizer", max_workers=self.config.n_threads)
+                self._run(start_idx, end_idx, Ni)
+                self.executor.shutdown(wait=False, cancel_futures=False)
         except KeyboardInterrupt:
             self.executor.shutdown(wait=False, cancel_futures=False)
             self.write_state()
@@ -206,7 +211,7 @@ class Optimizer(OptimizerData):
 
     def optimize_positions(self):
         self.log.debug("optimizing cells...")
-        if self.config.sequential is False:
+        if self.config.n_threads >1:
             self.executor.map(self.parallel_local_optimisation, range(self.n_objs), self.tf_arrays)
         else:
             for obj_id, previous_tf_array in enumerate(self.tf_arrays):
@@ -245,6 +250,7 @@ class Optimizer(OptimizerData):
 
         # COMPUTE CAT CELLS
         n_points_per_object = [obj.n_points for obj in self.objects] + [self.container.n_points]
+        assert sum(n_points_per_object) == tetmesh.n_points, "Number of points in tetmesh does not match the sum of points in the objects"
 
         normals, cat_cells, normals_pp = cat.compute_cat_faces(
                 tetmesh, n_points_per_object, self.tf_arrays[:, 4:]
@@ -367,8 +373,8 @@ def simple_shapes_optimizer_config() -> "Optimizer":
         n_scale_steps=9,
         r=0.3,
         final_scale=1,
-        sample_rate=None,
         log_lvl=logging.WARNING,
+        sampling_disabled=True,
         init_f=0.1,
         # padding=0,
     )
@@ -393,19 +399,37 @@ def load_optimizer_from_state(statefile: str) -> 'Optimizer':
 if __name__ == "__main__":
     print("This is an example run of the optimizer.\n\
        the optimizer will run for 10 iterations and then plot the final state.")
-    optimizer = default_optimizer_config()
-    optimizer.setup()
-    optimizer.run(Ni=10)
-    optimizer.plotter.plot_step()
+    # optimizer = default_optimizer_config()
+    # optimizer.setup()
+    # optimizer.run(Ni=10)
+    # optimizer.plotter.plot_step()
 
 
 # %%
 
-optimizer = default_optimizer_config()
+optimizer = simple_shapes_optimizer_config()
 optimizer.setup()
+cat_cells = optimizer.compute_cat_cells()
+cat_meshes = [PolyData(*convert_faces_to_polydata_input(cat_cell)) for cat_cell in cat_cells[1]]
 
-optimizer.run(Ni=1)
-optimizer.plotter.plot_step(after_scale=False)
+plotter = pv.Plotter()
+for cat_mesh in cat_meshes:
+    plotter.add_mesh(cat_mesh, color="yellow", opacity=0.8)
+
+meshes = optimizer.current_meshes()
+for o in meshes:
+    plotter.add_mesh(o, color="red", opacity=0.8)
+
+plotter.show()
+#%%
+obj_id = 0
+plotter = pv.Plotter()
+plotter.add_mesh(meshes[obj_id], color="red", opacity=0.8)
+plotter.add_mesh(cat_meshes[obj_id], color="yellow", opacity=0.8 , show_edges=True)
+plotter.show()
+
+
+
 # %%
-optimizer.plotter.plot_step_object(0, 2,after_scale=False)
 # %%
+

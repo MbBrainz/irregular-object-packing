@@ -9,8 +9,7 @@ from irregular_object_packing.cat.tetrahedral_split import (
     split_4,
 )
 from irregular_object_packing.tests.helpers import float_array
-
-from .tetrahedral_splits import (
+from irregular_object_packing.tests.tetrahedral_splits import (
     SPLIT_2_2222_OUTPUT,
     SPLIT_2_3331_OUTPUT,
     SPLIT_3_OUTPUT,

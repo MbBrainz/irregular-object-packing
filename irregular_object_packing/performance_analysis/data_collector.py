@@ -29,6 +29,7 @@ from irregular_object_packing.packing.optimizer import Optimizer
 from irregular_object_packing.packing.optimizer_data import SimConfig
 from irregular_object_packing.performance_analysis.search_parameters import (
     CASE_PARAMETER_SEARCH,
+    CASE_TRIVIAL_SHAPES,
     CONFIG,
     ResultData,
 )
@@ -81,11 +82,30 @@ class DataCollector:
         return f"results_{CONFIG['title']}_{self.start_time}_{self.description}.csv"
 
 
-    def parameter_combinations(elf) -> list[dict]:
+    def parameters_parameter_search(self) -> list[dict]:
         """Return the parameters used for the data collection"""
         keys, values = zip(*CASE_PARAMETER_SEARCH.items(), strict=True)
         return [dict(zip(keys, v, strict=True)) for v in itertools.product(*values)]
             # key should match the parameter name in the data model
+
+    def parameters_trivial_shapes(self) -> list[dict]:
+
+        CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"]
+        parameters = []
+        container_shape_tuple = list(zip(CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"]))
+        for cs_tuple in container_shape_tuple:
+            parameters.append({
+                "container": cs_tuple[0],
+                "shape": cs_tuple[1],
+                "n_objects": CASE_TRIVIAL_SHAPES["n_objects"],
+                "padding": CASE_TRIVIAL_SHAPES["padding"],
+                "alpha": CASE_TRIVIAL_SHAPES["alpha"],
+                "beta": CASE_TRIVIAL_SHAPES["beta"],
+                "n_threads": CASE_TRIVIAL_SHAPES["n_threads"],
+            })
+
+        return parameters
+
 
     def check_initialisation(self, scenarios):
         for scenario in scenarios:
@@ -97,7 +117,7 @@ class DataCollector:
     # Data collection
     #############################
 
-    def setup_optimizer(self,params) -> Optimizer:
+    def setup_optimizer(self, params) -> Optimizer:
         """Setup the optimizer"""
 
         container_volume = 10
@@ -108,12 +128,12 @@ class DataCollector:
         shape = get_pv_shape(params["shape"])
         shape = scale_and_center_mesh(shape, shape_volume)
 
-
         config = SimConfig(
             padding=params["padding"],
             alpha=params["alpha"],
             beta=params["beta"],
             max_t=shape_volume**(1 / 3) * 2,
+            n_threads=params["n_threads"],
         )
         optimizer = Optimizer(shape, container, config, "performance_tests")
         return optimizer
@@ -156,7 +176,6 @@ class DataCollector:
             # handle generic scenario # [ ] TODO
             # we want to profile the CDT, the CAT and the growth based optimisation for each scenario
 
-
             # only profile one iteration for eaach scenario,
             # going from small scale to large and from little to many objects
             pass
@@ -170,7 +189,7 @@ class DataCollector:
         print(f"Results will be stored here: {self.path}")
         ResultData.write_csv(self.path)
 
-        test_scenarios = self.parameter_combinations()
+        test_scenarios = self.parameters_parameter_search()
         print("Checking initialisation of all scenarios...")
         self.check_initialisation(test_scenarios)
         print("start collecting...")
@@ -187,7 +206,12 @@ def main(iterations, description, test):
     collector.run()
 
 if __name__ == "__main__":
-    main()
+    # main()
+    pass
     # idea: add one cli flag to option that specifies a new type of data collection
+
+# %%
+dc = DataCollector(1, "test", True)
+dc.parameters_trivial_shapes()
 
 # %%

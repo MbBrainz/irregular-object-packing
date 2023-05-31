@@ -48,8 +48,14 @@ def n_related_objects(objects_npoints, cell) -> np.ndarray:
 
     Parameters:
     objects_npoints (List[int]): A list of the number of points for each object.
-    cell (ndarray): an array of shape (4,) with the indices of the points in the cell. shape: [id0, id1, id2, id3]"""
+    cell (ndarray): an array of shape (4,) with the indices of the points in the cell in any order. shape: [id0, id1, id2, id3]
+
+    Returns:
+    np.ndarray: An array of shape (4,) with the number of objects each cell belongs to in the same order as the input ids.
+    """
     # Get a numpy array of the number of points for each object
+    # assert len(objects_npoints) > 0, "The list of objects should not be empty."
+    # assert len(cell) == 4, "The number of points in the objects should be equal to the number of points in the cell."
 
     # Calculate the cumulative sum to get the ranges
     ranges = np.cumsum(objects_npoints)

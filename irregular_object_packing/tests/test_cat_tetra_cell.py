@@ -1,27 +1,9 @@
 import unittest
 
-import numpy as np
-
-from irregular_object_packing.cat.tetra_cell import (
-    TetraCell,
-)
-from irregular_object_packing.cat.tetrahedral_split import (
-    split_2_2222,
-    split_2_3331,
-    split_3,
-    split_4,
-)
 from irregular_object_packing.cat.utils import (
-    n_related_objects,
     sort_by_occurrance,
 )
-from irregular_object_packing.tests.helpers import float_array
 from irregular_object_packing.tests.tetrahedral_splits import (
-    SPLIT_2_2222_OUTPUT,
-    SPLIT_2_3331_OUTPUT,
-    SPLIT_3_OUTPUT,
-    SPLIT_4_OUTPUT,
-    SPLIT_INPUT,
     cell_1111,
     cell_2211,
     cell_2222,

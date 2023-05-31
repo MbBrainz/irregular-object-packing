@@ -45,11 +45,12 @@ class SimConfig:
     """The padding which is added to the inside of the cat cells."""
     dynamic_simplification: bool = True
     """Whether to use dynamic simplification."""
+    sampling_disabled: bool = False
     alpha: float = 0.05
     beta: float = 0.1
     upscale_factor: float = 1.0
     """The upscale factor for the object mesh."""
-    sequential: bool = False
+    n_threads: int = None
     """Whether to use sequential scaling."""
     container_volume: float = 10.0
     """The volume of the container."""

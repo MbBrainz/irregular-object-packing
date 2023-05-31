@@ -24,17 +24,20 @@ CASE_PARAMETER_SEARCH = {
     'padding': [0, 0.00005, 0.00001],
     'alpha': [0.1],
     'beta': [0.5],
+    'n_threads': [128],
     # 'alpha': [0.01, 0.05, 0.1],
     # 'beta': [0.01, 0.05, 0.1],
 }
 
+# could do a extra field per parameter that defines if you want combinations or iterations
 CASE_TRIVIAL_SHAPES = {
-    'n_objects': [1,],
+    'n_objects': 1,
     'container': ['cube','sphere','cylinder', 'tetrahedron', 'cone'],
     'shape': ["cube", 'sphere', "cylinder", 'tetrahedron', 'cone'],
-    'padding': [0],
-    'alpha': [0.1],
-    'beta': [0.5],
+    'padding': 0,
+    'alpha': 0.1,
+    'beta': 0.5,
+    'n_threads': 8,
 }
 
 CASE_BLOODCELL_MAX = {
@@ -44,6 +47,7 @@ CASE_BLOODCELL_MAX = {
     'padding': [0],
     'alpha': [0.1],
     'beta': [0.5],
+    'n_threads': [128],
 }
 
 RESULTS = {
@@ -59,12 +63,14 @@ RESULTS = {
 
 @dataclass
 class ResultData:
+    # PARAMETERS
     n_objects: int
     container: str
     shape: str
     padding: float
     alpha: float
     beta: float
+    n_threads: int
 
     # COLLECTED_DATA
     i: int

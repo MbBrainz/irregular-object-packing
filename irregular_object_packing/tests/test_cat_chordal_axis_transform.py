@@ -1,12 +1,32 @@
 import unittest
-import numpy as np
-from irregular_object_packing.cat.chordal_axis_transform import filter_relevant_cells, split_and_process
 
+import numpy as np
+
+from irregular_object_packing.cat.chordal_axis_transform import (
+    filter_relevant_cells,
+    split_and_process,
+)
 from irregular_object_packing.cat.tetra_cell import TetraCell
-from irregular_object_packing.cat.tetrahedral_split import split_2_2222, split_2_3331, split_3, split_4
+from irregular_object_packing.cat.tetrahedral_split import (
+    split_2_2222,
+    split_2_3331,
+    split_3,
+    split_4,
+)
 from irregular_object_packing.cat.utils import n_related_objects
 from irregular_object_packing.tests.helpers import float_array
-from irregular_object_packing.tests.tetrahedral_splits import SPLIT_2_2222_OUTPUT, SPLIT_2_3331_OUTPUT, SPLIT_3_OUTPUT, SPLIT_4_OUTPUT, empty_normals_and_cells,cell_1111, cell_2211, cell_2222, cell_3331, resort_points
+from irregular_object_packing.tests.tetrahedral_splits import (
+    SPLIT_2_2222_OUTPUT,
+    SPLIT_2_3331_OUTPUT,
+    SPLIT_3_OUTPUT,
+    SPLIT_4_OUTPUT,
+    cell_1111,
+    cell_2211,
+    cell_2222,
+    cell_3331,
+    empty_normals_and_cells,
+    resort_points,
+)
 
 
 class SplitAndProcess(unittest.TestCase):
@@ -36,7 +56,7 @@ class SplitAndProcess(unittest.TestCase):
         self.assert_correct_split_and_process(cell, all_tet_points, normals, cat_cells, SPLIT_2_2222_OUTPUT)
 
 
-    unittest.skip("resort points doesnt function properly but tests result is correct")
+    # unittest.skip("resort points doesnt function properly but tests result is correct")
     def test_2211(self):
         cell, _, _ = cell_2211()
         normals, cat_cells, normals_pp = empty_normals_and_cells()
@@ -99,7 +119,7 @@ class SplitCell(unittest.TestCase):
         self.assertEqual(cell.split_func, split_2_3331)
         result = cell.split(resort_points(cell.points))
         np.testing.assert_equal(float_array(result), float_array(SPLIT_2_3331_OUTPUT))
-        
+
 
     def test_2222(self):
         cell, _, _ = cell_2222()
