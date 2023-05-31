@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 import numpy as np
-from pyvista import UnstructuredGrid
 
 from irregular_object_packing.cat.tetrahedral_split import (
     split_2_2222,
@@ -10,9 +9,6 @@ from irregular_object_packing.cat.tetrahedral_split import (
     split_4,
 )
 from irregular_object_packing.cat.utils import (
-    create_face_normal,
-    get_cell_arrays,
-    n_related_objects,
     sort_by_occurrance,
 )
 

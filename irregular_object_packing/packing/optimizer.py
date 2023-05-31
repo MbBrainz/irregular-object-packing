@@ -314,7 +314,7 @@ class Optimizer(OptimizerData):
             PolyData(*convert_faces_to_polydata_input(self.cat_cells[obj_id]))
             for obj_id in range(self.n_objs)
         ]
-        for i, cell in enumerate(cat_cells):
+        for _i, cell in enumerate(cat_cells):
             if not cell.is_manifold:
                 self.log.error(
                 )
@@ -395,13 +395,17 @@ if __name__ == "__main__":
        the optimizer will run for 10 iterations and then plot the final state.")
     optimizer = default_optimizer_config()
     optimizer.setup()
-    optimizer.run(Ni=1)
+    optimizer.run(Ni=10)
     optimizer.plotter.plot_step()
 
 
 # %%
 
-# optimizer = default_optimizer_config()
-# optimizer.setup()
-# optimizer.run(Ni=1)
+optimizer = default_optimizer_config()
+optimizer.setup()
+
+optimizer.run(Ni=1)
+optimizer.plotter.plot_step(after_scale=False)
+# %%
+optimizer.plotter.plot_step_object(0, 2,after_scale=False)
 # %%

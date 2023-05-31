@@ -17,7 +17,11 @@ import pyvista as pv
 import tetgen
 
 from irregular_object_packing.cat.tetra_cell import TetraCell
-from irregular_object_packing.cat.utils import create_face_normal, get_cell_arrays, n_related_objects
+from irregular_object_packing.cat.utils import (
+    create_face_normal,
+    get_cell_arrays,
+    n_related_objects,
+)
 
 CDT_DEFAULTS = {
     "steinerleft": 0,
@@ -55,7 +59,7 @@ def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list
     """Splits the cell into faces and processes them."""
     # 0. split the cell into faces
     split_faces = cell.split(tetmesh_points)
-
+    # FIXME: Bug for larger object
     for i, faces in enumerate(split_faces):
         obj_id = cell.objs[i]
         obj_point = tetmesh_points[cell.points[i]]
@@ -88,7 +92,7 @@ def filter_relevant_cells(cells: list[int], objects_npoints: list[int]):
 
     return relevant_cells, skipped_cells
 
-
+# [ ] FIXME: First cell is container, shouldnt be
 def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCell], n_objs: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
     # initialize face normals list
     face_normals = []
@@ -108,6 +112,9 @@ def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCe
         # mutates face_normals and cat_cells
         split_and_process(cell, tetmesh_points, face_normals, cat_cells, face_normals_pp)
 
+    face_normals.reverse()
+    cat_cells.reverse()
+    face_normals_pp.reverse()
     return face_normals, cat_cells, face_normals_pp
 
 def compute_cat_faces(tetmesh: pv.UnstructuredGrid, npoints_per_object, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
@@ -119,7 +126,7 @@ def compute_cat_faces(tetmesh: pv.UnstructuredGrid, npoints_per_object, obj_coor
 
     # filter tetrahedron mesh to only contain tetrahedrons with points from more than one object
     cells = get_cell_arrays(tetmesh.cells)
-    
+
     rel_cells, _ = filter_relevant_cells(cells, npoints_per_object)
 
     face_normals, cat_cells, normalspp = process_cells_to_normals(tetmesh.points, rel_cells, len(npoints_per_object))
