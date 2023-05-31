@@ -15,7 +15,7 @@ from irregular_object_packing.cat.tetrahedral_split import (
 )
 from irregular_object_packing.cat.utils import n_related_objects
 from irregular_object_packing.tests.helpers import float_array
-from irregular_object_packing.tests.tetrahedral_splits import (
+from irregular_object_packing.tests.test_tetrahedral_splits import (
     SPLIT_2_2222_OUTPUT,
     SPLIT_2_3331_OUTPUT,
     SPLIT_3_OUTPUT,

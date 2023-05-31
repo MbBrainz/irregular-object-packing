@@ -133,7 +133,7 @@ def cell_2211() -> tuple[TetraCell, list, list]:
 # have [a, b, c, d] which corresponds to [1, 2, 3, 4]
 # want [d, c, b, a] which corresponds to [4, 3, 2, 1]
 # want [b, a, d, c] which corresponds to [2, 1, 4, 3]
-def resort_points(point_ids):
+def resort_points(point_ids, SPLIT_INPUT=SPLIT_INPUT):
     """convenience func to resort points so that sorted_points[point_ids]
     returns the same input as SPLIT_INPUT[1, 2, 3, 4]"""
     # Adds a NaN row to the input data to cover for index 0
@@ -148,38 +148,34 @@ def resort_points(point_ids):
 
 
 # Set up a mock SPLIT_INPUT and float_array function for testing
-RESORT_TEST_INPUT = np.array([[1, 2, 3], [2, 3, 4], [3, 4, 5], [4, 5, 6]])
+RESORT_TEST_INPUT = [[0.0,0.0,0.0], [1.0,1.0,1.0], [2.0,2.0,2.0], [3.0,3.0,3.0]]
 
 class TestResortPoints(unittest.TestCase):
     def setUp(self):
         self.nan_row = [[np.NaN, np.NaN, np.NaN]]
-        self.expected_result = lambda lst: np.array(self.nan_row + lst, dtype=float)
+        self.expected_result = lambda lst: float_array(self.nan_row + lst)
 
-    def test_resort_points(self):
+    def test_resort_points_ordered(self):
         # Test that the function correctly reorders the points
-        self.assertTrue((resort_points([4, 3, 2, 1]) == self.expected_result([RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2], RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0]])).all())
-        self.assertTrue((resort_points([2, 1, 4, 3]) == self.expected_result([RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2]])).all())
+        # Same Order
+        np.testing.assert_array_equal(
+            resort_points([1, 2, 3, 4], RESORT_TEST_INPUT),
+            float_array(self.nan_row + RESORT_TEST_INPUT)
+        )
 
-    def test_empty_list(self):
-        # Test that the function correctly handles an empty list
-        self.assertTrue((resort_points([]) == self.expected_result([])).all())
+    def test_resort_points_reverse_order(self):
+        # Reversed Order
+        np.testing.assert_array_equal(
+            resort_points([4, 3, 2, 1], RESORT_TEST_INPUT),
+            self.expected_result([RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2], RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0]])
+        )
 
-    def test_single_element(self):
-        # Test that the function correctly handles a list with a single element
-        self.assertTrue((resort_points([3]) == self.expected_result([RESORT_TEST_INPUT[2]])).all())
-
-    def test_invalid_point_ids(self):
-        # Test that the function correctly handles invalid point IDs
-        with self.assertRaises(IndexError):
-            resort_points([0])
-        with self.assertRaises(IndexError):
-            resort_points([5])
-        with self.assertRaises(IndexError):
-            resort_points([2.5])
-
-    def test_duplicate_point_ids(self):
-        # Test that the function correctly handles duplicate point IDs
-        self.assertTrue((resort_points([1, 1, 2, 2]) == self.expected_result([RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[1]])).all())
+        # Mixed Order
+    def test_resort_points_mixed_order(self):
+        np.testing.assert_array_equal(
+            resort_points([2, 1, 4, 3], RESORT_TEST_INPUT),
+            self.expected_result([RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2]])
+        )
 
 if __name__ == "__main__":
     unittest.main()

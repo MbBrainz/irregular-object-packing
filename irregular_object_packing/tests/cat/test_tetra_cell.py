@@ -3,7 +3,7 @@ import unittest
 from irregular_object_packing.cat.utils import (
     sort_by_occurrance,
 )
-from irregular_object_packing.tests.tetrahedral_splits import (
+from irregular_object_packing.tests.test_tetrahedral_splits import (
     cell_1111,
     cell_2211,
     cell_2222,
