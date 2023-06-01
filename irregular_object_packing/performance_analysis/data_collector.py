@@ -92,7 +92,7 @@ class DataCollector:
 
         CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"]
         parameters = []
-        container_shape_tuple = list(zip(CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"]))
+        container_shape_tuple = list(zip(CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"], strict=True))
         for cs_tuple in container_shape_tuple:
             parameters.append({
                 "container": cs_tuple[0],
@@ -107,6 +107,8 @@ class DataCollector:
         return parameters
 
 
+
+
     def check_initialisation(self, scenarios):
         for scenario in scenarios:
             opt = self.setup_optimizer(scenario)
@@ -118,7 +120,7 @@ class DataCollector:
     #############################
 
     def setup_optimizer(self, params) -> Optimizer:
-        """Setup the optimizer"""
+        """Setup the optimizer with the given parameters"""
 
         container_volume = 10
         shape_volume = container_volume/params["n_objects"]
@@ -205,19 +207,6 @@ class DataCollector:
                     # Any other parameters you can fill in for cellpack that are comparable to irop...,
                     implementation="cellpack",
                 ).update_csv(self.path)
-
-    def collect_profile_data(self,scenarios):
-        """Collect the data"""
-        tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0}, position=0, leave=True)
-        for _scenario in tqdm_bar:
-            # handle generic scenario # [ ] TODO
-            # we want to profile the CDT, the CAT and the growth based optimisation for each scenario
-
-            # only profile one iteration for eaach scenario,
-            # going from small scale to large and from little to many objects
-            pass
-
-
 
     def run(self):
         """Run the data collection"""

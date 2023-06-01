@@ -25,7 +25,7 @@ from irregular_object_packing.tests.test_tetrahedral_splits import (
     cell_2222,
     cell_3331,
     empty_normals_and_cells,
-    resort_points,
+    reorder_split_input,
 )
 
 
@@ -36,14 +36,14 @@ class SplitAndProcess(unittest.TestCase):
     def test_1111(self):
         cell, _, _ = cell_1111()
         normals, cat_cells, normals_pp = empty_normals_and_cells()
-        all_tet_points = resort_points(cell.points)
+        all_tet_points = reorder_split_input(cell.points)
         split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
         self.assert_correct_split_and_process(cell,all_tet_points,normals, cat_cells, SPLIT_4_OUTPUT)
 
     def test_3331(self):
         cell, _, _ = cell_3331()
         normals, cat_cells, normals_pp = empty_normals_and_cells()
-        all_tet_points = resort_points(cell.points)
+        all_tet_points = reorder_split_input(cell.points)
         split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
 
         self.assert_correct_split_and_process( cell, all_tet_points, normals, cat_cells, SPLIT_2_3331_OUTPUT)
@@ -51,7 +51,7 @@ class SplitAndProcess(unittest.TestCase):
     def test_2222(self):
         cell, _, _ = cell_2222()
         normals, cat_cells, normals_pp = empty_normals_and_cells()
-        all_tet_points = resort_points(cell.points)
+        all_tet_points = reorder_split_input(cell.points)
         split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
         self.assert_correct_split_and_process(cell, all_tet_points, normals, cat_cells, SPLIT_2_2222_OUTPUT)
 
@@ -60,16 +60,24 @@ class SplitAndProcess(unittest.TestCase):
     def test_2211(self):
         cell, _, _ = cell_2211()
         normals, cat_cells, normals_pp = empty_normals_and_cells()
-        all_tet_points = resort_points(cell.points)
+        all_tet_points = reorder_split_input(cell.points)
         split_and_process(cell, all_tet_points, normals, cat_cells, normals_pp)
         self.assert_correct_split_and_process(cell, all_tet_points , normals, cat_cells, SPLIT_3_OUTPUT)
 
 
-    def assert_correct_split_and_process(self, cell: TetraCell, all_tet_points, normals, cat_cells, split_output):
+    def assert_correct_split_and_process(self, cell: TetraCell, all_tet_points, res_normals, res_cat_cells, expected_split_output):
+        ALL_OBJECTS = [0, 1, 2, 3, 4]
+        for _i, obj in enumerate(ALL_OBJECTS):
+            if obj not in cell.objs:
+                self.assertEqual(res_normals[obj], [])
+                self.assertEqual(res_cat_cells[obj], [])
+
         for _i, obj in enumerate(cell.objs):
-            obj_normals = normals[obj]
-            cat_cells[obj]
+            obj_normals = res_normals[obj]
+            obj_cell = res_cat_cells[obj]
+
             for _j, face_normal in enumerate(obj_normals):
+                self.assert_cat_cells_correct(obj_cell, expected_split_output)
                 self.assertEqual(np.shape(face_normal), (3, 3))
 
 class FilterRelevantCells(unittest.TestCase):
@@ -111,27 +119,27 @@ class SplitCell(unittest.TestCase):
     def test_1111(self):
         cell, _, _ = cell_1111()
         self.assertEqual(cell.split_func, split_4)
-        result = cell.split(resort_points(cell.points))
+        result = cell.split(reorder_split_input(cell.points))
         np.testing.assert_array_equal(float_array(result), float_array(SPLIT_4_OUTPUT))
 
     def test_3331(self):
         cell, _, _ = cell_3331()
         self.assertEqual(cell.split_func, split_2_3331)
-        result = cell.split(resort_points(cell.points))
+        result = cell.split(reorder_split_input(cell.points))
         np.testing.assert_equal(float_array(result), float_array(SPLIT_2_3331_OUTPUT))
 
 
     def test_2222(self):
         cell, _, _ = cell_2222()
         self.assertEqual(cell.split_func, split_2_2222)
-        result = cell.split(resort_points(cell.points))
+        result = cell.split(reorder_split_input(cell.points))
         np.testing.assert_array_equal(float_array(result), float_array(SPLIT_2_2222_OUTPUT))
 
     unittest.skip("resort points doesnt function properly but tests result is correct")
     def test_2211(self):
         cell, _, _ = cell_2211()
         self.assertEqual(cell.split_func, split_3)
-        all_tet_points = resort_points(cell.points)
+        all_tet_points = reorder_split_input(cell.points)
         result = cell.split(all_tet_points)
         for i in range(len(result)):
             for j in range(len(result[i])):
@@ -143,4 +151,4 @@ class SplitCell(unittest.TestCase):
         for case in [(1,), (1, 2), (1, 2, 3, 4, 5)]:
             cell.case = case
             with self.assertRaises(ValueError):
-                cell.split(resort_points(cell.points))
+                cell.split(reorder_split_input(cell.points))

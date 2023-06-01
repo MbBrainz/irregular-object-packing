@@ -125,14 +125,13 @@ class Optimizer(OptimizerData):
         return self.shape0.n_faces  # currently simple
 
     def resample_meshes(self, scale_factor=None):
-        if self.config.sampling_disabled:
-            return
         self.log.info("resampling meshes")
         if scale_factor is None:
             scale_factor = self.curr_max_scale
 
         self.curr_sample_rate = self.sample_rate_mesh(scale_factor)
-        self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
+        if not self.config.sampling_disabled:
+            self.shape = resample_pyvista_mesh(self.shape0, self.curr_sample_rate)
         self.container = resample_mesh_by_triangle_area(self.shape, self.container0)
 
         self.log.info(f"container: n_faces: {self.container.n_faces}[sampled]/{self.container0.n_faces}[original]")
@@ -211,7 +210,8 @@ class Optimizer(OptimizerData):
 
     def optimize_positions(self):
         self.log.debug("optimizing cells...")
-        if self.config.n_threads >1:
+
+        if self.config.n_threads is None or self.config.n_threads == 1:
             self.executor.map(self.parallel_local_optimisation, range(self.n_objs), self.tf_arrays)
         else:
             for obj_id, previous_tf_array in enumerate(self.tf_arrays):
@@ -246,10 +246,12 @@ class Optimizer(OptimizerData):
         self.objects = self.current_meshes()
 
         # Compute the CDT
-        tetmesh = cat.compute_cdt(self.objects + [self.container], kwargs)
+        meshes = self.objects + [self.container]
+        tetmesh = cat.compute_cdt(meshes, kwargs)
 
+        steiner_points = tetmesh.points[range(tetmesh.n_points - sum([mesh.n_points for mesh in meshes]))]
         # COMPUTE CAT CELLS
-        n_points_per_object = [obj.n_points for obj in self.objects] + [self.container.n_points]
+        n_points_per_object = [obj.n_points for obj in self.objects] + [self.container.n_points+ len(steiner_points)]
         assert sum(n_points_per_object) == tetmesh.n_points, "Number of points in tetmesh does not match the sum of points in the objects"
 
         normals, cat_cells, normals_pp = cat.compute_cat_faces(
@@ -364,7 +366,9 @@ def simple_shapes_optimizer_config() -> "Optimizer":
     original_mesh = pv.Cube().triangulate().extract_surface()
     container = pv.Cube().triangulate().extract_surface()
 
+
     container = scale_to_volume(container, container_volume)
+    container = resample_pyvista_mesh(container, 15*4*2)
     original_mesh = scale_and_center_mesh(original_mesh, mesh_volume)
     print_mesh_info(original_mesh, "original mesh")
 
@@ -407,26 +411,32 @@ if __name__ == "__main__":
 
 # %%
 
-optimizer = simple_shapes_optimizer_config()
+optimizer = default_optimizer_config()
 optimizer.setup()
-cat_cells = optimizer.compute_cat_cells()
-cat_meshes = [PolyData(*convert_faces_to_polydata_input(cat_cell)) for cat_cell in cat_cells[1]]
+optimizer.run(Ni=1)
+optimizer.plotter.plot_step()
 
-plotter = pv.Plotter()
-for cat_mesh in cat_meshes:
-    plotter.add_mesh(cat_mesh, color="yellow", opacity=0.8)
-
-meshes = optimizer.current_meshes()
-for o in meshes:
-    plotter.add_mesh(o, color="red", opacity=0.8)
-
-plotter.show()
 #%%
-obj_id = 0
-plotter = pv.Plotter()
-plotter.add_mesh(meshes[obj_id], color="red", opacity=0.8)
-plotter.add_mesh(cat_meshes[obj_id], color="yellow", opacity=0.8 , show_edges=True)
-plotter.show()
+# optimizer.resample_meshes()
+# cat_cells = optimizer.compute_cat_cells()
+# cat_meshes = [PolyData(*convert_faces_to_polydata_input(cat_cell)) for cat_cell in cat_cells[1]]
+
+# plotter = pv.Plotter()
+# for cat_mesh in cat_meshes:
+#     plotter.add_mesh(cat_mesh, color="yellow", opacity=0.8)
+
+# meshes = optimizer.current_meshes()
+# for o in meshes:
+#     plotter.add_mesh(o, color="red", opacity=0.8)
+
+# plotter.add_mesh(optimizer.container, color="blue", opacity=0.4, show_edges=True)
+# plotter.show()
+# #%%
+# obj_id = 4
+# plotter = pv.Plotter()
+# plotter.add_mesh(meshes[obj_id], color="red", opacity=0.8)
+# plotter.add_mesh(cat_meshes[obj_id], color="yellow", opacity=1 , show_edges=True)
+# plotter.show()
 
 
 
