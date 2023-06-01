@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 from dataclass_csv import DataclassWriter
-from numpy import ndarray
+from numpy import array, ndarray
 from pandas import DataFrame
 
 CONFIG = {
@@ -73,14 +73,17 @@ class ResultData:
     n_threads: int
 
     # COLLECTED_DATA
-    i: int
-    run_time: float
-    setup_time: float
-    n_total_steps: int
-    time_per_step: ndarray[float]
-    iterations_per_step: ndarray[float]
-    fails_per_step: ndarray[float]
-    errors_per_step: ndarray[float]
+    i: int = 0
+    run_time: float = 0
+    setup_time: float = 0
+    n_total_steps: int = 0
+    time_per_step: ndarray[float] = array([])
+    iterations_per_step: ndarray[float] = array([])
+    fails_per_step: ndarray[float] = array([])
+    errors_per_step: ndarray[float] = array([])
+
+    # Custom param for irop or cellpack
+    implementation: str = "irop"
 
     @staticmethod
     def write_csv(file_path):

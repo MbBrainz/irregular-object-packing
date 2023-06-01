@@ -138,26 +138,28 @@ class DataCollector:
         optimizer = Optimizer(shape, container, config, "performance_tests")
         return optimizer
 
-    def collect_time_data(self,scenarios):
+    def collect_irop_data(self,scenarios):
         """Collect the data"""
         tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0}, position=0, leave=True)
         for scenario in tqdm_bar:
             tqdm_bar.set_postfix(i=0)
             for i in range(CONFIG["number_of_iterations"]):
+                self.run_irop_optimizer_scenario(scenario, i)
 
-                setup_time = time.time()
-                optimizer = self.setup_optimizer(scenario)
-                optimizer.setup()
-                setup_time = time.time() - setup_time
+    def run_irop_optimizer_scenario(self, scenario, i):
+        setup_time = time.time()
+        optimizer = self.setup_optimizer(scenario)
+        optimizer.setup()
+        setup_time = time.time() - setup_time
 
-                run_time = time.time()
+        run_time = time.time()
 
-                optimizer.run(Ni=1 if self.test else -1)
-                run_time = time.time() - run_time
+        optimizer.run(Ni=1 if self.test else -1)
+        run_time = time.time() - run_time
 
                 # Add an image of the result
 
-                ResultData.create_result(
+        ResultData.create_result(
                     scenario,
                     i=i,
                     run_time=run_time,
@@ -167,6 +169,41 @@ class DataCollector:
                     its_per_step=optimizer.its_per_step,
                     fails_per_step=optimizer.fails_per_step,
                     errors_per_step=optimizer.errors_per_step,
+                ).update_csv(self.path)
+
+    def collect_cellpack_data(self, scenarios):
+        tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0}, position=0, leave=True)
+        for scenario in tqdm_bar:
+            tqdm_bar.set_postfix(i=0)
+            for i in range(CONFIG["number_of_iterations"]):
+                self.run_cellpack_scenarios(scenario, i)
+
+
+    def run_cellpack_scenario(self, scenario, i):
+        setup_time = time.time()
+        # Setup celpack (if needed)
+        # --------------- Cellpack setup code here ---------------------
+
+
+        # ------------------------------------------------------------
+        setup_time = time.time() - setup_time
+
+        run_time = time.time()
+        # Run cellpack
+        # --------------- cellpack run code here ----------------------
+
+
+        # ------------------------------------------------------------
+        run_time = time.time() - run_time
+
+        ResultData.create_result(
+                    scenario,
+                    i=i,
+                    run_time=run_time,
+                    setup_time=setup_time,
+                    n_total_steps=0,
+                    # Any other parameters you can fill in for cellpack that are comparable to irop...,
+                    implementation="cellpack",
                 ).update_csv(self.path)
 
     def collect_profile_data(self,scenarios):
@@ -179,6 +216,8 @@ class DataCollector:
             # only profile one iteration for eaach scenario,
             # going from small scale to large and from little to many objects
             pass
+
+
 
     def run(self):
         """Run the data collection"""
@@ -193,7 +232,7 @@ class DataCollector:
         print("Checking initialisation of all scenarios...")
         self.check_initialisation(test_scenarios)
         print("start collecting...")
-        self.collect_time_data(test_scenarios)
+        self.collect_irop_data(test_scenarios)
         print("Data collection finished.")
 
 @click.command()
