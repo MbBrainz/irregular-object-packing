@@ -183,8 +183,11 @@ class DataCollector:
         setup_time = time.time()
         # Setup celpack (if needed)
         # --------------- Cellpack setup code here ---------------------
-
-
+        # Building and Running Cellpack is not that difficult check the use guide here : https://hemocell.eu/user_guide/QuickStart.html#packcells
+        # But you can only run it for cubes. For example the following command places RBCs in a 25x25x25 cube for a given hematocrit.
+        # ./packCells  25 25 25 --plt_ratio 0 --hematocrit 0.3 -r 
+        # So the first argument is the complex gemotries in which you can place RBCs and PLTs
+        # Second you run a few benchmarks for various hematocrit types and various sizes to see the scaling capabilities of each algorithm
         # ------------------------------------------------------------
         setup_time = time.time() - setup_time
 
