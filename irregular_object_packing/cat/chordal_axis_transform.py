@@ -24,12 +24,13 @@ from irregular_object_packing.cat.utils import (
 )
 
 CDT_DEFAULTS = {
+    # "nobisect": True,
     "steinerleft": 0,
+    "mindihedral": 0,
     "minratio": 10.0,
     "quality": False,
-    "opt_scheme": 0,
-    "switches": "O/0Q",
-    "quiet": True,
+    "cdt": True,
+    "switches": "O0/0",
 }
 
 
@@ -55,21 +56,28 @@ def compute_cdt(meshes: list[pv.PolyData], tetgen_kwargs=None) -> pv.Unstructure
 
     return mesh.grid
 
-def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list[list[np.ndarray]], cat_cells: list[list[np.ndarray]], normals_pp):
+def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list[list[np.ndarray]], cat_cells: list[list[np.ndarray]], normals_per_points):
     """Splits the cell into faces and processes them."""
     # 0. split the cell into faces
     split_faces = cell.split(tetmesh_points)
     # FIXME: Bug for larger object
+    added_objs = []
     for i, faces in enumerate(split_faces):
+
         obj_id = cell.objs[i]
         obj_point = tetmesh_points[cell.points[i]]
-        for face in faces:
-            # tetmesh_points[face]
-            face_normal = create_face_normal(face[:3], obj_point)
+        obj_covered = obj_id in added_objs
 
+        for face in faces:
+            face_normal = create_face_normal(face[:3], obj_point)
             normals[obj_id].append(face_normal)
-            cat_cells[obj_id].append(face)
-            normals_pp[cell.points[i]].append(face_normal)
+            normals_per_points[cell.points[i]].append(face_normal)
+
+            if not obj_covered:
+                cat_cells[obj_id].append(face)
+
+        if not obj_covered:
+            added_objs.append(obj_id)
 
 
 def filter_relevant_cells(cells: list[int], objects_npoints: list[int]):
@@ -92,7 +100,7 @@ def filter_relevant_cells(cells: list[int], objects_npoints: list[int]):
 
     return relevant_cells, skipped_cells
 
-# [ ] FIXME: First cell is container, shouldnt be
+
 def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCell], n_objs: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
     # initialize face normals list
     face_normals = []
@@ -112,16 +120,12 @@ def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCe
         # mutates face_normals and cat_cells
         split_and_process(cell, tetmesh_points, face_normals, cat_cells, face_normals_pp)
 
-    face_normals.reverse()
-    cat_cells.reverse()
-    face_normals_pp.reverse()
     return face_normals, cat_cells, face_normals_pp
 
 def compute_cat_faces(tetmesh: pv.UnstructuredGrid, npoints_per_object, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """Compute the CAT faces of the objects in the list and the container. The n_points_per_object is a list of the number of points for each object and should be added in the same order as the objects provided to the compute_cdt() function."""
 
     # assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"
-
     # [ ] TODO: add the obj_coords substraction to the computation here so that the optimisation becomes easier
 
     # filter tetrahedron mesh to only contain tetrahedrons with points from more than one object

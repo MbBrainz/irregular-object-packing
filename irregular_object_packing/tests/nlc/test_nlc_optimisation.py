@@ -391,16 +391,15 @@ class TestCatBoxOptimization(unittest.TestCase):
 
         tet = tetgen.TetGen(self.tet_input)
         tet.tetrahedralize(order=1, mindihedral=0, minratio=0, steinerleft=0, quality=False)
+        self.npoints_per_object = [len(self.obj_points), len(self.container_points)]
 
         self.cat_cells, self.normals, self.normals_pp = compute_cat_faces(
-            tet.grid, [set(map(tuple, self.obj_points)), set(map(tuple, self.container_points))],
-            self.init_center,
+            tet.grid, self.npoints_per_object ,self.init_center,
         )
 
         self.obj_cat_cell = convert_faces_to_polydata_input(self.cat_cells[0])
         self.previous_transform_array = np.array([1, 0, 0, 0] + list(self.init_center))
 
-    unittest.skip("Numba issues during tests")
     def test_optimize_cat_box(self):
         new_tf_array = compute_optimal_transform(
             previous_tf_array=self.previous_transform_array,

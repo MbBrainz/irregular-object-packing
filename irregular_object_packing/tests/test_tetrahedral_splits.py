@@ -115,6 +115,16 @@ def cell_1111() -> tuple[TetraCell, list, list]:
     obj_ids = [1, 2, 3, 4]
     return TetraCell(point_ids, obj_ids, 1), point_ids, obj_ids
 
+def cell_1111_reverse() -> tuple[TetraCell, list, list]:
+    point_ids = [1, 2, 3, 4]
+    obj_ids = [4, 3, 2, 1]
+    return TetraCell(point_ids, obj_ids, 1), point_ids, obj_ids
+
+def cell_1111_reverse_2() -> tuple[TetraCell, list, list]:
+    point_ids = [4,3,2,1]
+    obj_ids = [1, 2, 3, 4]
+    return TetraCell(point_ids, obj_ids, 1), point_ids, obj_ids
+
 def cell_3331() -> tuple[TetraCell, list, list]:
     point_ids = [1, 2, 3, 4]
     obj_ids = [4, 4, 4, 1]
@@ -130,10 +140,15 @@ def cell_2211() -> tuple[TetraCell, list, list]:
     obj_ids = [1, 2, 2, 3]
     return TetraCell(point_ids, obj_ids, 1), point_ids, obj_ids
 
+def cell_4444() -> tuple[TetraCell, list, list]:
+    point_ids = [1, 2, 3, 4]
+    obj_ids = [1, 1, 1, 1]
+    return TetraCell(point_ids, obj_ids, 1), point_ids, obj_ids
+
 # have [a, b, c, d] which corresponds to [1, 2, 3, 4]
 # want [d, c, b, a] which corresponds to [4, 3, 2, 1]
 # want [b, a, d, c] which corresponds to [2, 1, 4, 3]
-def resort_points(point_ids, SPLIT_INPUT=SPLIT_INPUT):
+def reorder_split_input(point_ids, SPLIT_INPUT=SPLIT_INPUT):
     """convenience func to resort points so that sorted_points[point_ids]
     returns the same input as SPLIT_INPUT[1, 2, 3, 4]"""
     # Adds a NaN row to the input data to cover for index 0
@@ -159,21 +174,21 @@ class TestResortPoints(unittest.TestCase):
         # Test that the function correctly reorders the points
         # Same Order
         np.testing.assert_array_equal(
-            resort_points([1, 2, 3, 4], RESORT_TEST_INPUT),
+            reorder_split_input([1, 2, 3, 4], RESORT_TEST_INPUT),
             float_array(self.nan_row + RESORT_TEST_INPUT)
         )
 
     def test_resort_points_reverse_order(self):
         # Reversed Order
         np.testing.assert_array_equal(
-            resort_points([4, 3, 2, 1], RESORT_TEST_INPUT),
+            reorder_split_input([4, 3, 2, 1], RESORT_TEST_INPUT),
             self.expected_result([RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2], RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0]])
         )
 
         # Mixed Order
     def test_resort_points_mixed_order(self):
         np.testing.assert_array_equal(
-            resort_points([2, 1, 4, 3], RESORT_TEST_INPUT),
+            reorder_split_input([2, 1, 4, 3], RESORT_TEST_INPUT),
             self.expected_result([RESORT_TEST_INPUT[1], RESORT_TEST_INPUT[0], RESORT_TEST_INPUT[3], RESORT_TEST_INPUT[2]])
         )
 

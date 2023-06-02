@@ -12,9 +12,6 @@
     # faceless_points = [i for i, n in enumerate(normals_pp) if len(n) == 0]
     # faceless_vertices = tetmesh.points[np.array(faceless_points)]
     # objects_npoints = [x * optimizer.shape.n_points for x in range(optimizer.n_objs)]
-    # rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
-    # # %%
-    # extracted = tetmesh.extract_cells([cell.id for cell in rel_cells])
     # faceless_rel_cells = tetmesh.extract_points(faceless_points, include_cells=True)
     # faceless_rel_cells_centers = faceless_rel_cells.cell_centers()
 

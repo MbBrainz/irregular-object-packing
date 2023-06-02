@@ -5,6 +5,8 @@ from irregular_object_packing.cat.utils import (
 )
 from irregular_object_packing.tests.test_tetrahedral_splits import (
     cell_1111,
+    cell_1111_reverse,
+    cell_1111_reverse_2,
     cell_2211,
     cell_2222,
     cell_3331,
@@ -23,6 +25,15 @@ class InitCell(unittest.TestCase):
         expected_point_ids, expected_object_ids , expected_case = sort_by_occurrance(point_ids, obj_ids)
         self.assert_cell_correct(cell, expected_point_ids, expected_object_ids, 4, expected_case)
 
+    def test_1111_reversed(self):
+        cell,point_ids,obj_ids = cell_1111_reverse()
+        expected_point_ids, expected_object_ids , expected_case = sort_by_occurrance(point_ids, obj_ids)
+        self.assert_cell_correct(cell, expected_point_ids, expected_object_ids, 4, expected_case)
+
+        cell,point_ids,obj_ids = cell_1111_reverse_2()
+        expected_point_ids, expected_object_ids , expected_case = sort_by_occurrance(point_ids, obj_ids)
+        self.assert_cell_correct(cell, expected_point_ids, expected_object_ids, 4, expected_case)
+
     def test_3331(self):
         cell,point_ids,obj_ids = cell_3331()
         expected_point_ids, expected_object_ids , expected_case = sort_by_occurrance(point_ids, obj_ids)
@@ -34,6 +45,11 @@ class InitCell(unittest.TestCase):
         self.assert_cell_correct(cell, expected_point_ids, expected_object_ids, 2, expected_case)
 
     def test_2211(self):
+        cell,point_ids,obj_ids = cell_2211()
+        expected_point_ids, expected_object_ids , expected_case = sort_by_occurrance(point_ids, obj_ids)
+        self.assert_cell_correct(cell, expected_point_ids, expected_object_ids, 3, expected_case)
+
+    def test_4444(self):
         cell,point_ids,obj_ids = cell_2211()
         expected_point_ids, expected_object_ids , expected_case = sort_by_occurrance(point_ids, obj_ids)
         self.assert_cell_correct(cell, expected_point_ids, expected_object_ids, 3, expected_case)
