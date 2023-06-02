@@ -44,10 +44,10 @@ class ScenePlotter:
         else:
             mesh_before, mesh_after, cat_mesh = self.data.recreate_object_scene(step, obj_id)
 
-        plotter = PvPlotter()
+        plotter = PvPlotter(shape=(2,1))
 
         mesh = mesh_after if after_scale is True else mesh_before
-
+        plotter.subplot(0, 0)
         plots.plot_step_single(
             mesh,
             cat_mesh,
@@ -58,6 +58,35 @@ class ScenePlotter:
             # oms_kwargs=[
             #     {"show_edges": True, "color": "w", "edge_color": "red", "show_vertices": True, "point_size": 1, }
             # ],
+        )
+
+    def plot_step_object_compare(self, step: int, obj_id: int, save_path=None):
+        if step == self.cached_step:
+            mesh_before = self.meshes_before[obj_id]
+            mesh_after = self.meshes_after[obj_id]
+            cat_mesh = self.cat_meshes[obj_id]
+        else:
+            mesh_before, mesh_after, cat_mesh = self.data.recreate_object_scene(step, obj_id)
+
+        plotter =PvPlotter(shape=(2, 1))
+        plotter.subplot(1, 0)
+        plots.plot_step_single(
+            mesh_before,
+            cat_mesh,
+            cat_opacity=0.5, mesh_opacity=0.9,
+            m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
+            cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
+            plotter=plotter,
+        )
+
+        plotter.subplot(1, 0)
+        plots.plot_step_single(
+            mesh_after,
+            cat_mesh,
+            cat_opacity=0.5, mesh_opacity=0.9,
+            m_kwargs={"show_edges": True, "show_vertices": True, "point_size": 10, },
+            cat_kwargs={"show_edges": True, "show_vertices": True, "point_size": 5, },
+            plotter=plotter,
         )
 
         if save_path is not None:

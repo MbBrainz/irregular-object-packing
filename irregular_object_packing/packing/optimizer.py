@@ -380,6 +380,7 @@ def simple_shapes_optimizer_config() -> "Optimizer":
         log_lvl=logging.WARNING,
         sampling_disabled=True,
         init_f=0.1,
+        max_t=mesh_volume**(1 / 3) * 2,
         # padding=0,
     )
     plotter = None
@@ -399,47 +400,11 @@ def load_optimizer_from_state(statefile: str) -> 'Optimizer':
         optimizer.i_b = state.iteration_data.i_b
         optimizer.curr_sample_rate = state.iteration_data.sample_rate
         return optimizer
-
+#%%
 if __name__ == "__main__":
     print("This is an example run of the optimizer.\n\
        the optimizer will run for 10 iterations and then plot the final state.")
-    # optimizer = default_optimizer_config()
-    # optimizer.setup()
-    # optimizer.run(Ni=10)
-    # optimizer.plotter.plot_step()
-
-
-# %%
-
-optimizer = default_optimizer_config()
-optimizer.setup()
-optimizer.run(Ni=1)
-optimizer.plotter.plot_step()
-
-#%%
-# optimizer.resample_meshes()
-# cat_cells = optimizer.compute_cat_cells()
-# cat_meshes = [PolyData(*convert_faces_to_polydata_input(cat_cell)) for cat_cell in cat_cells[1]]
-
-# plotter = pv.Plotter()
-# for cat_mesh in cat_meshes:
-#     plotter.add_mesh(cat_mesh, color="yellow", opacity=0.8)
-
-# meshes = optimizer.current_meshes()
-# for o in meshes:
-#     plotter.add_mesh(o, color="red", opacity=0.8)
-
-# plotter.add_mesh(optimizer.container, color="blue", opacity=0.4, show_edges=True)
-# plotter.show()
-# #%%
-# obj_id = 4
-# plotter = pv.Plotter()
-# plotter.add_mesh(meshes[obj_id], color="red", opacity=0.8)
-# plotter.add_mesh(cat_meshes[obj_id], color="yellow", opacity=1 , show_edges=True)
-# plotter.show()
-
-
-
-# %%
-# %%
-
+    optimizer = default_optimizer_config()
+    optimizer.setup()
+    optimizer.run(Ni=10)
+    optimizer.plotter.plot_step()

@@ -228,7 +228,10 @@ class OptimizerData:
     def resample_mesh(self, iteration: int) -> PolyData:
         """Resample the given mesh with the sample rate of the given iteration."""
         status = self.status(iteration)
-        return resample_pyvista_mesh(mesh=self.shape0, target_faces=status.sample_rate)
+        try:
+            return resample_pyvista_mesh(mesh=self.shape0, target_faces=status.sample_rate)
+        except ValueError:
+            return self.shape0
 
     def meshes_before(self, iteration: int):
         """Get the meshes of all objects at the given iteration, before the

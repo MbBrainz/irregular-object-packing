@@ -9,7 +9,7 @@ numba
 numpy
 pandas
 parameterized
-pyvista
+pyvista==0.38.1
 scipy
 setuptools
 sphinx_rtd_theme
