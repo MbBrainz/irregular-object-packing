@@ -30,7 +30,7 @@ CDT_DEFAULTS = {
     "minratio": 10.0,
     "quality": False,
     "cdt": True,
-    "switches": "O0/0",
+    "switches": "O0/0Q",
 }
 
 

@@ -28,8 +28,10 @@ from irregular_object_packing.mesh.transform import (
 from irregular_object_packing.packing.optimizer import Optimizer
 from irregular_object_packing.packing.optimizer_data import SimConfig
 from irregular_object_packing.performance_analysis.search_parameters import (
+    CASE_BLOODCELL_MAX,
     CASE_PARAMETER_SEARCH,
     CASE_TRIVIAL_SHAPES,
+    CASES,
     CONFIG,
     ResultData,
 )
@@ -49,6 +51,7 @@ class DataCollector:
     """number of iterations to run per parameter set"""
     Ni: int = -1
     test: bool = False
+    cellpack: bool = False
 
     #############################
     # INITIALIZATION
@@ -58,10 +61,12 @@ class DataCollector:
         self.description = description
         self._set_start_time()
         self.test = test
+        self.setup_directories()
 
     def setup_directories(self):
         Path(CONFIG["result_dir"]).mkdir(parents=True, exist_ok=True)
         Path(CONFIG["data_dir"]).mkdir(parents=True, exist_ok=True)
+        Path(f"{CONFIG['result_dir']}/{self._file_name}").mkdir(parents=True, exist_ok=True)
 
     def _set_start_time(self):
         """sets tje start time of the data collection to the moste recent version of the data file"""
@@ -72,14 +77,22 @@ class DataCollector:
     # Convenient stuff
     #############################
     @property
-    def path(self):
+    def csv_path(self):
         """Return the path to the data file"""
-        return path.join(CONFIG["result_dir"], self._data_file_name())
+        return path.join(CONFIG["result_dir"], self._file_name + ".csv")
 
+    def img_path(self, i):
+        """Return the path to the image file"""
+        return path.join(CONFIG["result_dir"], self._img_file_name(i), self._img_file_name(i))
 
-    def _data_file_name(self):
+    @property
+    def _file_name(self):
         """Return the path to the registry file"""
-        return f"results_{CONFIG['title']}_{self.start_time}_{self.description}.csv"
+        return f"results_{CONFIG['title']}_{self.start_time}_{self.description}"
+
+    def _img_file_name(self, i):
+        """Return the path to the registry file"""
+        return f"final_{i}.png"
 
 
     def parameters_parameter_search(self) -> list[dict]:
@@ -92,6 +105,7 @@ class DataCollector:
 
         CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"]
         parameters = []
+        # create a list of tuples of container and shape with corresponding shapes
         container_shape_tuple = list(zip(CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"], strict=True))
         for cs_tuple in container_shape_tuple:
             parameters.append({
@@ -106,10 +120,25 @@ class DataCollector:
 
         return parameters
 
-
+    def parameters_bloodcell_max(self) -> list[dict]:
+        parameters = []
+        for container in CASE_BLOODCELL_MAX["container"]:
+            for shape in  CASE_BLOODCELL_MAX["shape"]:
+                for n_objects in CASE_BLOODCELL_MAX['n_objects']:
+                    parameters.append({
+                        "container": container,
+                        "shape": shape,
+                        "n_objects": n_objects,
+                        "padding": CASE_BLOODCELL_MAX["padding"],
+                        "alpha": CASE_BLOODCELL_MAX["alpha"],
+                        "beta": CASE_BLOODCELL_MAX["beta"],
+                        "n_threads": CASE_BLOODCELL_MAX["n_threads"],
+                    })
+        return parameters
 
 
     def check_initialisation(self, scenarios):
+        print(f"Checking {len(scenarios)} scenarios..")
         for scenario in scenarios:
             opt = self.setup_optimizer(scenario)
             opt.setup()
@@ -121,7 +150,6 @@ class DataCollector:
 
     def setup_optimizer(self, params) -> Optimizer:
         """Setup the optimizer with the given parameters"""
-
         container_volume = 10
         shape_volume = container_volume/params["n_objects"]
 
@@ -159,7 +187,7 @@ class DataCollector:
         optimizer.run(Ni=1 if self.test else -1)
         run_time = time.time() - run_time
 
-                # Add an image of the result
+        optimizer.plotter.plot_step(save_path=self.img_path(i))
 
         ResultData.create_result(
                     scenario,
@@ -171,14 +199,14 @@ class DataCollector:
                     its_per_step=optimizer.its_per_step,
                     fails_per_step=optimizer.fails_per_step,
                     errors_per_step=optimizer.errors_per_step,
-                ).update_csv(self.path)
+                ).update_csv(self.csv_path)
 
     def collect_cellpack_data(self, scenarios):
         tqdm_bar = tqdm(scenarios, desc="collect", total=len(scenarios), postfix={"i": 0}, position=0, leave=True)
         for scenario in tqdm_bar:
             tqdm_bar.set_postfix(i=0)
             for i in range(CONFIG["number_of_iterations"]):
-                self.run_cellpack_scenarios(scenario, i)
+                self.run_cellpack_scenario(scenario, i)
 
 
     def run_cellpack_scenario(self, scenario, i):
@@ -187,7 +215,7 @@ class DataCollector:
         # --------------- Cellpack setup code here ---------------------
         # Building and Running Cellpack is not that difficult check the use guide here : https://hemocell.eu/user_guide/QuickStart.html#packcells
         # But you can only run it for cubes. For example the following command places RBCs in a 25x25x25 cube for a given hematocrit.
-        # ./packCells  25 25 25 --plt_ratio 0 --hematocrit 0.3 -r 
+        # ./packCells  25 25 25 --plt_ratio 0 --hematocrit 0.3 -r
         # So the first argument is the complex gemotries in which you can place RBCs and PLTs
         # Second you run a few benchmarks for various hematocrit types and various sizes to see the scaling capabilities of each algorithm
         # ------------------------------------------------------------
@@ -207,42 +235,50 @@ class DataCollector:
                     run_time=run_time,
                     setup_time=setup_time,
                     n_total_steps=0,
-                    # Any other parameters you can fill in for cellpack that are comparable to irop...,
-                    implementation="cellpack",
-                ).update_csv(self.path)
+                    implementation="cellpack"
+                ).update_csv(self.csv_path)
+                # Any other parameters you can fill in for cellpack that are comparable to irop...,
 
-    def run(self):
+    def run(self, scenarios):
         """Run the data collection"""
 
         if self.test:
             print("------TEST MODE------")
         print("Start DataCollector.")
-        print(f"Results will be stored here: {self.path}")
-        ResultData.write_csv(self.path)
+        print(f"Results will be stored here: {self.csv_path}")
+        ResultData.write_csv(self.csv_path)
 
-        test_scenarios = self.parameters_parameter_search()
-        print("Checking initialisation of all scenarios...")
-        self.check_initialisation(test_scenarios)
-        print("start collecting...")
-        self.collect_irop_data(test_scenarios)
-        print("Data collection finished.")
+        if self.cellpack is False:
+            self.check_initialisation(scenarios)
+            self.collect_irop_data(scenarios)
+        else:
+            self.collect_cellpack_data(scenarios)
 
 @click.command()
+@click.option("--case", "-c", "case", type=click.Choice(CASES), help="Case to run", required=True)
 @click.option("-i", "iterations", default=1, help="Number of iterations to run per parameter set")
 @click.option("--new", "-n", "description", prompt=True, prompt_required=False, default="", help="Description of the data collection")
 @click.option("--test", "-t", "test", is_flag=True,default=False, help="Test to run")
-def main(iterations, description, test):
+def main(case, iterations, description, test):
     """CLI for the data collection"""
     collector = DataCollector(iterations, description, test)
-    collector.run()
+
+    if case == "parameter_search":
+        scenarios = collector.parameters_parameter_search()
+    elif case == "trivial_shapes":
+        scenarios = collector.parameters_trivial_shapes()
+    elif case == "bloodcell_max_irop":
+        scenarios = collector.parameters_bloodcell_max()
+    elif case == "bloodcell_max_cellpack":
+        scenarios = collector.parameters_bloodcell_max()
+        collector.cellpack = True
+    else:
+        raise ValueError(f"Case {case} not found")
+
+    collector.run(scenarios)
 
 if __name__ == "__main__":
-    # main()
+    main()
     pass
-    # idea: add one cli flag to option that specifies a new type of data collection
-
-# %%
-dc = DataCollector(1, "test", True)
-dc.parameters_trivial_shapes()
 
 # %%

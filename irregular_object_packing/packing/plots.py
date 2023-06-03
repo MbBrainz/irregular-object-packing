@@ -1,3 +1,4 @@
+#%%
 import numpy as np
 import pyvista as pv
 import trimesh
@@ -319,8 +320,9 @@ def generate_gif(optimizer, save_path, title="Optimization"):
 def plot_simplification_curve():
     fig, ax = plt.subplots()
 
-    a = [0.05, 0.15, 0.25]
-    b = [0.1, 0.2, 0.3, 0.5]
+    a = [0.02, 0.04, 0.06, 0.08, 0.1]
+    a = [0.1]
+    b = [0.1, 0.2, 0.3, 0.4, 0.5]
 
     x = np.linspace(0, 1, 100)
 
@@ -328,5 +330,9 @@ def plot_simplification_curve():
         for bi in b:
             print(f"{ai} {bi}`")
             ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
-    ax.legend()
+    # ax.legend()
     plt.show()
+
+#%%
+plot_simplification_curve()
+# %%

@@ -120,9 +120,7 @@ class Optimizer(OptimizerData):
         self.add(self.tf_arrays, self.normals, self.cat_cells, iterdata)
 
     def sample_rate_mesh(self, scale_factor):
-        if self.config.dynamic_simplification:
-            return int(mesh_simplification_condition(scale_factor, self.config.alpha, self.config.beta) * self.shape0.n_faces * self.config.upscale_factor)
-        return self.shape0.n_faces  # currently simple
+        return int(mesh_simplification_condition(scale_factor, self.config.alpha, self.config.beta) * self.shape0.n_faces)
 
     def resample_meshes(self, scale_factor=None):
         self.log.info("resampling meshes")
@@ -351,10 +349,8 @@ def default_optimizer_config(N=5, mesh_dir ="./../../data/mesh/") -> "Optimizer"
         init_f=0.1,
         max_t=mesh_volume**(1 / 3) * 2,
         padding=1E-4 * mesh_volume**(1 / 3),
-        dynamic_simplification=True,
         alpha=0.1,
         beta=0.5,
-        upscale_factor=1,
     )
     optimizer = Optimizer(original_mesh, container, config, description="cells_in_sphere")
     return optimizer
@@ -381,7 +377,6 @@ def simple_shapes_optimizer_config() -> "Optimizer":
         sampling_disabled=True,
         init_f=0.1,
         max_t=mesh_volume**(1 / 3) * 2,
-        # padding=0,
     )
     plotter = None
     optimizer = Optimizer(original_mesh, container, settings, plotter)
@@ -408,3 +403,4 @@ if __name__ == "__main__":
     optimizer.setup()
     optimizer.run(Ni=10)
     optimizer.plotter.plot_step()
+

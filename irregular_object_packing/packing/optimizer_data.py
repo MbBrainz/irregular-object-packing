@@ -43,13 +43,9 @@ class SimConfig:
     """The log level maximum level is 3."""
     padding: float = 0.0
     """The padding which is added to the inside of the cat cells."""
-    dynamic_simplification: bool = True
-    """Whether to use dynamic simplification."""
     sampling_disabled: bool = False
     alpha: float = 0.05
     beta: float = 0.1
-    upscale_factor: float = 1.0
-    """The upscale factor for the object mesh."""
     n_threads: int = None
     """Whether to use sequential scaling."""
     container_volume: float = 10.0

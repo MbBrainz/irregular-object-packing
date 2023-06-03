@@ -14,19 +14,15 @@ CONFIG = {
 }
 
 CASE_PARAMETER_SEARCH = {
-    'n_objects': [5],
+    'n_objects': [8, 32],
     'container': ['sphere', 'cube',],
-    # 'n_objects': [5, 6, 7, 8, 9,],
-    # 'container': ["cube", 'cylinder', 'sphere'],
     'shape': [ "normal_red_blood_cell"],
     # 'shape': ["cube", 'sphere', "normal_red_blood_cell", "sickle_blood_cell", "bunny"],
     # 'padding': [0, 0.0005, 0.0001, 0.00005, 0.00001],
-    'padding': [0, 0.00005, 0.00001],
-    'alpha': [0.1],
-    'beta': [0.5],
+    'padding': [0, 0.0000001, 0.000001, 0.00001],
+    'alpha': [0.02, 0.04, 0.06, 0.08, 0.1],
+    'beta': [0.1, 0.2, 0.3, 0.4, 0.5],
     'n_threads': [128],
-    # 'alpha': [0.01, 0.05, 0.1],
-    # 'beta': [0.01, 0.05, 0.1],
 }
 
 # could do a extra field per parameter that defines if you want combinations or iterations
@@ -41,14 +37,16 @@ CASE_TRIVIAL_SHAPES = {
 }
 
 CASE_BLOODCELL_MAX = {
-    'n_objects': [2, 4, 8, 16, 32, 64],
+    'n_objects': [4, 8, 16, 32, 64],
     'container': ['cylinder', 'cube'],
-    'shape': ["normal_red_blood_cell"],
-    'padding': [0],
-    'alpha': [0.1],
-    'beta': [0.5],
-    'n_threads': [128],
+    'shape': ["normal_red_blood_cell", "sickle_red_blood_cell"],
+    'padding': 0,
+    'alpha': 0.1,
+    'beta': 0.5,
+    'n_threads': 128,
 }
+
+CASES = ["parameter_search", "trivial_shapes", "bloodcell_max_irop", "bloodcell_max_cellpack"]
 
 RESULTS = {
     'i': int,
@@ -108,7 +106,7 @@ class ResultData:
 
     @staticmethod
     def create_result(params, i, run_time, setup_time, n_total_steps, time_per_step, its_per_step,
-                      fails_per_step, errors_per_step,):
+                      fails_per_step, errors_per_step,) -> 'ResultData':
         return ResultData(
             **params,
             i=i,
