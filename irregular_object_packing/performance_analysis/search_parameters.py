@@ -53,6 +53,7 @@ RESULTS = {
     'run_time': float,
     'setup_time': float,
     'n_total_steps': int,
+    'object_scales': ndarray[float],
     'time_per_step': ndarray[int],
     'its_per_step': ndarray[float],
     'fails_per_step': ndarray[int],
@@ -75,6 +76,7 @@ class ResultData:
     run_time: float = 0
     setup_time: float = 0
     n_total_steps: int = 0
+    object_scales: ndarray[float] = array([])
     time_per_step: ndarray[float] = array([])
     iterations_per_step: ndarray[float] = array([])
     fails_per_step: ndarray[float] = array([])
@@ -105,7 +107,7 @@ class ResultData:
             writer.write(skip_header=True)
 
     @staticmethod
-    def create_result(params, i, run_time, setup_time, n_total_steps, time_per_step, its_per_step,
+    def create_result(params, i, run_time, setup_time, n_total_steps, object_scales, time_per_step, its_per_step,
                       fails_per_step, errors_per_step,) -> 'ResultData':
         return ResultData(
             **params,
@@ -113,10 +115,9 @@ class ResultData:
             run_time=run_time,
             setup_time=setup_time,
             n_total_steps=n_total_steps,
+            object_scales=object_scales,
             time_per_step=time_per_step,
             iterations_per_step=its_per_step,
             fails_per_step=fails_per_step,
             errors_per_step=errors_per_step,
         )
-
-

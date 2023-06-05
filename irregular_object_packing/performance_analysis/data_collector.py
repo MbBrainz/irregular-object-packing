@@ -1,6 +1,6 @@
 """
 The data collector runs all the combination of the parameters and saves the results.
-This file is assumed to be called from the root of the directory. as follows:
+    os.chdir(get_project_root().parent)his file is assumed to be called from the root of the directory. as follows:
 ```python3 graphproc/performance/data_collector.py```
 
 The datacollector will run from terminal without parameters and will then:
@@ -164,6 +164,7 @@ class DataCollector:
             beta=params["beta"],
             max_t=shape_volume**(1 / 3) * 2,
             n_threads=params["n_threads"],
+            itn_max=1000,
         )
         optimizer = Optimizer(shape, container, config, "performance_tests")
         return optimizer
@@ -195,6 +196,7 @@ class DataCollector:
                     run_time=run_time,
                     setup_time=setup_time,
                     n_total_steps=optimizer.idx,
+                    object_scales=optimizer.object_scales,
                     time_per_step=optimizer.time_per_step,
                     its_per_step=optimizer.its_per_step,
                     fails_per_step=optimizer.fails_per_step,
@@ -224,6 +226,8 @@ class DataCollector:
         run_time = time.time()
         # Run cellpack
         # --------------- cellpack run code here ----------------------
+
+
 
 
         # ------------------------------------------------------------
