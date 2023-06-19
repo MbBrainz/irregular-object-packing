@@ -76,7 +76,7 @@ def generate_correct_coordinates(mesh, min_distance_between_meshes, max_volume, 
             skipped += 1
     return objects_coords,skipped # type: ignore
 
-@timeout(2)
+@timeout(20)
 def generate_correct_coordinates_timeout(mesh, min_distance_between_meshes, max_volume, tri_container):
     return generate_correct_coordinates(mesh, min_distance_between_meshes, max_volume, tri_container)
 
@@ -105,7 +105,7 @@ def generate_initial_coordinates(
     tri_container = pyvista_to_trimesh(container)
     if min_distance_between_meshes > 1/4 * container.volume ** (1/3):
         # Warning: Initial distance between meshes is larger than 1/4 of the container size. This may lead to an infinite loop.")
-        return timeout_loop(generate_correct_coordinates_timeout, (mesh, min_distance_between_meshes, max_volume, tri_container), 10)
+        return timeout_loop(generate_correct_coordinates_timeout, (mesh, min_distance_between_meshes, max_volume, tri_container), 20)
 
     return generate_correct_coordinates(mesh, min_distance_between_meshes, max_volume, tri_container)
 

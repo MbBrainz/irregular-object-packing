@@ -4,7 +4,7 @@ import logging
 import numpy as np
 from numba import float64, jit, prange
 from numpy import ndarray
-from scipy.optimize import minimize
+from scipy.optimize import Bounds, minimize
 
 # Define the objective function to be maximized
 NO_PYTHON = True
@@ -12,6 +12,7 @@ DEBUG = False
 
 logger = logging.getLogger("numba")
 logger.setLevel(logging.ERROR)
+# logger.disabled = True
 
 @jit(nopython=NO_PYTHON, debug=DEBUG)
 def objective(x):
@@ -22,7 +23,7 @@ def objective(x):
     return -x[0]  # maximize f
 
 
-@jit(float64[:, :](float64[:]), nopython=NO_PYTHON, debug=DEBUG, fastmath=True, cache=True)
+@jit(float64[:, ::1](float64[:]), nopython=NO_PYTHON, debug=DEBUG, fastmath=True, cache=True)
 def rotation_matrix(theta):
     """Rotation matrix for rotations around the x-, y-, and z-axis.
 
@@ -54,7 +55,7 @@ def rotation_matrix(theta):
     return R
 
 
-@ jit(float64[: , :](float64, float64[:], float64[:]), nopython=NO_PYTHON, debug=DEBUG, fastmath=True, cache=True)
+@ jit(float64[: , ::1](float64, float64[:], float64[:]), nopython=NO_PYTHON, debug=DEBUG, fastmath=True, cache=True)
 def construct_transform_matrix(f, theta, t):
     """Transforms parameters to transformation matrix.
 
@@ -71,14 +72,14 @@ def construct_transform_matrix(f, theta, t):
     T : (4, 4) ndarray
         Transformation matrix.
 
-    Examples
-    --------
-    >>> x = np.array([1, 0, 0, 0, 0, 0, 0])
-    >>> construct_transform_matrix(x)
-    array([[1., 0., 0., 0.],
-           [0., 1., 0., 0.],
-           [0., 0., 1., 0.],
-           [0., 0., 0., 1.]])
+    # Examples
+    # --------
+    # >>> x = np.array([1, 0, 0, 0, 0, 0, 0])
+    # >>> construct_transform_matrix(x)
+    # array([[1., 0., 0., 0.],
+    #        [0., 1., 0., 0.],
+    #        [0., 0., 1., 0.],
+    #        [0., 0., 0., 1.]])
     """
     # Extract parameters
     # Construct identity transformation matrix
@@ -99,7 +100,7 @@ def construct_transform_matrix_from_array(tf_array):
     return construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:])
 
 
-@ jit(float64[:](float64[:], float64[: , :]), nopython=NO_PYTHON, debug=DEBUG, fastmath=True, cache=True)
+@ jit(float64[:](float64[::1], float64[: , ::1]), nopython=NO_PYTHON, debug=DEBUG, fastmath=True, cache=True)
 def transform_v(v_i, T: np.ndarray):
     """Transforms vector v_i with transformation matrix T.
 
@@ -209,14 +210,64 @@ def local_constraint_vertices(
         constraints[i] = local_constraint_for_vertex(vertex_fpoint_fnormal_arr[i][0], vertex_fpoint_fnormal_arr[i][1], vertex_fpoint_fnormal_arr[i][2], transform_matrix, obj_coords, padding)
     return constraints
 
+def update_transform_array(previous_tf_array, tf_arr, max_scale):
+    '''Update the transform array with the new transformation parameters. The transform parameters are computed with respect to the local coordinate system of the object, therefore the translation parameters are not updated.'''
+    new_tf = previous_tf_array + tf_arr
+    new_scale = previous_tf_array[0] * tf_arr[0]
+    if new_scale > max_scale:
+        new_scale = max_scale
 
-def compute_optimal_transform(previous_tf_array,  obj_coord, vertex_fpoint_normal_arr, padding, max_scale, scale_bound, max_angle, max_t,):
+    new_tf[0] = new_scale
+    return new_tf
+
+def compute_optimal_transform( obj_coord, vertex_fpoint_normal_arr, padding, max_scale, scale_bound, max_angle, max_t,):
+    max_angle = max_angle * 0.9
+    max_t = max_t if max_t is not None else np.inf
+    min_f = 0.1 if scale_bound[0] is None else scale_bound[0]
+    max_f = scale_bound[1] if scale_bound[1] is not None else np.inf
+
     r_bound = (-max_angle, max_angle)
-    t_bound = (-max_t if max_t is not None else None, max_t)
-    bounds = [scale_bound, r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+    t_bound = (-max_t, max_t)
+    bounds = [(0.09, max_f), r_bound, r_bound, r_bound, t_bound, t_bound, t_bound]
+    r0 = np.random.uniform(-max_angle, max_angle, size=3).tolist()
+    x0 = np.array([min_f, *r0, 0.0, 0.0, 0.0])
+
+    lower_bounds = np.array([min_f, -max_angle, -max_angle, -max_angle, -max_t, -max_t, -max_t])
+    upper_bounds = np.array([max_f, max_angle, max_angle, max_angle, max_t, max_t, max_t])
+
+    bounds = Bounds(lower_bounds, upper_bounds, keep_feasible=True)
+    constraint_dict = {
+        "type": "ineq",
+        "fun": local_constraint_vertices,
+        "args": (
+            vertex_fpoint_normal_arr,
+            obj_coord,
+            padding,
+        ),
+    }
+    res = minimize(
+        objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict, # options={'ftol': 1E-8}
+    )
+
+    return res.x
+
+
+
+
+
+
+def compute_optimal_transform_trust(previous_tf_array,  obj_coord, vertex_fpoint_normal_arr, padding, max_scale, scale_bound, max_angle, max_t,):
+    max_angle = max_angle * 0.9
+    max_t = max_t if max_t is not None else np.inf
+
+    lower_bounds = np.array([scale_bound[0], -max_angle, -max_angle, -max_angle, -max_t, -max_t, -max_t])
+    upper_bounds = np.array([scale_bound[1], max_angle, max_angle, max_angle, max_t, max_t, max_t])
+
+    _boundData = Bounds(lower_bounds, upper_bounds, keep_feasible=True)
+    # _non_linear_constraint = NonlinearConstraint(local)
+
     x0 = np.array([scale_bound[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-    # randomize initial guess based on max_angle
-    x0[1:4] = np.random.uniform(-max_angle, max_angle, size=3)
+    x0[1:4] = np.random.uniform(-max_angle*0.5, max_angle*0.5, size=3)
 
     constraint_dict = {
         "type": "ineq",
@@ -228,7 +279,7 @@ def compute_optimal_transform(previous_tf_array,  obj_coord, vertex_fpoint_norma
         ),
     }
     res = minimize(
-        objective, x0, method="SLSQP", bounds=bounds, constraints=constraint_dict
+        objective, x0, method="trust-constr", bounds=_boundData, constraints=constraint_dict, hess=0, hessp=0#options={'ftol': 1E-8}
     )
     tf_arr = res.x
 
@@ -239,7 +290,6 @@ def compute_optimal_transform(previous_tf_array,  obj_coord, vertex_fpoint_norma
 
     new_tf[0] = new_scale
     return new_tf
-
 
 # -----------------------------------------------------------------------------
 def test_nlcp_facets():
@@ -292,6 +342,7 @@ def test_nlcp_facets():
 
     constraint = local_constraint_for_vertex(vertex, fpoint, fnormal, np.eye(4), np.array([0, 0, 0], dtype=np.float64), 0.0)
     print(constraint)
+    assert np.allclose(constraint, 0.1), "Constraint is not correct"
 
     vertex_fpoint_fnormal_arr = np.array([
         [vertex, fpoint, fnormal],
@@ -302,6 +353,7 @@ def test_nlcp_facets():
     tf_array = np.array([1, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 
     constraints = local_constraint_vertices(tf_array, vertex_fpoint_fnormal_arr, np.array([0, 0, 0], dtype=np.float64), 0.0)
+    assert np.allclose(constraints, [0.1, 0.1, 0.1]), "Constraints are not correct"
     print(constraints)
 
 
@@ -309,3 +361,5 @@ if __name__ == "__main__":
     test_nlcp_facets()
     pass
 
+
+# %%

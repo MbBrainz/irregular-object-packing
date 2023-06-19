@@ -1,11 +1,14 @@
+#%%
 import numpy as np
 import pyvista as pv
+import seaborn as sns
 import trimesh
 from matplotlib import pyplot as plt
 from numpy import ndarray
 from pyvista import PolyData
 
 from irregular_object_packing.mesh.sampling import mesh_simplification_condition
+from irregular_object_packing.performance_analysis import plots  # noqa E402
 
 # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
@@ -319,14 +322,28 @@ def generate_gif(optimizer, save_path, title="Optimization"):
 def plot_simplification_curve():
     fig, ax = plt.subplots()
 
-    a = [0.05, 0.15, 0.25]
-    b = [0.1, 0.2, 0.3, 0.5]
+    a = [0.02, 0.04, 0.06, 0.08, 0.1]
+    a = [0.05]
+    b = [0.1, 0.3, 0.5, 0.7, 0.9]
 
-    x = np.linspace(0, 1, 100)
+    x = np.linspace(0.01, 1, 1000)
 
     for ai in a:
         for bi in b:
             print(f"{ai} {bi}`")
-            ax.plot(mesh_simplification_condition(x, ai, bi), label=f"a:{ai:.2f},  b:{bi:.2f}")
+            y = [mesh_simplification_condition(xi, ai, bi) for xi in x]
+            ax.plot(x,y, label=fr"$\beta: {bi:.1f}$")
+
+    ax.annotate(r"$\alpha = 0.05$", xy=(0.0, a[0]), xytext=(0.00, 0.1)) #, arrowprops={"arrowstyle": "->", "color": "black"})
+    ax.plot([0], a, 'o', color='green',  zorder=100, clip_on=False)
+    ax.set_xlabel(r"k")
+    ax.set_ylabel(r"$\rho$")
     ax.legend()
+    plt.savefig('simplification_curve.pdf')
+    sns.despine()
     plt.show()
+
+
+#%%
+# plot_simplification_curve()
+# %%

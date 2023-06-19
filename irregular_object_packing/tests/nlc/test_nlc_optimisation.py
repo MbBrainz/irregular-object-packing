@@ -17,10 +17,10 @@ from irregular_object_packing.packing.nlc_optimisation import (
     construct_transform_matrix,
     construct_transform_matrix_from_array,
     transform_v,
+    update_transform_array,
 )
 
 RB = 1 / 12 * np.pi
-
 
 @dataclass
 class NLCTestParams:
@@ -144,6 +144,37 @@ TEST_CASES = [
     ).list,
 ]
 
+# normals are facing inwards
+face_unit_normals = np.array([
+            [ 0, 0, +1], # bottom
+            [ 0, 0, -1], # top
+            [+1, 0, 0],  # right
+            [-1, 0, 0],  # left
+            [ 0, +1, 0], # front
+            [ 0, -1, 0], # back
+        ], dtype=np.float64)
+
+face_points = np.array([
+        [0.0, 0.0, -1.0], # bottom
+        [0.0, 0.0, 1.0], # top
+        [-1.0, 0.0, 0.0], # right
+        [1.0, 0.0, 0.0], # left
+        [0, -1.0, 0.0], # front
+        [0, 1.0, 0.0], # back
+    ], dtype=np.float64)
+
+def nlc_struct(vi, qj, nj):
+    for vec in [vi, qj, nj]:
+        assert vec.shape == (3,)
+
+    nlc_array =  np.array([
+        vi,
+        qj,
+        nj], dtype=np.float64)
+    assert nlc_array.shape == (3, 3)
+
+    return nlc_array
+
 
 class TestNLCConstraintOptimisation(unittest.TestCase):
     def setUp(self) -> None:
@@ -154,10 +185,10 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
             2: np.array([1, -1, 1], dtype=np.float64),
             3: np.array([1, 1, 1], dtype=np.float64),
             4: np.array([-1, 1, 1], dtype=np.float64),
-            5: np.array([-1, -1, 0], dtype=np.float64),
-            6: np.array([1, -1, 0], dtype=np.float64),
-            7: np.array([1, 1, 0], dtype=np.float64),
-            8: np.array([-1, 1, 0], dtype=np.float64),
+            5: np.array([-1, -1, -1], dtype=np.float64),
+            6: np.array([1, -1, -1], dtype=np.float64),
+            7: np.array([1, 1, -1], dtype=np.float64),
+            8: np.array([-1, 1, -1], dtype=np.float64),
             # points to test at the edges of the box but stil scalable
             9: np.array([0, 0, 0.9]),
             10: np.array([0, 0.9, 0.0]),
@@ -167,6 +198,7 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
             13: np.array([1, 1, 0]),
             14: np.array([1, 0, 1]),
         }
+
         self.global_points = {
             k: v + self.obj_coord for k, v in self.local_points.items()
         }
@@ -251,22 +283,23 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
 
         array = self.local_vertex_fpoint_normal_arr(v),
 
-        opt_tf = compute_optimal_transform(
-            x0,
+        res_tf = compute_optimal_transform(
             np.array([0, 0, 0]),
             array[0],
             padding=padding,
-            max_scale=3.0,
+            max_scale=100.0,
             scale_bound=f_bounds,
             max_angle=r_bounds[1],
             max_t=t_bounds[1],
         )
+
+        opt_tf = update_transform_array(x0, res_tf, 100)
         resulting_points = []
         T = construct_transform_matrix_from_array(opt_tf)
         for point in v:
             res_v = transform_v(self.local_points[point], T)
             resulting_points.append(res_v)
-            assert_point_within_box(self, res_v, self.local_box_coords, padding=padding)
+            assert_point_within_box(self, res_v, self.local_box_coords, self.local_points[point], padding=padding)
 
         if expected_f is not None:
             self.assertAlmostEqual(opt_tf[0], expected_f, places=4)
@@ -287,29 +320,32 @@ class TestNLCConstraintOptimisation(unittest.TestCase):
     ):
         x0 = [f_init] + [r_init] * 3 + [t_init] * 3
 
-        array = self.global_vertex_fpoint_normal_arr(v),
+        vtx_fpoint_fnormal = self.global_vertex_fpoint_normal_arr(v),
 
-        new_tf = compute_optimal_transform(
-            x0,
-            self.obj_coord,
-            array[0],
+        res_tf = compute_optimal_transform(
+            np.array([0, 0, 0]),
+            vtx_fpoint_fnormal[0],
             padding=padding,
-            max_scale=3.0,
+            max_scale=np.inf,
             scale_bound=f_bounds,
             max_angle=r_bounds[1],
             max_t=t_bounds[1],
         )
 
+        new_tf = update_transform_array(x0, res_tf, np.inf)
+
         T = construct_transform_matrix(new_tf[0], new_tf[1:4], new_tf[4:])
+        T = construct_transform_matrix(res_tf[0], res_tf[1:4], res_tf[4:])
 
         resulting_points = []
         for point in v:
             res_v = transform_v(self.global_points[point], T)
 
-
             resulting_points.append(res_v)
+
+        for res_v in resulting_points:
             assert_point_within_box(
-                self, res_v, self.global_box_coords, tolerance=1e-7, padding=padding
+                self, res_v, self.global_box_coords, self.global_points[point], tolerance=1e-7, padding=padding
             )
 
     # ----------------------------------------------------------------
@@ -333,14 +369,14 @@ def is_point_within_box(point, box_coords, tolerance=1e-8, padding=0.0):
 
 
 def assert_point_within_box(
-    test_case: unittest.TestCase, point, box_coords, tolerance=1e-7, padding=0.0
+    test_case: unittest.TestCase, point, box_coords, o_point, tolerance=1e-7, padding=0.0
 ):
     is_inside = is_point_within_box(
         point, box_coords, tolerance=tolerance, padding=padding
     )
     test_case.assertTrue(
         is_inside,
-        f"Point {point} is not inside the box defined by {box_coords} with padding {padding}",
+        f"Point {point} is not inside the box defined by {box_coords} with padding {padding}. Was {o_point}",
     )
 
 
@@ -381,6 +417,7 @@ class TestCatBoxOptimization(unittest.TestCase):
             [15, 10, 4],
             [0, 10, 4],
         ], dtype=np.float64)
+
         self.container_center = np.mean(self.container_points, axis=0)
         self.container_faces = self.obj_faces.copy()
         self.mesh = PolyData(self.obj_points, self.obj_faces)
@@ -391,19 +428,17 @@ class TestCatBoxOptimization(unittest.TestCase):
 
         tet = tetgen.TetGen(self.tet_input)
         tet.tetrahedralize(order=1, mindihedral=0, minratio=0, steinerleft=0, quality=False)
+        self.npoints_per_object = [len(self.obj_points), len(self.container_points)]
 
         self.cat_cells, self.normals, self.normals_pp = compute_cat_faces(
-            tet.grid, [set(map(tuple, self.obj_points)), set(map(tuple, self.container_points))],
-            self.init_center,
+            tet.grid, self.npoints_per_object ,self.init_center,
         )
 
         self.obj_cat_cell = convert_faces_to_polydata_input(self.cat_cells[0])
         self.previous_transform_array = np.array([1, 0, 0, 0] + list(self.init_center))
 
-    unittest.skip("Numba issues during tests")
     def test_optimize_cat_box(self):
         new_tf_array = compute_optimal_transform(
-            previous_tf_array=self.previous_transform_array,
             obj_coord=self.init_center,
             vertex_fpoint_normal_arr=self.normals,
             padding=0.0,
@@ -412,6 +447,10 @@ class TestCatBoxOptimization(unittest.TestCase):
             max_scale=10,
             scale_bound=(0.1, None),
         )
+
+        new_tf_array = update_transform_array(new_tf_array, self.previous_transform_array, 10)
+
+
 
         # transform the object
         new_obj = self.obj0.transform(construct_transform_matrix_from_array(new_tf_array), inplace=False)

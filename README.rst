@@ -63,7 +63,9 @@ If you run the Optimization with jupyter notebook, you may experience the kernel
 This is a known issue and the best way current workarount is to downgrade your `jupyter_client` version to `7.3.2` and `tornado` to `6.1` (like in de ./requeriments-dev.txt file)
 The issue is discussed here: https://discourse.jupyter.org/t/jupyter-notebook-zmq-message-arrived-on-closed-channel-error/17869/2 
 
-
+module not found: irregular-object-packing (date: 29 may 2023)
+Fix: Set the current path to the root of the project (where the setup.py file is located) and then run stuff
+`export PYTHONPATH=$PYTHONPATH:~/code/cls/thesis/irregular-object-packing`
 
 Development
 -----------

@@ -1,30 +1,31 @@
 import numpy as np
 import pyvista as pv
-from sklearn.cluster import KMeans
+
+# from sklearn.cluster import KMeans
 
 
-def resample_pyvista_mesh_kmeans(mesh: pv.PolyData, target_vertices: int):
-    # Convert PyVista mesh to NumPy points|
-    points = mesh.points
+# def resample_pyvista_mesh_kmeans(mesh: pv.PolyData, target_vertices: int):
+#     # Convert PyVista mesh to NumPy points|
+#     points = mesh.points
 
-    # Cluster points using KMeans to get the target number of vertices
-    kmeans = KMeans(n_clusters=target_vertices)
-    kmeans.fit(points)
-    new_points = kmeans.cluster_centers_
+#     # Cluster points using KMeans to get the target number of vertices
+#     kmeans = KMeans(n_clusters=target_vertices)
+#     kmeans.fit(points)
+#     new_points = kmeans.cluster_centers_
 
-    # Create a new mesh from the reduced points
-    cloud = pv.PolyData(new_points)
+#     # Create a new mesh from the reduced points
+#     cloud = pv.PolyData(new_points)
 
-    # Regenerate the surface mesh using Delaunay triangulation
-    new_mesh = cloud.reconstruct_surface()
+#     # Regenerate the surface mesh using Delaunay triangulation
+#     new_mesh = cloud.reconstruct_surface()
 
-    # Extract the surface of the 3D triangulation
-    new_mesh = new_mesh.extract_surface()
+#     # Extract the surface of the 3D triangulation
+#     new_mesh = new_mesh.extract_surface()
 
-    # Smooth the mesh
-    new_mesh = new_mesh.smooth(n_iter=10)
+#     # Smooth the mesh
+#     new_mesh = new_mesh.smooth(n_iter=10)
 
-    return new_mesh
+#     return new_mesh
 
 
 def resample_pyvista_mesh(mesh: pv.PolyData, target_faces):
@@ -90,10 +91,17 @@ def mesh_simplification_condition(scale_factor: float, alpha: float = 0.05, beta
     :param beta: The beta parameter of the mesh simplification condition
     :return: The mesh simplification condition
     """
-    return alpha * (1 + alpha**(1 / beta) - scale_factor) ** (-beta)
+    assert 0 < scale_factor <=1, "Scale factor must be between 0 and 1"
+    assert 0 < alpha <1, "Alpha must be between 0 and 1"
+    assert 0 < beta <=1, "Beta must be between 0 and 1"
+
+    if scale_factor == 1:
+        return 1
+    else:
+        return alpha * (1 + alpha**(1 / beta) - scale_factor) ** (-beta)
 
 
-def resample_mesh_by_triangle_area(example_mesh: pv.PolyData, target_mesh: pv.PolyData):
+def resample_mesh_by_triangle_area(example_mesh: pv.PolyData, target_mesh: pv.PolyData, factor=1):
     """Resample a target mesh to match the average triangle area of the example mesh.
     function assumes that both meshes are triangulated surface meshes
     """
@@ -102,7 +110,7 @@ def resample_mesh_by_triangle_area(example_mesh: pv.PolyData, target_mesh: pv.Po
     target_avg_area = compute_average_triangle_area(target_mesh)
 
     # Calculate the desired number of triangles in the target mesh
-    target_num_triangles = int(target_mesh.n_faces * (target_avg_area / example_avg_area))
+    target_num_triangles =  factor * int(target_mesh.n_faces * (target_avg_area / example_avg_area))
 
     # Use the decimation algorithm to reduce the number of triangles in the target mesh
     resampled_mesh = resample_pyvista_mesh(target_mesh, target_faces=target_num_triangles)
