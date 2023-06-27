@@ -381,9 +381,9 @@ def default_optimizer_config(N=5, mesh_dir ="data/mesh/", seed=1918) -> "Optimiz
         log_lvl=logging.ERROR,
         init_f=0.1,
         max_t=mesh_volume**(1 / 3) * 2,
-        padding=5E-5 * mesh_volume**(1 / 3),
+        padding=1E-4 * mesh_volume**(1 / 3),
         alpha=0.1,
-        beta=0.3,
+        beta=0.5,
     )
     optimizer = Optimizer(original_mesh, container, config, description="cells_in_sphere", seed=seed)
     return optimizer

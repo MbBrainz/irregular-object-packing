@@ -16,9 +16,13 @@ from irregular_object_packing.cat.utils import (
 @dataclass
 class TetraCell:
     points: np.ndarray
+    '''The point ids of the cell. shape: (4,)'''
     objs: np.ndarray
+    '''The object ids of the cell. shape: (4,)'''
     nobjs: int
+    '''The count of different objects in the cell.'''
     id: int
+    '''The id of the cell.'''
 
     def __init__(self, point_ids, object_ids, id):
         """Create a cell object by sorting the points by occurrance."""

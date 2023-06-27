@@ -69,7 +69,7 @@ def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list
         obj_covered = obj_id in added_objs
 
         for face in faces:
-            face_normal = create_face_normal(face[:3], obj_point)
+            face_normal = create_face_normal(np.ascontiguousarray(face[:3]), np.ascontiguousarray(obj_point))
             normals[obj_id].append(face_normal)
             normals_per_points[cell.points[i]].append(face_normal)
 
