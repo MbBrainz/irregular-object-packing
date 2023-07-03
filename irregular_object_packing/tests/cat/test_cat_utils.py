@@ -6,6 +6,7 @@ from pyvista import UnstructuredGrid
 
 from irregular_object_packing.cat.utils import (
     compute_face_unit_normal,
+    create_face_normal,
     get_cell_arrays,
     get_tetmesh_cell_arrays,
     n_related_objects,
@@ -81,6 +82,7 @@ class TestSortByOccurrence(unittest.TestCase):
         self.assert_sorted_correctly(sorted_point_ids, sorted_object_ids, [1, 2, 3, 4], [4, 3, 2, 1])
         self.assertEqual(expected_case, (1,1,1,1))
 
+
     def test_empty_errors(self):
         self.assertRaises(ValueError, sort_by_occurrance, [], [])
 
@@ -93,13 +95,21 @@ class TestSortByOccurrence(unittest.TestCase):
 class TestComputeFaceUnitNormal(unittest.TestCase):
     @parameterized.expand([
         # 3 points, with point on the positive z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]), np.array([1, 1, 1]), np.array([0, 0, 1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, 1]),
+         np.array([0, 0, 1])),
         # 3 points, with point on the negative z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]), np.array([1, 1, -1]), np.array([0, 0, -1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, -1]),
+         np.array([0, 0, -1])),
         # 4 points, with point on the positive z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]), np.array([1, 1, 1]), np.array([0, 0, 1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]),
+         np.array([1, 1, 1]),
+         np.array([0, 0, 1])),
         # 4 points, with point on the negative z-axis
-        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]), np.array([1, 1, -1]), np.array([0, 0, -1])),
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]]),
+         np.array([1, 1, -1]),
+         np.array([0, 0, -1])),
     ])
     def test_normal_cases(self, points, v_i, expected_normal):
         result = compute_face_unit_normal(points, v_i)
@@ -115,6 +125,43 @@ class TestComputeFaceUnitNormal(unittest.TestCase):
         with self.assertRaises(AssertionError):
             compute_face_unit_normal(points, v_i)
 
+class CreateFaceNormal(unittest.TestCase):
+    @parameterized.expand([
+        # format:
+            # (points,
+            #  v_i,
+            #  expected_normal)
+
+        # 3 points, with point on the positive z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, 1]),
+         np.array([[1, 1, 1], [0,0,0], [0,0,1]])),
+        # 3 points, with point on the negative z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, -1]),
+         np.array([[1,1,-1], [0,0,0], [0, 0, -1]])),
+        # 4 points, with point on the positive z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, 1]),
+         np.array([[1,1,1],[0,0,0],[0, 0, 1]])),
+        # 4 points, with point on the negative z-axis
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]),
+         np.array([1, 1, -1]),
+         np.array([[1,1,-1],[0,0,0], [0, 0, -1]])),
+    ])
+    def test_normal_cases(self, points, v_i, expected_normal):
+        result = create_face_normal(points, v_i)
+        np.testing.assert_array_almost_equal(result, expected_normal)
+
+    @parameterized.expand([
+        # 2D points
+        (np.array([[0, 0], [0, 1], [1, 0]]), np.array([1, 1])),
+        # 5 points
+        (np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [0, 0, 1], [1, 1, 1]]), np.array([1, 1, 1])),
+    ])
+    def test_exception_cases(self, points, v_i):
+        with self.assertRaises(AssertionError):
+            create_face_normal(points, v_i)
 
 class TestMeshFunctions(unittest.TestCase):
 
@@ -141,14 +188,14 @@ class TestMeshFunctions(unittest.TestCase):
         # self.assertEqual(result.size, 0)
 
         # Test with one cell
-        cells = np.array([4, 0, 1, 2, 3])
-        grid = UnstructuredGrid(cells, np.array([10]), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]]))
+        cells = np.array([4, 0, 1, 2, 3], dtype=np.int64)
+        grid = UnstructuredGrid(cells, np.array([10], dtype=np.float64), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64))
         result = get_tetmesh_cell_arrays(grid)
         self.assertTrue(np.array_equal(result, np.array([[0, 1, 2, 3]])))
 
         # Test with two cells
         cells = np.array([4, 0, 1, 2, 3, 4, 4, 5, 6, 7])
-        grid = UnstructuredGrid(cells, np.array([10, 10]), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 1, 0], [0, 1, 1], [1, 0, 1]]))
+        grid = UnstructuredGrid(cells, np.array([10, 10]), np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 1, 0], [0, 1, 1], [1, 0, 1]], dtype=np.float64))
         result = get_tetmesh_cell_arrays(grid)
         self.assertTrue(np.array_equal(result, np.array([[0, 1, 2, 3], [4, 5, 6, 7]])))
 
@@ -162,23 +209,41 @@ class nRelatedObjects(unittest.TestCase):
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 0, 0])
 
+        objects_npoints = [10]
+        cell = np.array([0, 4, 5, 9])
+        result = n_related_objects(objects_npoints, cell)
+        self.assertEqual(result.tolist(), [0, 0, 0, 0])
+
+    def test_belongs_to_multiple_objects(self):
         # Test with two objects
         objects_npoints = [2, 2]
         cell = np.array([0, 1, 2, 3])
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 1, 1])
 
-        # Test with three objects
+        # Test with three objects non equal
         objects_npoints = [2, 4, 2]
         cell = np.array([0, 1, 4, 5])
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 1, 1])
 
-        # Test with four objects
+        # Test with four objects non equal
         objects_npoints = [2, 4, 2, 2]
         cell = np.array([0, 1, 4, 6])
         result = n_related_objects(objects_npoints, cell)
         self.assertEqual(result.tolist(), [0, 0, 1, 2])
+
+        # test for a lot of objects unsorted
+        objects_npoints = np.ones(100) * 8
+        cell = np.array([160, 79, 80, 8])
+        result = n_related_objects(objects_npoints, cell)
+        self.assertEqual(result.tolist(), [20, 9, 10, 1])
+
+        # test for increasing points in objects
+        objects_npoints = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+        cell = np.array([5, 3, 2, 10])
+        result = n_related_objects(objects_npoints, cell)
+        self.assertEqual(result.tolist(), [2, 2, 1, 4])
 
 if __name__ == '__main__':
     unittest.main()

@@ -26,8 +26,6 @@ def convert_faces_to_polydata_input(faces: np.ndarray):
     ids. This function is used to convert the data so that it can be used by the
     pyvista.PolyData class.
 
-    Note: Currently this function assumes that the indices of the points
-    are not global with respect to other meshes.
     """
     cat_points = []
     poly_faces = []

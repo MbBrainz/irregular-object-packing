@@ -3,9 +3,6 @@
     # import numpy as np
     # import pyvista as pv
 
-    # from irregular_object_packing.cat.tetra_cell import filter_relevant_cells
-    # from irregular_object_packing.cat.utils import get_cell_arrays
-    # from irregular_object_packing.packing.growth_based_optimisation import Optimizer
 
     # optimizer = Optimizer.default_config()
     # object_meshes = optimizer.current_meshes()
@@ -15,9 +12,6 @@
     # faceless_points = [i for i, n in enumerate(normals_pp) if len(n) == 0]
     # faceless_vertices = tetmesh.points[np.array(faceless_points)]
     # objects_npoints = [x * optimizer.shape.n_points for x in range(optimizer.n_objs)]
-    # rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
-    # # %%
-    # extracted = tetmesh.extract_cells([cell.id for cell in rel_cells])
     # faceless_rel_cells = tetmesh.extract_points(faceless_points, include_cells=True)
     # faceless_rel_cells_centers = faceless_rel_cells.cell_centers()
 
@@ -39,3 +33,5 @@
     # plotter.show()
 
 # https://stackoverflow.com/questions/73490842/find-cells-from-vertices-in-pyvista-polydata-mesh
+
+# %%

@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 import numpy as np
-from pyvista import UnstructuredGrid
 
 from irregular_object_packing.cat.tetrahedral_split import (
     split_2_2222,
@@ -10,9 +9,6 @@ from irregular_object_packing.cat.tetrahedral_split import (
     split_4,
 )
 from irregular_object_packing.cat.utils import (
-    create_face_normal,
-    get_cell_arrays,
-    n_related_objects,
     sort_by_occurrance,
 )
 
@@ -20,9 +16,13 @@ from irregular_object_packing.cat.utils import (
 @dataclass
 class TetraCell:
     points: np.ndarray
+    '''The point ids of the cell. shape: (4,)'''
     objs: np.ndarray
+    '''The object ids of the cell. shape: (4,)'''
     nobjs: int
+    '''The count of different objects in the cell.'''
     id: int
+    '''The id of the cell.'''
 
     def __init__(self, point_ids, object_ids, id):
         """Create a cell object by sorting the points by occurrance."""
@@ -32,15 +32,6 @@ class TetraCell:
         self.case = case
         self.nobjs = len(self.case)
         self.id = id
-
-    def has_vertex(self, vertex_id):
-        return vertex_id in self.points
-
-    def get_point_object_tuple(self):
-        return list(zip(self.points, self.objs, strict=True))
-
-    def belongs_to_obj(self, obj_id):
-        return obj_id in self.objs
 
     @property
     def split_func(self):
@@ -55,108 +46,19 @@ class TetraCell:
         else:
             raise ValueError("The cell case is not recognized.")
 
+    @property
+    def n_cat_faces_per_obj(self):
+        match self.case:
+            case (1, 1, 1, 1,):
+                return 6
+            case (2, 1, 1,):
+                return 2
+            case (2, 2,):
+                return 1
+            case (3, 1,):
+                return 1
+
+
     def split(self, all_tet_points: np.ndarray) -> tuple[list[np.ndarray]]:
         return self.split_func(all_tet_points[self.points])
 
-
-def split_and_process(cell: TetraCell, tetmesh_points: np.ndarray, normals: list[list[np.ndarray]], cat_cells: list[list[np.ndarray]], normals_pp):
-    """Splits the cell into faces and processes them."""
-    # 0. split the cell into faces
-    split_faces = cell.split(tetmesh_points)
-
-    for i, faces in enumerate(split_faces):
-        obj_id = cell.objs[i]
-        obj_point = tetmesh_points[cell.points[i]]
-        for face in faces:
-            # tetmesh_points[face]
-            face_normal = create_face_normal(face[:3], obj_point)
-
-            normals[obj_id].append(face_normal)
-            cat_cells[obj_id].append(face)
-            normals_pp[cell.points[i]].append(face_normal)
-
-
-
-def filter_relevant_cells(cells: list[int], objects_npoints: list[int]):
-    """Filter out cells that only belong to a single object.
-
-    parameters:
-    cells (ndarray): an array of shape (n_cells, 4) with the indices of the points in the cell. shape: [id0, id1, id2, id3]
-    objects_npoints (List[int]): A list of the number of points for each object.
-    """
-    relevant_cells: list[TetraCell] = []
-    skipped_cells = []
-
-    for i, cell in enumerate(cells):
-        rel_objs = n_related_objects(objects_npoints, cell=cell)
-        cell = TetraCell(cell, rel_objs, i)
-        if cell.nobjs == 1:
-            skipped_cells.append(cell)
-        else:
-            relevant_cells.append(cell)
-
-    return relevant_cells, skipped_cells
-
-
-def process_cells_to_normals(tetmesh_points: np.ndarray, rel_cells: list[TetraCell], n_objs: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    # initialize face normals list
-    face_normals = []
-    for _i in range(n_objs):
-        face_normals.append([])
-
-    face_normals_pp = []
-    for _i in range(len(tetmesh_points)):
-        face_normals_pp.append([])
-
-    # initialize cat cells list
-    cat_cells = []
-    for _i in range(n_objs):
-        cat_cells.append([])
-
-    for cell in rel_cells:
-        # mutates face_normals and cat_cells
-        split_and_process(cell, tetmesh_points, face_normals, cat_cells, face_normals_pp)
-
-    return face_normals, cat_cells, face_normals_pp
-
-def compute_cat_faces(tetmesh: UnstructuredGrid, point_sets, obj_coords: list[np.ndarray]) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    assert (tetmesh.celltypes == 10).all(), "Tetmesh must be of type tetrahedron"
-
-    objects_npoints = [len(obj) for obj in point_sets]  # FIXME hacky solution
-
-    # filter tetrahedron mesh to only contain tetrahedrons with points from more than one object
-    cells = get_cell_arrays(tetmesh.cells)
-    rel_cells, _ = filter_relevant_cells(cells, objects_npoints)
-
-    face_normals, cat_cells, normalspp = process_cells_to_normals(tetmesh.points, rel_cells, len(point_sets))
-
-    return face_normals, cat_cells, normalspp
-
-
-
-# # Maybe usefull later
-# def filter_cells_with_vertex(cells: list[TetraCell], vertex_id: int) -> list[TetraCell]:
-#     """Filter out cells that only belong to a specific vertex."""
-#     return filter(lambda cell: cell.has_vertex(vertex_id), cells)
-
-
-# def cell_to_tetpoints(cell: TetraCell, tetmesh: UnstructuredGrid):
-#     tet_points: list[TetPoint] = []
-#     for i, point in enumerate(cell.points):
-#         tet_point = TetPoint(
-#             point=tetmesh.points[point],
-#             p_id=point,
-#             obj_id=cell.objs[i],
-#             cell_id=cell.id,
-#         )
-#         tet_points.append(tet_point)
-
-#     return tet_points
-
-
-# def cell_to_occ_dict(cell: TetraCell):
-#     occ_dict = {}
-#     for obj_id in cell.objs:
-#         occ_dict[obj_id] = occ_dict.get(obj_id, 0) + 1
-
-#     return occ_dict

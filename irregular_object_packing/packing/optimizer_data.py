@@ -9,7 +9,7 @@ from pyvista import PolyData
 from tabulate import tabulate
 
 from irregular_object_packing.mesh.collision import (
-    compute_all_collisions,
+    compute_and_add_all_collisions,
     compute_cat_violations,
 )
 from irregular_object_packing.mesh.sampling import (
@@ -18,7 +18,7 @@ from irregular_object_packing.mesh.sampling import (
 from irregular_object_packing.mesh.utils import convert_faces_to_polydata_input
 from irregular_object_packing.packing.nlc_optimisation import construct_transform_matrix
 
-STATE_DIRECTORY = "../../dump/state/"
+STATE_DIRECTORY = "../dump/state/"
 
 
 @dataclass
@@ -43,17 +43,16 @@ class SimConfig:
     """The log level maximum level is 3."""
     padding: float = 0.0
     """The padding which is added to the inside of the cat cells."""
-    dynamic_simplification: bool = True
-    """Whether to use dynamic simplification."""
+    sampling_disabled: bool = False
     alpha: float = 0.05
     beta: float = 0.1
-    upscale_factor: float = 1.0
-    """The upscale factor for the object mesh."""
-    sequential: bool = False
+    n_threads: int = None
     """Whether to use sequential scaling."""
     container_volume: float = 10.0
     """The volume of the container."""
-    new_cat: bool = False
+    new_cat: bool = False,
+
+    handle_collisions: bool = True
 
 
 @dataclass
@@ -130,6 +129,7 @@ class OptimizerData:
         self.tf_arrays = np.empty(0)
         self.i_b = 0
         self.i = 0
+        self.seed=None
         return
 
     def __getitem__(self, key):
@@ -189,6 +189,14 @@ class OptimizerData:
     def object_coords(self) -> ndarray:
         return self.tf_arrays[:, 4:]
 
+    @property
+    def object_rotations(self) -> ndarray:
+        rads = self.tf_arrays[:, 1:4]
+        return np.rad2deg(rads)
+
+    @property
+    def object_scales(self) -> ndarray:
+        return self.tf_arrays[:, 0]
     # ------------------- Public methods -------------------
     def mesh_before(self, iteration: int, obj_id: int):
         """Get the mesh of the object at the given iteration, before the
@@ -227,7 +235,10 @@ class OptimizerData:
     def resample_mesh(self, iteration: int) -> PolyData:
         """Resample the given mesh with the sample rate of the given iteration."""
         status = self.status(iteration)
-        return resample_pyvista_mesh(mesh=self.shape0, target_faces=status.sample_rate)
+        try:
+            return resample_pyvista_mesh(mesh=self.shape0, target_faces=status.sample_rate)
+        except ValueError:
+            return self.shape0
 
     def meshes_before(self, iteration: int):
         """Get the meshes of all objects at the given iteration, before the
@@ -251,38 +262,18 @@ class OptimizerData:
             for obj_id in range(len(self._tf_arrays(iteration)))
         ]
 
-    # def reconstruct_delaunay(self, iteration: int):
-    #     """Construct a delaunay triangulation of the points of the cat cell at the given
-    #     iteration."""
-    #     shape = self.resample_mesh(iteration)
-    #     container = resample_mesh_by_triangle_area(shape, self.container0)
-
-    #     list_of_obj_points = [
-    #         transform_points(shape.points.copy(),
-    #                          construct_transform_matrix(tf_array[0], tf_array[1:4], tf_array[4:7]))
-    #         for tf_array in self._tf_arrays(iteration - 1)]
-
-    #     pc = PolyData(concatenate(list_of_obj_points + [container.points]))
-    #     tetmesh = pc.delaunay_3d()
-
-    #     obj_point_sets = [set(map(tuple, obj)) for obj in list_of_obj_points] + [
-    #         set(map(tuple, container.points))
-    #     ]
-
-    #     filtered_tetmesh, occs = filter_tetmesh(tetmesh, obj_point_sets)
-    #     return tetmesh, filtered_tetmesh, occs
-
     def recreate_scene(self, iteration: int):
         """Recreate the scene at the given iteration."""
         meshes_before = self.meshes_before(iteration)
         meshes_after = self.meshes_after(iteration)
         cat_meshes = self.cat_meshes(iteration)
-        compute_all_collisions(meshes_before, cat_meshes, self.container0, set_contacts=True)
-        compute_all_collisions(meshes_after, cat_meshes, self.container0, set_contacts=True)
+        compute_and_add_all_collisions(meshes_before, cat_meshes, self.container0, set_contacts=True)
+        compute_and_add_all_collisions(meshes_after, cat_meshes, self.container0, set_contacts=True)
 
         return meshes_before, meshes_after, cat_meshes, self.container0
 
     def recreate_object_scene(self, iteration, object_id):
+        """Recreate the scene before and after at the given iteration for the given object."""
         mesh_before = self.mesh_before(iteration, object_id)
         mesh_after = self.mesh_after(iteration, object_id)
         cat_mesh = self.cat_mesh(iteration, object_id)
@@ -363,6 +354,16 @@ class OptimizerData:
         )
         with open(state.filedir, "wb") as f:
             pickle.dump(state, f)  # noqa: F821
+
+    def write_positions(self, dir):
+        """Write the current positions to a file."""
+        positions = np.empty((self.n_objs, 6))
+        positions[:, 0:3] = self.object_coords
+        positions[:, 3:6] = self.object_rotations
+
+        with open(dir+".pos", "wb") as f:
+            np.savetxt(f, positions, delimiter=" ")
+
 
     @staticmethod
     def load_state(filename: str) -> 'State':

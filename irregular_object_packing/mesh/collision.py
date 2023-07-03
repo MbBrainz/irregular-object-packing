@@ -4,7 +4,7 @@ import numpy as np
 from pyvista import PolyData
 
 
-def compute_collision(mesh: PolyData, with_mesh, set_contacts) -> int | None:
+def compute_collision(mesh: PolyData, with_mesh: PolyData, set_contacts) -> int:
     contact_mesh, n_contacts = mesh.collision(with_mesh, 0, cell_tolerance=1e-6)
     if n_contacts > 0:
 
@@ -51,7 +51,7 @@ def compute_cat_violations(p_meshes, cat_meshes, set_contacts=False):
     return violations
 
 
-def compute_all_collisions(p_meshes, cat_meshes, container, set_contacts=False):
+def compute_and_add_all_collisions(p_meshes, cat_meshes, container, set_contacts=False):
     cat_viols = compute_cat_violations(p_meshes, cat_meshes, set_contacts)
     con_viols = compute_container_violations(p_meshes, container, set_contacts)
     collisions = compute_object_collisions(p_meshes, set_contacts)

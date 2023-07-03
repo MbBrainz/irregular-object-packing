@@ -1,7 +1,12 @@
+import logging
 from collections import Counter
 
 import numpy as np
+from numba import jit
 from pyvista import UnstructuredGrid
+
+logger = logging.getLogger("numba")
+logger.setLevel(logging.ERROR)
 
 
 def sort_by_occurrance(point_ids: list[int], object_ids: list[int]) -> list[int]:
@@ -48,8 +53,14 @@ def n_related_objects(objects_npoints, cell) -> np.ndarray:
 
     Parameters:
     objects_npoints (List[int]): A list of the number of points for each object.
-    cell (ndarray): an array of shape (4,) with the indices of the points in the cell. shape: [id0, id1, id2, id3]"""
+    cell (ndarray): an array of shape (4,) with the indices of the points in the cell in any order. shape: [id0, id1, id2, id3]
+
+    Returns:
+    np.ndarray: An array of shape (4,) with the number of objects each cell belongs to in the same order as the input ids.
+    """
     # Get a numpy array of the number of points for each object
+    # assert len(objects_npoints) > 0, "The list of objects should not be empty."
+    # assert len(cell) == 4, "The number of points in the objects should be equal to the number of points in the cell."
 
     # Calculate the cumulative sum to get the ranges
     ranges = np.cumsum(objects_npoints)
@@ -59,7 +70,7 @@ def n_related_objects(objects_npoints, cell) -> np.ndarray:
 
     return point_objects
 
-
+@jit(nopython=True, cache=True)
 def compute_face_unit_normal(points, v_i):
     """Compute the normal vector of a planar face defined by either 3 or 4 points in 3D
     space.
@@ -79,14 +90,10 @@ def compute_face_unit_normal(points, v_i):
     Raises:
     AssertionError: If the number of points in the input list is not 3 or 4.
 
-    Examples
-    --------
-    >>> compute_face_normal(np.array([[0, 0, 0], [0, 0, 1], [1, 0, 0]]), np.array([0, 1, 2]))
-    array([0, 1, 0])
     """
-    shape = np.shape(points)
-    assert shape[1] == 3, "The points should be 3D."
-    assert 3 <= shape[0] <= 4, "The number of points should be either 3 or 4."
+    # shape = np.shape(points)
+    # assert shape[1] == 3, "The points should be 3D."
+    # assert 3 <= shape[0] <= 4, "The number of points should be either 3 or 4."
 
     v0 = points[1] - points[0]
     v1 = points[2] - points[0]
@@ -99,6 +106,7 @@ def compute_face_unit_normal(points, v_i):
     return unit_normal
 
 
+@jit(nopython=True, cache=True)
 def create_face_normal(face_vertices: np.ndarray, obj_point: np.ndarray):
     """Create a face normal from the face vertices and the object point.
 
@@ -109,7 +117,7 @@ def create_face_normal(face_vertices: np.ndarray, obj_point: np.ndarray):
     Returns:
     vertex_face_normal (ndarray): an array of shape (2,3) with the coordinates of the related point[0], the first point on the face in [1] and the normal in [2].
     """
-    assert np.shape(face_vertices) == (3,3), "The face vertices should be 3D."
+    # assert np.shape(face_vertices) == (3,3), "The face vertices should be 3D."
     vertex_face_normal = np.empty((3, 3), dtype=np.float64)
     vertex_face_normal[0] = obj_point
     vertex_face_normal[1] = face_vertices[0]
