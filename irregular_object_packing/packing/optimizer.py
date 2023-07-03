@@ -260,14 +260,13 @@ class Optimizer(OptimizerData):
         return new_tf
 
     def update_pbar(self, i):
-        match i:
-            case 1:
-                if self.pbar1 is not None: self.pbar1.update() # noqa: E701
-            case 2:
-                if self.pbar2 is not None: self.pbar2.update() # noqa: E701
-            case 3:
-                if self.pbar3 is not None: self.pbar3.update() # noqa: E701
-
+        """Updates the progress bar if it exists"""
+        if i == 1 and self.pbar1 is not None:
+            self.pbar1.update()
+        elif i == 2 and self.pbar2 is not None:
+            self.pbar2.update()
+        elif i == 3 and self.pbar3 is not None:
+            self.pbar3.update()
 
 
     def compute_cat_cells(self, tetmesh: UnstructuredGrid) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

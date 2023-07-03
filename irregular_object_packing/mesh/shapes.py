@@ -6,24 +6,23 @@ import pyvista as pv
 
 def get_pv_manifold_shape(container_name, data_dir="../../data"):
     """Returns the container from a string"""
-    match container_name:
-        case "cube":
-            return pv.Cube().triangulate()
-        case "sphere":
-            return pv.Sphere().triangulate()
-        case "cylinder":
-            raise NotImplementedError('Cylinder is not a manifold shape. If you know how to make it manifold, please implement it and submit a pull request.')
-            # return pv.Cylinder().triangulate()
-        case "tetrahedron":
-            return pv.Tetrahedron()
-        case "cone":
-            return pv.Cone().triangulate()
-        case "rbc_normal":
-            return pv.read(f"{data_dir}/mesh/RBC_normal.stl")
-        case "sickle_red_blood_cell":
-            return pv.read(f"{data_dir}/mesh/sickleCell.stl")
-        case _:
-            raise ValueError(f"Shape {container_name} not found")
+    if container_name == "cube":
+        return pv.Cube().triangulate()
+    elif container_name == "sphere":
+        return pv.Sphere().triangulate()
+    elif container_name == "cylinder":
+        raise NotImplementedError('Cylinder is not a manifold shape. If you know how to make it manifold, please implement it and submit a pull request.')
+        # return pv.Cylinder().triangulate()
+    elif container_name == "tetrahedron":
+        return pv.Tetrahedron()
+    elif container_name == "cone":
+        return pv.Cone().triangulate()
+    elif container_name == "rbc_normal":
+        return pv.read(f"{data_dir}/mesh/RBC_normal.stl")
+    elif container_name == "sickle_red_blood_cell":
+        return pv.read(f"{data_dir}/mesh/sickleCell.stl")
+    else:
+        raise ValueError(f"Shape {container_name} not found")
 
 ALL_SHAPES = ["cube", "sphere", "cylinder", "tetrahedron", "cone", "rbc_normal", "sickle_red_blood_cell"]
 
