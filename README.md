@@ -14,6 +14,8 @@
 
 ![Commits since latest release](https://img.shields.io/github/commits-since/MbBrainz/irregular-object-packing/v0.0.0.svg)(<https://github.com/MbBrainz/irregular-object-packing/compare/v0.0.0...main>)
 
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 Python package for packing irregularly shaped objects in an arbitrary 3D container.
 The implementation is based on the paper ["Packing irregular Objects in 3D Space via Hybrid Optimization"](http://dx.doi.org/10.1111/CGF.13490) by Ma Y, Chen Z, Hu W, Wang W 2018.
 

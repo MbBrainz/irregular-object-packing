@@ -1,6 +1,7 @@
 # These are required for developing the package (running the tests, building
 # the documentation) but not necessarily required for _using_ it.
 codecov
+ruff
 coverage
 flake8
 pytest
@@ -8,11 +9,9 @@ pytest-cov
 pytest-env
 sphinx
 twine
-pre-commit
 black
 isort
 nbstripout
-pre-commit-hooks
 # These are dependencies of various sphinx extensions for documentation.
 ipython
 matplotlib
