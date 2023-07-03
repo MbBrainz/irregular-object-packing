@@ -12,7 +12,8 @@ def get_pv_manifold_shape(container_name, data_dir="../../data"):
         case "sphere":
             return pv.Sphere().triangulate()
         case "cylinder":
-            return pv.Cylinder().triangulate()
+            raise NotImplementedError('Cylinder is not a manifold shape. If you know how to make it manifold, please implement it and submit a pull request.')
+            # return pv.Cylinder().triangulate()
         case "tetrahedron":
             return pv.Tetrahedron()
         case "cone":
@@ -44,6 +45,8 @@ def capped_cylinder(radius=0.5, height=1, center=(0, 0, 0), direction=(0, 0, 1),
     cylinder.merge(cap_bottom, inplace=True, merge_points=False)
     cylinder.merge(cap_top, inplace=True, merge_points=False)
     cylinder  = cylinder.cast_to_unstructured_grid().extract_surface().triangulate()
+
+    # Still not manifold
 
     return cylinder
 
