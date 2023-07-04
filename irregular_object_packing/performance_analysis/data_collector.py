@@ -110,15 +110,15 @@ class DataCollector:
     def parameters_alpha_beta(self) -> list[dict]:
         """Return the parameters used for the data collection"""
         case = CASE_PARAMETER_SEARCH_ALPHA_BETA if self.test is not True else CASE_TEST
-        keys, values = zip(*case.items(), strict=True)
-        return [dict(zip(keys, v, strict=True)) for v in itertools.product(*values)]
+        keys, values = zip(*case.items())
+        return [dict(zip(keys, v)) for v in itertools.product(*values)]
             # key should match the parameter name in the data model
 
     def parameters_padding(self) -> list[dict]:
         """Return the parameters used for the data collection"""
         case = CASE_PARAMETER_SEARCH_PADDING if self.test is not True else CASE_TEST
-        keys, values = zip(*case.items(), strict=True)
-        return [dict(zip(keys, v, strict=True)) for v in itertools.product(*values)]
+        keys, values = zip(*case.items(), )
+        return [dict(zip(keys, v)) for v in itertools.product(*values)]
             # key should match the parameter name in the data model
 
     def parameters_trivial_shapes(self) -> list[dict]:
@@ -126,7 +126,7 @@ class DataCollector:
         CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"]
         parameters = []
         # create a list of tuples of container and shape with corresponding shapes
-        container_shape_tuple = list(zip(CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"], strict=True))
+        container_shape_tuple = list(zip(CASE_TRIVIAL_SHAPES["container"], CASE_TRIVIAL_SHAPES["shape"], ))
         for cs_tuple in container_shape_tuple:
             parameters.append({
                 "container": cs_tuple[0],
