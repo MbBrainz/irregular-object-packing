@@ -12,8 +12,8 @@ Report bugs at [https://github.com/MbBrainz/irregular-object-packing/issues](htt
 
 If you are reporting a bug, please include:
   
-  * Any details about your local setup that might be helpful in troubleshooting.
-  * Detailed steps to reproduce the bug.
+* Any details about your local setup that might be helpful in troubleshooting.
+* Detailed steps to reproduce the bug.
 
 ### Fix Bugs
 
@@ -33,56 +33,53 @@ The best way to send feedback is to file an issue at [https://github.com/MbBrain
 
 If you are proposing a feature:
 
-  * Explain in detail how it would work.
-  * Keep the scope as narrow as possible, to make it easier to implement.
-  * Remember that this is a volunteer-driven project, and that contributions are welcome :)
+* Explain in detail how it would work.
+* Keep the scope as narrow as possible, to make it easier to implement.
+* Remember that this is a volunteer-driven project, and that contributions are welcome :)
 
-## Get Started!
+## Get Started
 
 Ready to contribute? Here's how to set up `irregular-object-packing` for local development.
 
-  1. Fork the `irregular-object-packing` repo on GitHub.
-  2. Clone your fork locally:
+1. Fork the `irregular-object-packing` repo on GitHub.
+2. Clone your fork locally:
 
     ```bash
-    $ git clone git@github.com:your_name_here/irregular-object-packing.git
+    git clone git@github.com:your_name_here/irregular-object-packing.git
     ```
 
-  3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
+3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
 
     ```bash
-    $ mkvirtualenv irregular-object-packing
-    $ cd irregular-object-packing/
-    $ python setup.py develop
+    mkvirtualenv irregular-object-packing
+    cd irregular-object-packing/
+    python setup.py develop
     ```
 
-  4. Create a branch for local development:
+4. Create a branch for local development:
 
     ```bash
-    $ git checkout -b name-of-your-bugfix-or-feature
+    git checkout -b name-of-your-bugfix-or-feature
     ```
 
    Now you can make your changes locally.
 
-  5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
+5. When you're done making changes, check that your changes pass ruff and the tests
 
     ```bash
-    $ flake8 irregular_object_packing tests
-    $ python setup.py test
-    $ tox
+    ruff check --all
+    python setup.py test
     ```
 
-   To get flake8 and tox, just pip install them into your virtualenv.
-
-   6. Commit your changes and push your branch to GitHub:
+6. Commit your changes and push your branch to GitHub:
 
     ```bash
-    $ git add .
-    $ git commit -m "Your detailed description of your changes."
-    $ git push origin name-of-your-bugfix-or-feature
+    git add .
+    git commit -m "Your detailed description of your changes."
+    git push origin name-of-your-bugfix-or-feature
     ```
 
-   7. Submit a pull request through the GitHub website.
+7. Submit a pull request through the GitHub website.
 
 ## Pull Request Guidelines
 
