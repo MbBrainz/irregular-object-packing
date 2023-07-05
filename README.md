@@ -1,6 +1,6 @@
 # irregular-object-packing
 <!-- include image  -->
-![irregular-object-packing](/data/tetmesh_of_11_cells0.png)
+![irregular-object-packing](/static/tetmesh_of_11_cells0.png)
 
 <!-- ![Documentation Status](https://readthedocs.org/projects/irregular-object-packing/badge/?style=flat)(<https://irregular-object-packing.readthedocs.io/>) -->
 <!-- ![Travis CI](https://img.shields.io/travis/MbBrainz/irregular-object-packing.svg)(https://travis-ci.org/MbBrainz/irregular-object-packing) -->
