@@ -11,9 +11,9 @@ You can contribute in many ways:
 Report bugs at [https://github.com/MbBrainz/irregular-object-packing/issues](https://github.com/MbBrainz/irregular-object-packing/issues).
 
 If you are reporting a bug, please include:
-
-* Any details about your local setup that might be helpful in troubleshooting.
-* Detailed steps to reproduce the bug.
+  
+  * Any details about your local setup that might be helpful in troubleshooting.
+  * Detailed steps to reproduce the bug.
 
 ### Fix Bugs
 
@@ -33,22 +33,22 @@ The best way to send feedback is to file an issue at [https://github.com/MbBrain
 
 If you are proposing a feature:
 
-* Explain in detail how it would work.
-* Keep the scope as narrow as possible, to make it easier to implement.
-* Remember that this is a volunteer-driven project, and that contributions are welcome :)
+  * Explain in detail how it would work.
+  * Keep the scope as narrow as possible, to make it easier to implement.
+  * Remember that this is a volunteer-driven project, and that contributions are welcome :)
 
 ## Get Started!
 
 Ready to contribute? Here's how to set up `irregular-object-packing` for local development.
 
-1. Fork the `irregular-object-packing` repo on GitHub.
-2. Clone your fork locally:
+  1. Fork the `irregular-object-packing` repo on GitHub.
+  2. Clone your fork locally:
 
     ```bash
     $ git clone git@github.com:your_name_here/irregular-object-packing.git
     ```
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
+  3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
 
     ```bash
     $ mkvirtualenv irregular-object-packing
@@ -56,7 +56,7 @@ Ready to contribute? Here's how to set up `irregular-object-packing` for local d
     $ python setup.py develop
     ```
 
-4. Create a branch for local development:
+  4. Create a branch for local development:
 
     ```bash
     $ git checkout -b name-of-your-bugfix-or-feature
@@ -64,7 +64,7 @@ Ready to contribute? Here's how to set up `irregular-object-packing` for local d
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
+  5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
 
     ```bash
     $ flake8 irregular_object_packing tests
@@ -74,7 +74,7 @@ Ready to contribute? Here's how to set up `irregular-object-packing` for local d
 
    To get flake8 and tox, just pip install them into your virtualenv.
 
-6. Commit your changes and push your branch to GitHub:
+   6. Commit your changes and push your branch to GitHub:
 
     ```bash
     $ git add .
@@ -82,7 +82,7 @@ Ready to contribute? Here's how to set up `irregular-object-packing` for local d
     $ git push origin name-of-your-bugfix-or-feature
     ```
 
-7. Submit a pull request through the GitHub website.
+   7. Submit a pull request through the GitHub website.
 
 ## Pull Request Guidelines
 
@@ -90,5 +90,4 @@ Before you submit a pull request, check that it meets these guidelines:
 
 1. The pull request should include tests.
 2. If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring, and add the feature to the list in README.md.
-3. The pull request should work for Python 3.9, 3.10 and for PyPy. Check [https://travis-ci.org/MbBrainz/irregular-object-packing/pull_requests](https://travis-ci.org/MbBrainz/irregular-object-packing/p
-
+3. The pull request should work for Python 3.9, 3.10 and for PyPy.

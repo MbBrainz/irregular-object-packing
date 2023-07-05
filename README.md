@@ -19,12 +19,12 @@
 Python package for packing irregularly shaped objects in an arbitrary 3D container.
 The implementation is based on the paper ["Packing irregular Objects in 3D Space via Hybrid Optimization"](http://dx.doi.org/10.1111/CGF.13490) by Ma Y, Chen Z, Hu W, Wang W 2018.
 
-* Free software: 3-clause BSD license
-* Documentation: (COMING SOON!) [https://MbBrainz.github.io/irregular-object-packing](https://MbBrainz.github.io/irregular-object-packing)
+  * Free software: 3-clause BSD license
+  * Documentation: (COMING SOON!) [https://MbBrainz.github.io/irregular-object-packing](https://MbBrainz.github.io/irregular-object-packing)
 
 ## Features
 
-* TODO
+  * TODO
 
 ## Installation
 
