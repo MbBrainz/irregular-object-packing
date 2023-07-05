@@ -148,7 +148,7 @@ class TestInitialize(unittest.TestCase):
         mesh_volume = 0.1
 
         self.prepare_scale(mesh_volume, container_volume)
-        for container, shape in zip(self.containers, self.shapes, strict=True):
+        for container, shape in zip(self.containers, self.shapes, ):
             coords = grid_initialisation(container, shape, 0.3, 0.1)
 
             self.assertAlmostEqual(len(coords) * shape.volume, container.volume * 0.3, places=3)

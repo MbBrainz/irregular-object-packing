@@ -48,15 +48,16 @@ class TetraCell:
 
     @property
     def n_cat_faces_per_obj(self):
-        match self.case:
-            case (1, 1, 1, 1,):
-                return 6
-            case (2, 1, 1,):
-                return 2
-            case (2, 2,):
-                return 1
-            case (3, 1,):
-                return 1
+        if self.case == (1, 1, 1, 1,):
+            return 6
+        elif self.case == (2, 1, 1,):
+            return 2
+        elif self.case == (2, 2,):
+            return 1
+        elif self.case == (3, 1,):
+            return 1
+        else:
+            raise ValueError("The cell case is not recognized.")
 
 
     def split(self, all_tet_points: np.ndarray) -> tuple[list[np.ndarray]]:
